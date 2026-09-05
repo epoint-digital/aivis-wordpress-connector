@@ -1,0 +1,13 @@
+{
+  "name": "aivis-wordpress-connector-dev",
+  "private": true,
+  "type": "module",
+  "description": "Dev tooling for the AIVIS WordPress Connector. The plugin itself is PHP; this holds the mock AIVIS API and the contract suite.",
+  "scripts": {
+    "test": "node tests/contract/run.mjs",
+    "test:live": "node tests/contract/run.mjs --live",
+    "mock": "node tests/mock/server.js",
+    "vendor:openapi": "node tests/fixtures/refresh.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
