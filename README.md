@@ -20,6 +20,7 @@ implementation; code lands per the milestones in the spec.
 | [docs/SPECIFICATION.md](docs/SPECIFICATION.md) | The source of truth — invariants, API contract, data model, retraction, delivery, acceptance criteria |
 | [docs/API-REQUIREMENTS.md](docs/API-REQUIREMENTS.md) | Extensions requested from the AIVIS platform team |
 | [docs/api-requirements.html](docs/api-requirements.html) | The requirements document handed to the AIVIS platform team — call patterns, load profile, and the eight asks. Published at [claude.ai/code/artifact/cfbb429c](https://claude.ai/code/artifact/cfbb429c-6415-497d-8d55-669fd0f8b5ef) |
+| [docs/admin-ui.html](docs/admin-ui.html) | Clickable wp-admin prototype of the plugin screens, with every hard state reviewable. Published at [claude.ai/code/artifact/26186cd5](https://claude.ai/code/artifact/26186cd5-b590-4c4d-86a3-a1df1aa8d8c4) |
 | [Program Map (FigJam)](https://www.figma.com/board/zQo3mgU7G8eRrVqsBa2LnP) | The four flows as one picture — sync loop, retraction decision tree, WordPress-behind-Cloudflare composition, API dependencies |
 
 ## Tests

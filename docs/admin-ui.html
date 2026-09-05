@@ -1,0 +1,615 @@
+<title>AIVIS OS Plugin Screens</title>
+<style>
+  /* WordPress admin is the design system this plugin has to live inside, so
+     these are wp-admin's own tokens rather than an invented palette. Committed
+     to light: wp-admin has no dark mode, and a half-adapted one would read as
+     a different product. Every colour is painted explicitly so the page holds
+     on any host ground. */
+  :root{
+    --wp-bg:#f0f0f1; --wp-surface:#fff; --wp-menu:#1d2327; --wp-menu-hi:#2c3338;
+    --wp-text:#1d2327; --wp-text-2:#50575e; --wp-text-3:#787c82;
+    --wp-line:#c3c4c7; --wp-line-2:#dcdcde;
+    --wp-blue:#2271b1; --wp-blue-hi:#135e96; --wp-blue-soft:#f0f6fc;
+    --wp-green:#00a32a; --wp-amber:#dba617; --wp-red:#d63638; --wp-grey:#8c8f94;
+    --wp-font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif;
+    --wp-mono:Menlo,Consolas,monaco,monospace;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--wp-bg);color:var(--wp-text);font-family:var(--wp-font);font-size:13px;line-height:1.5}
+  a{color:var(--wp-blue);text-decoration:none}
+  a:hover{color:var(--wp-blue-hi);text-decoration:underline}
+  :focus-visible{outline:2px solid var(--wp-blue);outline-offset:1px}
+
+  /* ── shell ─────────────────────────────────────────────── */
+  .shell{display:grid;grid-template-columns:160px 1fr;min-height:640px}
+  .adminmenu{background:var(--wp-menu);padding-top:8px}
+  .adminmenu ul{list-style:none;margin:0;padding:0}
+  .adminmenu li a{display:flex;gap:8px;align-items:center;color:#f0f0f1;padding:8px 10px;font-size:13px}
+  .adminmenu li a:hover{background:var(--wp-menu-hi);color:#72aee6;text-decoration:none}
+  .adminmenu li.current > a{background:var(--wp-blue);color:#fff;font-weight:600}
+  .adminmenu .ico{width:18px;text-align:center;opacity:.85;font-size:13px}
+  .adminmenu .sep{height:1px;background:#3c434a;margin:8px 0}
+  .submenu{background:#2c3338}
+  .submenu a{padding-left:34px!important;font-size:12.5px;color:#c3c4c7}
+  .submenu li.current a{color:#fff;font-weight:600;background:transparent}
+
+  .content{padding:10px 20px 40px;min-width:0}
+  .wrap{max-width:1120px}
+  h1.wp-heading{font-size:23px;font-weight:400;margin:16px 0 4px;line-height:1.3}
+  .subtitle{color:var(--wp-text-2);margin:0 0 12px;font-size:13px}
+
+  .nav-tab-wrapper{border-bottom:1px solid var(--wp-line);margin:16px 0 0;padding-left:0;display:flex;gap:4px}
+  .nav-tab{background:#dcdcde;border:1px solid var(--wp-line);border-bottom:none;color:var(--wp-text-2);
+           padding:7px 12px;font-size:14px;cursor:pointer;margin-bottom:-1px;line-height:1.7;font-family:inherit}
+  .nav-tab:hover{background:#f6f7f7;color:var(--wp-text)}
+  .nav-tab-active,.nav-tab-active:hover{background:var(--wp-bg);border-bottom:1px solid var(--wp-bg);color:var(--wp-text)}
+
+  /* ── postboxes ─────────────────────────────────────────── */
+  .postbox{background:var(--wp-surface);border:1px solid var(--wp-line-2);box-shadow:0 1px 1px rgba(0,0,0,.04);margin-top:16px}
+  .postbox h2{font-size:14px;font-weight:600;padding:10px 12px;margin:0;border-bottom:1px solid var(--wp-line-2);
+              display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .inside{padding:12px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  @media(max-width:900px){.cols{grid-template-columns:1fr}.shell{grid-template-columns:44px 1fr}
+    .adminmenu li a span:not(.ico){display:none}.submenu{display:none}}
+
+  /* ── notices ───────────────────────────────────────────── */
+  .notice{background:#fff;border-left:4px solid var(--wp-blue);box-shadow:0 1px 1px rgba(0,0,0,.04);
+          padding:10px 12px;margin:14px 0 0}
+  .notice p{margin:0}
+  .notice p + p{margin-top:6px}
+  .notice-success{border-left-color:var(--wp-green)}
+  .notice-warning{border-left-color:var(--wp-amber)}
+  .notice-error{border-left-color:var(--wp-red)}
+  .notice strong{font-weight:600}
+
+  /* ── forms ─────────────────────────────────────────────── */
+  table.form-table{width:100%;border-collapse:collapse}
+  table.form-table th{width:210px;text-align:left;vertical-align:top;padding:16px 10px 16px 0;font-weight:600;font-size:14px}
+  table.form-table td{padding:14px 0;vertical-align:top}
+  .description{color:var(--wp-text-2);font-size:13px;margin:6px 0 0;max-width:62ch}
+  input[type=text],input[type=password],select{border:1px solid #8c8f94;border-radius:3px;padding:5px 8px;
+    font-size:14px;font-family:inherit;color:var(--wp-text);background:#fff;min-height:30px}
+  input[type=text],input[type=password]{width:100%;max-width:400px}
+  input:disabled{background:#f0f0f1;color:var(--wp-text-3)}
+  .button{background:#f6f7f7;border:1px solid #2271b1;color:#2271b1;border-radius:3px;padding:4px 10px;
+    font-size:13px;cursor:pointer;font-family:inherit;line-height:2;white-space:nowrap}
+  .button:hover{background:#f0f0f1;border-color:#0a4b78;color:#0a4b78}
+  .button-primary{background:var(--wp-blue);border-color:var(--wp-blue);color:#fff}
+  .button-primary:hover{background:var(--wp-blue-hi);border-color:var(--wp-blue-hi);color:#fff}
+  .button-small{padding:1px 8px;font-size:12px;line-height:1.9}
+  .button:disabled{opacity:.5;cursor:not-allowed}
+  label.check{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer;max-width:62ch}
+  label.check input{margin-top:3px}
+
+  /* ── state chips ───────────────────────────────────────── */
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 8px;border-radius:9px;
+        border:1px solid;white-space:nowrap;font-weight:500}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+  .c-active{color:#0a6b22;border-color:#7ad03a;background:#edfaef}
+  .c-stale{color:#8a6100;border-color:#f0c33c;background:#fdf6e3}
+  .c-hold{color:#0a4b78;border-color:#72aee6;background:var(--wp-blue-soft)}
+  .c-susp{color:#a02226;border-color:#e6a5a6;background:#fcf0f1}
+  .c-retired{color:#50575e;border-color:var(--wp-line);background:#f6f7f7}
+
+  /* ── stat tiles ────────────────────────────────────────── */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--wp-line-2)}
+  .tile{background:#fff;padding:12px}
+  .tile .n{font-size:26px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums}
+  .tile .l{font-size:12px;color:var(--wp-text-2);margin-top:3px}
+  .tile.warn .n{color:var(--wp-amber)} .tile.bad .n{color:var(--wp-red)} .tile.ok .n{color:var(--wp-green)}
+
+  /* ── list table ────────────────────────────────────────── */
+  table.wp-list{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--wp-line-2);margin-top:16px}
+  table.wp-list th{text-align:left;font-size:13px;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--wp-line-2);
+                   background:#fff}
+  table.wp-list td{padding:9px 10px;border-bottom:1px solid #f0f0f1;vertical-align:top;font-size:13px}
+  table.wp-list tr:last-child td{border-bottom:none}
+  table.wp-list tr:hover td{background:#f6f7f7}
+  .url{font-family:var(--wp-mono);font-size:12.5px;word-break:break-all}
+  .muted{color:var(--wp-text-3)}
+  .row-actions{visibility:hidden;font-size:12px;margin-top:3px;color:var(--wp-text-3)}
+  tr:hover .row-actions{visibility:visible}
+  .row-actions button{background:none;border:none;color:var(--wp-blue);cursor:pointer;padding:0;font-size:12px;font-family:inherit}
+  .row-actions button:hover{color:var(--wp-blue-hi);text-decoration:underline}
+  .row-actions .sepr{color:var(--wp-line)}
+  .num{font-variant-numeric:tabular-nums}
+  .scrollx{overflow-x:auto}
+
+  code{font-family:var(--wp-mono);font-size:12.5px;background:#f0f0f1;padding:1px 5px;border-radius:2px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px;align-items:baseline}
+  .kv dt{color:var(--wp-text-2)} .kv dd{margin:0;font-weight:500}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--wp-text-2);padding:10px 12px;
+          border-top:1px solid var(--wp-line-2);background:#fbfbfc}
+  .legend span{display:flex;gap:6px;align-items:center}
+
+  /* ── prototype-only control ────────────────────────────── */
+  .proto{background:#1d2327;color:#c3c4c7;padding:8px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+         font-size:12px}
+  .proto strong{color:#fff;font-weight:600;letter-spacing:.02em}
+  .proto select{background:#2c3338;color:#f0f0f1;border-color:#3c434a;font-size:12px;min-height:26px;padding:2px 6px}
+  .proto .hint{color:#8c8f94}
+</style>
+
+<div class="proto">
+  <strong>Prototype</strong>
+  <span class="hint">Not part of the plugin — pick a state to review:</span>
+  <select id="stateSelect" aria-label="Preview state">
+    <option value="healthy">Connected and syncing</option>
+    <option value="unconfigured">No token yet</option>
+    <option value="ambiguous">Two businesses share this domain</option>
+    <option value="nomatch">No business matches this domain</option>
+    <option value="suspended">A page was withdrawn in AIVIS</option>
+    <option value="nocache">Cache plugin not supported</option>
+    <option value="outage">AIVIS unreachable</option>
+  </select>
+  <span class="hint" id="stateHint"></span>
+</div>
+
+<div class="shell">
+  <nav class="adminmenu" aria-label="WordPress admin menu">
+    <ul>
+      <li><a href="#"><span class="ico">⌂</span><span>Dashboard</span></a></li>
+      <li class="sep"></li>
+      <li><a href="#"><span class="ico">✎</span><span>Posts</span></a></li>
+      <li><a href="#"><span class="ico">▤</span><span>Media</span></a></li>
+      <li><a href="#"><span class="ico">▭</span><span>Pages</span></a></li>
+      <li><a href="#"><span class="ico">◔</span><span>Comments</span></a></li>
+      <li class="sep"></li>
+      <li><a href="#"><span class="ico">◈</span><span>Appearance</span></a></li>
+      <li><a href="#"><span class="ico">⚙</span><span>Plugins</span></a></li>
+      <li><a href="#"><span class="ico">◑</span><span>Tools</span></a></li>
+      <li><a href="#"><span class="ico">⚒</span><span>Settings</span></a></li>
+      <li class="sep"></li>
+      <li class="current"><a href="#"><span class="ico">◆</span><span>AIVIS OS</span></a></li>
+    </ul>
+    <ul class="submenu">
+      <li class="current" data-nav="status"><a href="#"><span>Status</span></a></li>
+      <li data-nav="settings"><a href="#"><span>Settings</span></a></li>
+    </ul>
+  </nav>
+
+  <main class="content"><div class="wrap" id="app"></div></main>
+</div>
+
+<script>
+/* ────────────────────────────────────────────────────────────
+   Prototype state. The shapes mirror the API envelope and the
+   inventory row so this maps 1:1 onto what src/Admin will render.
+   ──────────────────────────────────────────────────────────── */
+const SITE_HOST = 'example.com';
+
+const BUSINESSES = [
+  { id:'biz_live',    name:'Example GmbH',            baseUrl:'https://example.com',      chainCount:2, createdAt:'2026-03-01', industry:'General' },
+  { id:'biz_rebuild', name:'Example GmbH (rebuild)',  baseUrl:'https://example.com',      chainCount:1, createdAt:'2026-08-20', industry:'General' },
+  { id:'biz_other',   name:'Anderer Kunde AG',        baseUrl:'https://andere-domain.de', chainCount:1, createdAt:'2026-04-11', industry:'General' },
+];
+
+const CHAINS = [
+  { id:'chain_core', name:'Structural core', state:'ready',        kg:true,  urlCount:4, step:9 },
+  { id:'chain_edit', name:'Editorial',       state:'re_ingesting', kg:true,  urlCount:2, step:9 },
+];
+
+const baseUrls = () => ([
+  { url:'https://example.com/',                 lang:'de', layer:'structural_core', chain:'Structural core', state:'active',  generated:'1 Sep 2026, 12:00', note:'' },
+  { url:'https://example.com/services/',        lang:'de', layer:'editorial',       chain:'Editorial',       state:'active',  generated:'4 Sep 2026, 12:00', note:'' },
+  { url:'https://example.com/ueber-uns/',       lang:'de', layer:'structural_core', chain:'Structural core', state:'stale',   generated:'20 Aug 2026, 09:14', note:'Source page changed after generation — still served' },
+  { url:'https://example.com/kontakt/',         lang:'de', layer:'structural_core', chain:'Structural core', state:'hold',    generated:'—',                  note:'Not generated yet in AIVIS — nothing injected, nothing removed' },
+  { url:'https://example.com/altes-angebot/',   lang:'de', layer:'editorial',       chain:'Editorial',       state:'active',  generated:'15 Aug 2026, 10:00', note:'' },
+  { url:'https://example.com/alte-aktion/',     lang:'de', layer:'editorial',       chain:'Editorial',       state:'retired', generated:'2 Jul 2026, 08:30',  note:'Absent from two authoritative syncs — kept 24 more days for rollback' },
+]);
+
+const STATE_HINTS = {
+  healthy:'the ordinary case',
+  unconfigured:'first run, before a token is entered',
+  ambiguous:'the duplicate-onboarding case — AC-20',
+  nomatch:'the token reaches no business for this domain',
+  suspended:'R-01: withdrawal detected, injection stopped, awaiting confirmation',
+  nocache:'WP-I10: never claim "live" without confirmation',
+  outage:'AIVIS down — last known good keeps serving',
+};
+
+let S = {};
+function reset(mode){
+  S = {
+    mode,
+    tab: mode === 'unconfigured' || mode === 'ambiguous' || mode === 'nomatch' ? 'settings' : 'status',
+    connected: !['unconfigured','nomatch'].includes(mode),
+    tokenSource: 'constant',
+    business: mode === 'ambiguous' || mode === 'nomatch' ? null : 'biz_live',
+    injection: true,
+    interval: 15,
+    cache: mode === 'nocache' ? 'none' : 'wp-super-cache',
+    urls: baseUrls(),
+    lastSync: mode === 'outage' ? '38 minutes ago' : '4 minutes ago',
+    authoritative: mode !== 'outage',
+    testing: false,
+    testResult: null,
+  };
+  if (mode === 'suspended') {
+    const u = S.urls.find(u => u.url.includes('altes-angebot'));
+    u.state = 'suspended';
+    u.note = 'AIVIS returned "URL not found in your businesses" — injection stopped, cache purged, awaiting inventory confirmation';
+  }
+  if (mode === 'outage') S.urls.forEach(u => { if (u.state === 'active') u.note = 'Serving last known good — AIVIS unreachable since 09:42'; });
+}
+
+/* ── helpers ─────────────────────────────────────────────── */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const host = u => { try { return new URL(u).host; } catch { return ''; } };
+const matching = () => BUSINESSES.filter(b => host(b.baseUrl) === SITE_HOST);
+const biz = () => BUSINESSES.find(b => b.id === S.business);
+const counts = () => ['active','stale','hold','suspended','retired']
+  .reduce((a,k) => (a[k] = S.urls.filter(u => u.state === k).length, a), {});
+
+const CHIP = {
+  active:  ['c-active','Active'],
+  stale:   ['c-stale','Stale'],
+  hold:    ['c-hold','Holding last good'],
+  suspended:['c-susp','Suspended'],
+  retired: ['c-retired','Retired'],
+};
+const chip = s => `<span class="chip ${CHIP[s][0]}"><span class="dot"></span>${CHIP[s][1]}</span>`;
+
+const CACHES = {
+  'wp-super-cache': { label:'WP Super Cache', purge:'confirmed' },
+  'w3-total-cache': { label:'W3 Total Cache', purge:'confirmed' },
+  'litespeed':      { label:'LiteSpeed Cache', purge:'requested' },
+  'none':           { label:'No supported cache plugin detected', purge:'unsupported' },
+};
+
+/* ── notices ─────────────────────────────────────────────── */
+function notices(){
+  const n = [];
+  if (!S.connected && S.mode === 'unconfigured')
+    n.push(['warning','<strong>AIVIS OS is not connected yet.</strong> Add an API token below to start delivering structured data. Nothing is injected until a business is bound.']);
+  if (S.mode === 'ambiguous')
+    n.push(['warning',`<strong>Two AIVIS businesses use ${SITE_HOST}.</strong> Pick the one this site should serve. Binding the wrong one would publish another business&rsquo;s structured data on these pages, with no visible error.`]);
+  if (S.mode === 'nomatch')
+    n.push(['error',`<strong>No AIVIS business matches ${SITE_HOST}.</strong> This token reaches ${BUSINESSES.length} businesses, none of them for this domain. Businesses on other domains are not offered — binding one would serve another site&rsquo;s data here.`]);
+  if (S.mode === 'outage')
+    n.push(['warning','<strong>AIVIS has been unreachable since 09:42.</strong> Every page keeps serving its last known good structured data. Nothing is removed while the API is unreachable — an outage costs freshness, never coverage.']);
+  if (S.mode === 'suspended')
+    n.push(['error','<strong>One page was withdrawn in AIVIS.</strong> Injection stopped for <code>/altes-angebot/</code> and its cache was purged. The row is kept until the next complete sync confirms the removal, in case the cause was a changed business selection rather than a withdrawal.']);
+  if (S.mode === 'nocache')
+    n.push(['warning','<strong>No supported cache plugin detected.</strong> Changed structured data is written locally, but the plugin cannot confirm your cache was purged, so it will not claim pages are live. Purge manually after a change, or use WP-CLI.']);
+  if (S.connected && !S.injection)
+    n.push(['warning','<strong>Injection is switched off.</strong> Artifacts keep syncing, but no structured data is added to any page.']);
+  return n.map(([k,h]) => `<div class="notice notice-${k}"><p>${h}</p></div>`).join('');
+}
+
+/* ── status screen ───────────────────────────────────────── */
+function statusScreen(){
+  const c = counts(), b = biz(), cache = CACHES[S.cache];
+  const purgeChip = {
+    confirmed:  '<span class="chip c-active"><span class="dot"></span>Purge confirmed</span>',
+    requested:  '<span class="chip c-stale"><span class="dot"></span>Purge requested, not confirmed</span>',
+    unsupported:'<span class="chip c-retired"><span class="dot"></span>Manual purge required</span>',
+  }[cache.purge];
+
+  return `
+  <div class="cols">
+    <div class="postbox">
+      <h2>Connection ${S.authoritative
+        ? '<span class="chip c-active"><span class="dot"></span>Syncing</span>'
+        : '<span class="chip c-susp"><span class="dot"></span>Unreachable</span>'}</h2>
+      <div class="inside">
+        <dl class="kv">
+          <dt>Business</dt><dd>${b ? esc(b.name) : '<span class="muted">not bound</span>'}</dd>
+          <dt>Domain</dt><dd><code>${SITE_HOST}</code> matched to <code>${b ? esc(host(b.baseUrl)) : '—'}</code></dd>
+          <dt>Token</dt><dd>From <code>wp-config.php</code> &middot; <code>aivis_&hellip;x7Kq</code></dd>
+          <dt>Last complete sync</dt><dd>${S.lastSync} ${S.authoritative ? '' : '<span class="muted">(incomplete — nothing retired)</span>'}</dd>
+          <dt>Next sync</dt><dd>in ${S.interval > 5 ? '11 minutes' : '3 minutes'}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="postbox">
+      <h2>Withdrawal latency</h2>
+      <div class="inside">
+        <p style="margin:0 0 8px">If a page is unpublished in AIVIS, it stops being served here within:</p>
+        <div style="font-size:24px;font-variant-numeric:tabular-nums">${S.interval} min <span class="muted" style="font-size:14px">+ cache purge</span></div>
+        <p class="description">Worst case, not typical. It is the sync interval plus the time your cache takes to
+        drop the page. Shorten the interval below if this site publishes offers or prices that must be
+        withdrawable quickly.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="postbox">
+    <h2>Structured data on this site</h2>
+    <div class="tiles">
+      <div class="tile ok"><div class="n">${c.active}</div><div class="l">Injected</div></div>
+      <div class="tile warn"><div class="n">${c.stale}</div><div class="l">Stale but served</div></div>
+      <div class="tile"><div class="n">${c.hold}</div><div class="l">Awaiting AIVIS</div></div>
+      <div class="tile bad"><div class="n">${c.suspended}</div><div class="l">Suspended</div></div>
+      <div class="tile"><div class="n">${c.retired}</div><div class="l">Retired</div></div>
+    </div>
+    <div class="legend">
+      <span><span class="chip c-active"><span class="dot"></span>Active</span> injected on the page</span>
+      <span><span class="chip c-stale"><span class="dot"></span>Stale</span> source changed; still served</span>
+      <span><span class="chip c-hold"><span class="dot"></span>Holding</span> not generated yet; nothing removed</span>
+      <span><span class="chip c-susp"><span class="dot"></span>Suspended</span> withdrawn upstream</span>
+      <span><span class="chip c-retired"><span class="dot"></span>Retired</span> gone; kept 30 days</span>
+    </div>
+  </div>
+
+  <div class="postbox">
+    <h2>Pipelines <span class="muted" style="font-weight:400">${CHAINS.length} chains</span></h2>
+    <div class="inside scrollx" style="padding:0">
+      <table class="wp-list" style="border:none;margin:0">
+        <thead><tr><th>Chain</th><th>Pipeline state</th><th>Knowledge graph</th><th class="num">URLs</th></tr></thead>
+        <tbody>${CHAINS.map(ch => `
+          <tr>
+            <td><strong>${esc(ch.name)}</strong></td>
+            <td>${ch.state === 'ready'
+                  ? '<span class="chip c-active"><span class="dot"></span>Ready</span>'
+                  : '<span class="chip c-hold"><span class="dot"></span>Refreshing</span>'}
+                <span class="muted"> step ${ch.step} of 9</span></td>
+            <td>${ch.kg ? 'Built' : '<span class="muted">Not built</span>'}</td>
+            <td class="num">${ch.urlCount}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="postbox">
+    <h2>Pages
+      <span style="display:flex;gap:6px;align-items:center;font-weight:400">
+        ${purgeChip}
+        <button class="button button-small" data-act="sync">Sync now</button>
+      </span>
+    </h2>
+    <div class="scrollx">
+      <table class="wp-list" style="border:none;margin:0">
+        <thead><tr><th style="width:44%">Page</th><th>State</th><th>Chain</th><th>Generated</th></tr></thead>
+        <tbody>${S.urls.map((u,i) => `
+          <tr>
+            <td>
+              <div class="url">${esc(u.url.replace('https://'+SITE_HOST,'') || '/')}</div>
+              ${u.note ? `<div class="muted" style="margin-top:3px;max-width:52ch">${esc(u.note)}</div>` : ''}
+              <div class="row-actions">
+                <button data-act="refresh" data-i="${i}">Refresh now</button>
+                <span class="sepr">|</span>
+                <button data-act="toggle" data-i="${i}">${u.state === 'retired' ? 'Restore' : 'Disable here'}</button>
+                <span class="sepr">|</span>
+                <button data-act="view" data-i="${i}">View JSON-LD</button>
+              </div>
+            </td>
+            <td>${chip(u.state)}</td>
+            <td>${esc(u.chain)}<div class="muted">${u.layer === 'editorial' ? 'editorial' : 'structural core'}</div></td>
+            <td class="muted">${esc(u.generated)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="postbox">
+    <h2>Recent problems</h2>
+    <div class="inside">
+      ${S.mode === 'outage' ? `
+        <dl class="kv">
+          <dt><code>AIVIS_HTTP_TIMEOUT</code></dt><dd>14 times since 09:42 — last known good served throughout</dd>
+        </dl>`
+      : S.mode === 'suspended' ? `
+        <dl class="kv">
+          <dt><code>AIVIS_RETRACTED</code></dt><dd><code>/altes-angebot/</code> withdrawn upstream at 11:20 — injection stopped, cache purged</dd>
+        </dl>`
+      : '<p class="muted" style="margin:0">Nothing in the last 7 days.</p>'}
+    </div>
+  </div>`;
+}
+
+/* ── settings screen ─────────────────────────────────────── */
+function settingsScreen(){
+  const m = matching(), cache = CACHES[S.cache];
+  let selector;
+  if (!S.connected && S.mode === 'unconfigured') {
+    selector = '<p class="description" style="margin:0">Add a valid token first — the list of businesses comes from AIVIS.</p>';
+  } else if (m.length === 0) {
+    selector = `<p style="margin:0">No business on this account uses <code>${SITE_HOST}</code>.</p>
+      <p class="description">A business has exactly one domain in AIVIS. Create one for this site, or correct its
+      base URL there, then test the connection again.</p>`;
+  } else if (m.length === 1) {
+    selector = `<p style="margin:0"><strong>${esc(m[0].name)}</strong> <span class="chip c-active"><span class="dot"></span>Matched automatically</span></p>
+      <p class="description">The only AIVIS business whose domain is <code>${SITE_HOST}</code>. Nothing to choose.</p>`;
+  } else {
+    selector = `<div style="display:grid;gap:8px">${m.map(b => `
+      <label class="check">
+        <input type="radio" name="biz" value="${b.id}" ${S.business === b.id ? 'checked' : ''} data-act="pickbiz">
+        <span><strong>${esc(b.name)}</strong>
+          <span class="muted"> &middot; ${b.chainCount} chain${b.chainCount === 1 ? '' : 's'} &middot; created ${esc(b.createdAt)}</span>
+          <div class="description" style="margin-top:2px">${b.id === 'biz_rebuild'
+            ? 'Newer. If this is a rebuild that is not live yet, do not pick it.'
+            : 'Older, and the one currently generating structured data.'}</div>
+        </span>
+      </label>`).join('')}</div>
+      <p class="description">Both use <code>${SITE_HOST}</code>. The plugin will not guess between them.</p>`;
+  }
+
+  return `
+  <form onsubmit="return false">
+  <div class="postbox">
+    <h2>Connection</h2>
+    <div class="inside">
+      <table class="form-table">
+        <tr>
+          <th scope="row"><label for="tok">API token</label></th>
+          <td>
+            ${S.tokenSource === 'constant'
+              ? `<p style="margin:0"><code>AIVIS_API_TOKEN</code> is defined in <code>wp-config.php</code>
+                 <span class="chip c-active"><span class="dot"></span>Recommended</span></p>
+                 <p class="description">Held outside the database, so it does not travel in backups, staging
+                 clones or migrations. To change it, edit <code>wp-config.php</code>.</p>
+                 <p style="margin-top:8px"><button class="button" data-act="usedb">Store in the database instead</button></p>`
+              : `<input type="password" id="tok" value="aivis_zJ4kQ2mWx7Kq" spellcheck="false">
+                 <p class="description">Stored in this site&rsquo;s database. Prefer defining
+                 <code>AIVIS_API_TOKEN</code> in <code>wp-config.php</code> — see the warning below.</p>
+                 <p style="margin-top:8px"><button class="button" data-act="useconst">Use the wp-config.php constant</button></p>`}
+            <p style="margin-top:10px">
+              <button class="button" data-act="test" ${S.testing ? 'disabled' : ''}>${S.testing ? 'Testing&hellip;' : 'Test connection'}</button>
+              ${S.testResult === 'ok' ? '<span class="chip c-active" style="margin-left:8px"><span class="dot"></span>Connected as marketing@epoint.ro</span>' : ''}
+              ${S.testResult === 'fail' ? '<span class="chip c-susp" style="margin-left:8px"><span class="dot"></span>Token invalid or revoked</span>' : ''}
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row">What this token can reach</th>
+          <td>
+            <div class="notice notice-warning" style="margin:0">
+              <p>An AIVIS API token is scoped to your <strong>account</strong>, not to one business. This token can
+              read structured data for <strong>all ${BUSINESSES.length} businesses</strong> on the account, not only
+              this site&rsquo;s.</p>
+              <p>Because of that, install this plugin only on sites you control. Keeping the token in
+              <code>wp-config.php</code> rather than the database limits where copies of it end up.</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="postbox">
+    <h2>Business</h2>
+    <div class="inside">
+      <table class="form-table">
+        <tr><th scope="row">This site serves</th><td>${selector}</td></tr>
+        <tr>
+          <th scope="row">Allowed hosts</th>
+          <td>
+            <input type="text" value="example.com, www.example.com" spellcheck="false">
+            <p class="description">Structured data is rejected unless the page it names is on one of these hosts.
+            The check is what stops another business&rsquo;s data appearing on this site.</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="postbox">
+    <h2>Delivery</h2>
+    <div class="inside">
+      <table class="form-table">
+        <tr>
+          <th scope="row">Injection</th>
+          <td>
+            <label class="check">
+              <input type="checkbox" ${S.injection ? 'checked' : ''} data-act="inject">
+              <span>Add AIVIS structured data to pages on this site
+              <div class="description" style="margin-top:2px">One
+              <code>&lt;script type="application/ld+json" data-aivis="1"&gt;</code> in the page head. Existing
+              structured data from your theme or SEO plugin is never read or changed.</div></span>
+            </label>
+          </td>
+        </tr>
+        <tr>
+          <th scope="row"><label for="iv">Check AIVIS for changes</label></th>
+          <td>
+            <select id="iv" data-act="interval">
+              <option value="5"  ${S.interval == 5  ? 'selected' : ''}>Every 5 minutes</option>
+              <option value="15" ${S.interval == 15 ? 'selected' : ''}>Every 15 minutes (recommended)</option>
+              <option value="60" ${S.interval == 60 ? 'selected' : ''}>Hourly</option>
+              <option value="0"  ${S.interval == 0  ? 'selected' : ''}>Manually only</option>
+            </select>
+            <p class="description">
+              ${S.interval == 0
+                ? 'With manual syncing, a page unpublished in AIVIS keeps being served here until you sync. Only choose this if you sync from WP-CLI or a system cron.'
+                : `A page unpublished in AIVIS stops being served here within <strong>${S.interval} minutes plus your cache purge</strong>.
+                   ${S.interval == 5 ? 'Five minutes needs a real system cron — WordPress&rsquo;s built-in cron only runs when someone visits the site.' : ''}`}
+            </p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="postbox">
+    <h2>Page cache</h2>
+    <div class="inside">
+      <table class="form-table">
+        <tr>
+          <th scope="row"><label for="ca">Cache plugin</label></th>
+          <td>
+            <select id="ca" data-act="cache">
+              ${Object.entries(CACHES).map(([k,v]) => `<option value="${k}" ${S.cache === k ? 'selected' : ''}>${v.label}</option>`).join('')}
+            </select>
+            <p class="description">
+              ${cache.purge === 'confirmed'
+                ? 'Changed structured data purges the affected pages, and the plugin waits for confirmation before reporting them as live.'
+                : cache.purge === 'requested'
+                ? 'This plugin accepts purge requests but does not confirm them. Pages are reported as “purge requested”, never as confirmed live.'
+                : 'Purge the affected pages yourself after a change. The plugin will keep saying pages are not confirmed live rather than claim something it cannot verify.'}
+            </p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <p style="margin-top:16px"><button class="button button-primary" data-act="save">Save changes</button></p>
+  </form>`;
+}
+
+/* ── render + events ─────────────────────────────────────── */
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <h1 class="wp-heading">AIVIS OS</h1>
+    <p class="subtitle">Delivers the structured data AIVIS generates for this site into its pages.</p>
+    <nav class="nav-tab-wrapper">
+      <button class="nav-tab ${S.tab === 'status' ? 'nav-tab-active' : ''}" data-tab="status">Status</button>
+      <button class="nav-tab ${S.tab === 'settings' ? 'nav-tab-active' : ''}" data-tab="settings">Settings</button>
+    </nav>
+    ${notices()}
+    ${S.tab === 'status' ? statusScreen() : settingsScreen()}`;
+  document.querySelectorAll('.submenu li').forEach(li =>
+    li.classList.toggle('current', li.dataset.nav === S.tab));
+  document.getElementById('stateHint').textContent = STATE_HINTS[S.mode] || '';
+}
+
+document.addEventListener('click', e => {
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { S.tab = tab.dataset.tab; return render(); }
+  const nav = e.target.closest('.submenu li');
+  if (nav) { e.preventDefault(); S.tab = nav.dataset.nav; return render(); }
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act, i = el.dataset.i;
+  if (act === 'inject')   { S.injection = el.checked; return render(); }
+  if (act === 'usedb')    { S.tokenSource = 'option';   return render(); }
+  if (act === 'useconst') { S.tokenSource = 'constant'; return render(); }
+  if (act === 'pickbiz')  { S.business = el.value; return render(); }
+  if (act === 'save')     { S.testResult = null; return render(); }
+  if (act === 'test') {
+    S.testing = true; render();
+    setTimeout(() => { S.testing = false; S.testResult = S.mode === 'nomatch' ? 'ok' : 'ok'; render(); }, 700);
+    return;
+  }
+  if (act === 'sync')    { S.lastSync = 'just now'; S.authoritative = true; return render(); }
+  if (act === 'refresh') { const u = S.urls[i];
+    if (u.state === 'suspended') { u.note = 'Re-checked just now — still withdrawn in AIVIS'; }
+    else if (u.state === 'hold') { u.note = 'Re-checked just now — AIVIS has not generated this page yet'; }
+    else { u.state = 'active'; u.generated = 'just now'; u.note = ''; }
+    return render(); }
+  if (act === 'toggle')  { const u = S.urls[i];
+    u.state = u.state === 'retired' ? 'active' : 'retired';
+    u.note = u.state === 'retired' ? 'Disabled on this site by an administrator' : 'Restored by an administrator';
+    return render(); }
+  if (act === 'view')    { alert('Opens a read-only view of the exact JSON-LD stored for\n' + S.urls[i].url); }
+});
+
+document.addEventListener('change', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  if (el.dataset.act === 'interval') { S.interval = Number(el.value); render(); }
+  if (el.dataset.act === 'cache')    { S.cache = el.value; render(); }
+  if (el.dataset.act === 'inject')   { S.injection = el.checked; render(); }
+});
+
+document.getElementById('stateSelect').addEventListener('change', e => { reset(e.target.value); render(); });
+
+reset('healthy');
+render();
+</script>
