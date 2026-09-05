@@ -11,6 +11,7 @@
 | API contract | AIVIS Public API v1.0.0 |
 | Platforms | WordPress 6.5 – 7.1, PHP 8.1 – 8.5 |
 | Companion | [API-REQUIREMENTS.md](API-REQUIREMENTS.md) — extensions requested from the AIVIS team |
+| Process board | [AIVIS Connector — Program Map](https://www.figma.com/board/zQo3mgU7G8eRrVqsBa2LnP) — sync loop, retraction tree, edge composition, API dependencies |
 
 **Provenance.** Developer draft 0.9.0 (08 Aug 2026) → adapted rev 1, published as the artifact
 [40cc266c](https://claude.ai/code/artifact/40cc266c-ef32-47d0-8775-bd47a3a481fa) → this document.

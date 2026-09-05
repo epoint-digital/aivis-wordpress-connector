@@ -19,6 +19,7 @@ implementation; code lands per the milestones in the spec.
 |---|---|
 | [docs/SPECIFICATION.md](docs/SPECIFICATION.md) | The source of truth — invariants, API contract, data model, retraction, delivery, acceptance criteria |
 | [docs/API-REQUIREMENTS.md](docs/API-REQUIREMENTS.md) | Extensions requested from the AIVIS platform team |
+| [Program Map (FigJam)](https://www.figma.com/board/zQo3mgU7G8eRrVqsBa2LnP) | The four flows as one picture — sync loop, retraction decision tree, WordPress-behind-Cloudflare composition, API dependencies |
 
 ## Distribution restriction (v1)
 
