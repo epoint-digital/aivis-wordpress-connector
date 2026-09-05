@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests · node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # Hermetic on purpose: no network, no secrets, nothing to flake. A fork PR
+      # runs exactly what a maintainer runs.
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Contract tests (mock API)
+        run: npm run test:contract
+      - name: Documentation is still machine-readable
+        run: npm run check:docs

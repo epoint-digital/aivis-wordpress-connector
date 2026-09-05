@@ -28,9 +28,12 @@ implementation; code lands per the milestones in the spec.
 npm test
 ```
 
-35 assertions against a built-in mock of the AIVIS Public API — no network, no
-credentials. See [tests/README.md](tests/README.md) for the live-API mode and the
-OpenAPI drift check.
+92 tests in two layers — 65 unit tests over the decision rules and 27 contract
+tests against a built-in mock of the AIVIS Public API. No network, no
+credentials, no install step. CI runs both on Node 20, 22 and 24.
+
+See [tests/README.md](tests/README.md) for the live-API mode and the OpenAPI
+drift check.
 
 ## Distribution restriction (v1)
 

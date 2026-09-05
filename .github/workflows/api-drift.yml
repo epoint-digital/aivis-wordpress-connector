@@ -1,0 +1,34 @@
+name: API drift
+
+# The previous specification went four weeks unverified against an API that had
+# meanwhile shipped. This is the alarm that would have caught it. It reaches an
+# external host, so it is kept out of the PR path and run on its own schedule.
+
+on:
+  schedule:
+    - cron: '17 6 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      base:
+        description: AIVIS base URL to check against
+        required: false
+        default: https://aivis-new.dev.onepoint.ro
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    name: vendored OpenAPI still matches the live contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare live OpenAPI against tests/fixtures/openapi-v1.json
+        env:
+          AIVIS_API_BASE: ${{ inputs.base || 'https://aivis-new.dev.onepoint.ro' }}
+        run: npm run check:drift
+      - name: Re-run the contract suite against the refreshed contract
+        run: npm run test:contract
