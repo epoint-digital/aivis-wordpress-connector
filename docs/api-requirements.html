@@ -1,0 +1,647 @@
+<title>AIVIS Public API Requirements</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
+<style>
+  :root{
+    --ground:#F2F5F7; --surface:#FFFFFF; --sunken:#E7ECF0;
+    --ink:#151A21; --ink-soft:#3D4753; --muted:#5E6B7A; --line:#D3DBE2; --line-soft:#E4EAEF;
+    --accent:#1F5C8C; --accent-soft:rgba(31,92,140,.09); --accent-line:rgba(31,92,140,.32);
+    --blocker:#A6382C; --blocker-soft:rgba(166,56,44,.10);
+    --high:#8A5A05; --high-soft:rgba(138,90,5,.11);
+    --ok:#2A6349; --ok-soft:rgba(42,99,73,.11);
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+    --serif:"IBM Plex Serif",Charter,Georgia,serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0F1318; --surface:#171C23; --sunken:#111620;
+      --ink:#E4E9EE; --ink-soft:#BAC4CF; --muted:#8E9BAA; --line:#2A323C; --line-soft:#222932;
+      --accent:#6FA8D4; --accent-soft:rgba(111,168,212,.13); --accent-line:rgba(111,168,212,.38);
+      --blocker:#E08579; --blocker-soft:rgba(224,133,121,.14);
+      --high:#D9A550; --high-soft:rgba(217,165,80,.14);
+      --ok:#6FBE96; --ok-soft:rgba(111,190,150,.14);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0F1318; --surface:#171C23; --sunken:#111620;
+    --ink:#E4E9EE; --ink-soft:#BAC4CF; --muted:#8E9BAA; --line:#2A323C; --line-soft:#222932;
+    --accent:#6FA8D4; --accent-soft:rgba(111,168,212,.13); --accent-line:rgba(111,168,212,.38);
+    --blocker:#E08579; --blocker-soft:rgba(224,133,121,.14);
+    --high:#D9A550; --high-soft:rgba(217,165,80,.14);
+    --ok:#6FBE96; --ok-soft:rgba(111,190,150,.14);
+  }
+  *{box-sizing:border-box}
+  body{background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.55;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 96px}
+  a{color:var(--accent)}
+  code,.mono{font-family:var(--mono);font-size:.92em}
+
+  /* ── masthead ─────────────────────────────────────────── */
+  header.masthead{padding:56px 0 32px;border-bottom:2px solid var(--ink)}
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+           font-weight:600;margin:0 0 18px;font-family:var(--mono)}
+  h1{font-size:clamp(30px,4.4vw,46px);line-height:1.1;margin:0 0 14px;font-weight:600;
+     letter-spacing:-.02em;text-wrap:balance}
+  .standfirst{font-family:var(--serif);font-size:19px;line-height:1.6;color:var(--ink-soft);
+              max-width:62ch;margin:0}
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:1px;
+        background:var(--line);border:1px solid var(--line);margin-top:34px}
+  .meta div{background:var(--surface);padding:12px 14px}
+  .meta dt{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);
+           font-weight:600;margin:0 0 4px;font-family:var(--mono)}
+  .meta dd{margin:0;font-size:13.5px;font-weight:500}
+
+  /* ── generic sections ─────────────────────────────────── */
+  section{padding-top:56px}
+  h2{font-size:13px;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);
+     font-weight:600;font-family:var(--mono);margin:0 0 6px}
+  .h2sub{font-size:26px;font-weight:600;letter-spacing:-.01em;margin:0 0 20px;text-wrap:balance}
+  p{max-width:66ch}
+  .prose{font-family:var(--serif);font-size:16.5px;line-height:1.68;color:var(--ink-soft)}
+  .prose strong{color:var(--ink);font-weight:500}
+
+  /* ── figures ──────────────────────────────────────────── */
+  figure{margin:28px 0 0;background:var(--surface);border:1px solid var(--line);padding:22px}
+  figure svg{width:100%;height:auto;display:block;color:var(--ink)}
+  figcaption{margin-top:16px;padding-top:14px;border-top:1px solid var(--line-soft);
+             font-size:13.5px;color:var(--muted);max-width:74ch;line-height:1.6}
+  .scroll{overflow-x:auto}
+
+  /* ── requirement blocks ───────────────────────────────── */
+  .req{display:grid;grid-template-columns:132px 1fr;gap:0;background:var(--surface);
+       border:1px solid var(--line);margin-top:20px}
+  .req + .req{margin-top:14px}
+  .rail{border-right:1px solid var(--line);padding:20px 16px;background:var(--sunken)}
+  .rail .rid{font-family:var(--mono);font-size:17px;font-weight:500;letter-spacing:-.01em}
+  .chip{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:10px;
+        letter-spacing:.09em;text-transform:uppercase;font-weight:500;padding:3px 7px;
+        border:1px solid currentColor;border-radius:2px}
+  .chip.blocker{color:var(--blocker);background:var(--blocker-soft)}
+  .chip.high{color:var(--high);background:var(--high-soft)}
+  .chip.medium{color:var(--accent);background:var(--accent-soft)}
+  .chip.low{color:var(--muted);background:transparent}
+  .chip.filed{color:var(--ok);background:var(--ok-soft)}
+  .body{padding:20px 24px}
+  .body h3{font-size:19px;font-weight:600;margin:0 0 12px;letter-spacing:-.01em}
+  .body dl{margin:0;display:grid;gap:14px}
+  .body dt{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);
+           font-weight:600;font-family:var(--mono);margin-bottom:4px}
+  .body dd{margin:0;font-size:15px;color:var(--ink-soft);max-width:70ch}
+  .body dd.serif{font-family:var(--serif);font-size:16px;line-height:1.65}
+
+  pre{background:var(--sunken);border:1px solid var(--line-soft);padding:13px 15px;margin:8px 0 0;
+      overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink)}
+  .fields{font-family:var(--mono);font-size:12.5px;color:var(--accent)}
+
+  /* ── tables ───────────────────────────────────────────── */
+  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:14px}
+  caption{text-align:left;font-size:13px;color:var(--muted);padding-bottom:10px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line-soft);
+        vertical-align:top}
+  thead th{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);
+           font-weight:600;font-family:var(--mono);border-bottom:1px solid var(--line)}
+  tbody tr:last-child td{border-bottom:none}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  table.sheet{background:var(--surface);border:1px solid var(--line)}
+
+  .note{border-left:3px solid var(--accent);background:var(--accent-soft);padding:14px 18px;
+        margin-top:22px;font-size:14.5px;color:var(--ink-soft);max-width:72ch}
+  .note strong{color:var(--ink)}
+
+  footer{margin-top:72px;padding-top:24px;border-top:1px solid var(--line);
+         font-size:13px;color:var(--muted)}
+  footer p{max-width:72ch}
+
+  @media (max-width:720px){
+    .req{grid-template-columns:1fr}
+    .rail{border-right:none;border-bottom:1px solid var(--line);display:flex;
+          align-items:center;gap:12px;padding:12px 16px}
+    .rail .chip{margin-top:0}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+<article itemscope itemtype="https://schema.org/TechArticle">
+
+<header class="masthead">
+  <p class="eyebrow">Requirements · AIVIS Public API v1.0.0</p>
+  <h1 itemprop="headline">What the WordPress connector needs from the Public API</h1>
+  <p class="standfirst" itemprop="abstract">The connector is being built against the API as it stands today — no work is
+  blocked. Two gaps change what it can <em>promise</em> a customer, and one of them decides whether
+  the plugin can ever be handed to someone outside AIVIS.</p>
+
+  <dl class="meta">
+    <div><dt>Audience</dt><dd>AIVIS platform team</dd></div>
+    <div><dt>From</dt><dd>aivis-wordpress-connector</dd></div>
+    <div><dt>Verified against</dt><dd class="mono">e96b89c · 2026-08-11</dd></div>
+    <div><dt>Date</dt><dd><time itemprop="dateModified" datetime="2026-09-05">5 September 2026</time></dd></div>
+  </dl>
+</header>
+
+<section id="how-used">
+  <h2>Section 01</h2>
+  <p class="h2sub">How the connector uses the API</p>
+  <p class="prose">Three call patterns, on three different clocks. The one that matters most for capacity
+  planning is the third: <strong>rendering a page makes no API call at all.</strong> The plugin serves
+  structured data from a local table, so your API sits on the sync path, never on a visitor's
+  critical path — an AIVIS outage costs freshness, not uptime.</p>
+
+  <figure class="scroll">
+    <svg viewBox="0 0 920 380" role="img" aria-label="Three call patterns: a one-time connection sequence, a fifteen-minute sync loop, and a page render that makes no API call.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+        <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#1F5C8C"/>
+        </marker>
+      </defs>
+
+      <!-- lane 1 -->
+      <text x="0" y="26" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500" fill="currentColor">CONNECT</text>
+      <text x="0" y="42" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity=".6">once, at setup</text>
+      <rect x="130" y="14" width="140" height="42" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="200" y="40" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">GET /me</text>
+      <line x1="270" y1="35" x2="316" y2="35" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <rect x="320" y="14" width="170" height="42" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="405" y="40" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">GET /businesses</text>
+      <line x1="490" y1="35" x2="536" y2="35" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <rect x="540" y="14" width="230" height="42" fill="#1F5C8C" stroke="#1F5C8C"/>
+      <text x="655" y="40" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="500" fill="#FFFFFF">match baseUrl to the site host</text>
+      <text x="782" y="39" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity=".6">bind</text>
+
+      <line x1="0" y1="78" x2="920" y2="78" stroke="currentColor" stroke-width=".5" opacity=".25"/>
+
+      <!-- lane 2 -->
+      <text x="0" y="116" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500" fill="currentColor">SYNC</text>
+      <text x="0" y="132" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity=".6">every 15 min,</text>
+      <text x="0" y="146" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity=".6">background cron</text>
+      <rect x="130" y="100" width="215" height="42" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="237" y="126" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">/businesses/{id}/chains</text>
+      <line x1="345" y1="121" x2="391" y2="121" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <rect x="395" y="100" width="195" height="42" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="492" y="121" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">/chains/{id}/urls</text>
+      <text x="492" y="136" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="currentColor" opacity=".65">cursor walk · limit 200</text>
+      <line x1="590" y1="121" x2="636" y2="121" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <rect x="640" y="100" width="190" height="42" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="735" y="121" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">/jsonld?url=</text>
+      <text x="735" y="136" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="currentColor" opacity=".65">≤ 20 per job</text>
+      <path d="M735 142 L735 168 L237 168 L237 148" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#ar)"/>
+      <text x="486" y="182" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity=".65">resume from persisted cursors next tick</text>
+
+      <line x1="0" y1="204" x2="920" y2="204" stroke="currentColor" stroke-width=".5" opacity=".25"/>
+
+      <!-- lane 3 -->
+      <text x="0" y="248" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500" fill="currentColor">RENDER</text>
+      <text x="0" y="264" font-family="IBM Plex Sans, sans-serif" font-size="10.5" fill="currentColor" opacity=".6">every page view</text>
+      <rect x="130" y="228" width="150" height="46" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="205" y="248" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">visitor / crawler</text>
+      <text x="205" y="263" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="currentColor" opacity=".65">GPTBot, Googlebot…</text>
+      <line x1="280" y1="251" x2="326" y2="251" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <rect x="330" y="228" width="190" height="46" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="425" y="248" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">one indexed row</text>
+      <text x="425" y="263" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".65">wp_aivis_jsonld</text>
+      <line x1="520" y1="251" x2="566" y2="251" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <rect x="570" y="228" width="200" height="46" fill="#1F5C8C" stroke="#1F5C8C"/>
+      <text x="670" y="248" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11.5" font-weight="500" fill="#FFFFFF">JSON-LD in &lt;head&gt;</text>
+      <text x="670" y="263" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="#FFFFFF" opacity=".8">p95 &lt; 5 ms</text>
+
+      <line x1="425" y1="290" x2="425" y2="322" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 4" opacity=".4"/>
+      <line x1="414" y1="295" x2="436" y2="317" stroke="#A6382C" stroke-width="2"/>
+      <line x1="436" y1="295" x2="414" y2="317" stroke="#A6382C" stroke-width="2"/>
+      <rect x="300" y="322" width="250" height="34" fill="none" stroke="currentColor" stroke-width="1" opacity=".4"/>
+      <text x="425" y="343" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".6">AIVIS Public API</text>
+      <text x="570" y="339" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="500" fill="#A6382C">never called on the render path</text>
+      <text x="570" y="354" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity=".6">an outage costs freshness, not uptime</text>
+
+    </svg>
+    <figcaption>The three clocks the connector runs on. Only the middle lane reaches your API, and it is
+    rate-limited by us before it ever reaches you.</figcaption>
+  </figure>
+
+  <table class="sheet">
+    <caption>Expected load per connected site. Figures assume a 3,000-URL catalogue in two chains at the 15-minute default.</caption>
+    <thead><tr><th>Call</th><th>Per sync</th><th>Per hour</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">GET /businesses/{id}/chains</td><td class="num">1</td><td class="num">4</td><td>Small, unpaginated in practice</td></tr>
+      <tr><td class="mono">GET /chains/{id}/urls</td><td class="num">15</td><td class="num">60</td><td>3,000 rows ÷ limit 200</td></tr>
+      <tr><td class="mono">GET /jsonld?url=</td><td class="num">≤ 20</td><td class="num">≤ 80</td><td>Self-capped per job; only changed artifacts</td></tr>
+      <tr><td class="mono">GET /me</td><td class="num">0–1</td><td class="num">≤ 4</td><td>Reachability probe, R-01 only</td></tr>
+      <tr><td><strong>Total</strong></td><td class="num"><strong>≈ 36</strong></td><td class="num"><strong>≈ 148</strong></td><td>Roughly 0.04 req/s per site</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><strong>Most of that is waste we would rather not send.</strong> With conditional requests
+  (API-4), the 60 hourly inventory calls become 60 cheap <code>304</code>s, and the figure stops scaling
+  with catalogue size. That is the whole argument for API-4 in one row of a table.</div>
+</section>
+
+<section id="tokens">
+  <h2>Section 02</h2>
+  <p class="h2sub">What one token reaches today</p>
+  <p class="prose">The plugin has to keep its token in the site's database. That database is copied into every
+  backup, every staging clone and every migration, and is readable by anyone with admin access to the site
+  or its host. So the question <strong>"what does one leaked token expose?"</strong> is not hypothetical —
+  it is the ordinary lifecycle of a WordPress install.</p>
+
+  <figure class="scroll">
+    <svg viewBox="0 0 900 300" role="img" aria-label="Today one account-scoped token reaches every business on the account; with business-scoped tokens it reaches exactly one.">
+      <text x="0" y="16" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500" fill="#A6382C">TODAY</text>
+      <text x="470" y="16" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="500" fill="#2A6349">WITH API-1</text>
+      <line x1="440" y1="0" x2="440" y2="300" stroke="currentColor" stroke-width=".5" opacity=".25"/>
+
+      <!-- today -->
+      <rect x="0" y="40" width="150" height="40" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="75" y="59" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor">one WP site</text>
+      <text x="75" y="72" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".65">token in wp_options</text>
+      <line x1="150" y1="60" x2="196" y2="60" stroke="#A6382C" stroke-width="1.4" marker-end="url(#ar)"/>
+      <rect x="200" y="40" width="130" height="40" fill="none" stroke="#A6382C" stroke-width="1.4"/>
+      <text x="265" y="65" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#A6382C">userId</text>
+      <path d="M330 60 L360 60 L360 120" fill="none" stroke="#A6382C" stroke-width="1.4"/>
+      <path d="M360 120 L360 180" fill="none" stroke="#A6382C" stroke-width="1.4"/>
+      <path d="M360 120 L390 120" fill="none" stroke="#A6382C" stroke-width="1.4" marker-end="url(#ar)"/>
+      <path d="M360 180 L390 180" fill="none" stroke="#A6382C" stroke-width="1.4" marker-end="url(#ar)"/>
+      <path d="M360 240 L390 240" fill="none" stroke="#A6382C" stroke-width="1.4" marker-end="url(#ar)"/>
+      <path d="M360 180 L360 240" fill="none" stroke="#A6382C" stroke-width="1.4"/>
+      <rect x="394" y="103" width="44" height="34" fill="rgba(166,56,44,.10)" stroke="#A6382C" stroke-width="1"/>
+      <rect x="394" y="163" width="44" height="34" fill="rgba(166,56,44,.10)" stroke="#A6382C" stroke-width="1"/>
+      <rect x="394" y="223" width="44" height="34" fill="rgba(166,56,44,.10)" stroke="#A6382C" stroke-width="1"/>
+      <text x="200" y="128" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">every business</text>
+      <text x="200" y="144" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">on the account</text>
+      <text x="200" y="164" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#A6382C">readable, in full</text>
+
+      <!-- with API-1 -->
+      <rect x="470" y="40" width="150" height="40" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="545" y="59" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor">one WP site</text>
+      <text x="545" y="72" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="currentColor" opacity=".65">token in wp_options</text>
+      <line x1="620" y1="60" x2="666" y2="60" stroke="#2A6349" stroke-width="1.4" marker-end="url(#ar)"/>
+      <rect x="670" y="40" width="140" height="40" fill="none" stroke="#2A6349" stroke-width="1.4"/>
+      <text x="740" y="65" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#2A6349">businessId</text>
+      <path d="M810 60 L840 60 L840 120 L866 120" fill="none" stroke="#2A6349" stroke-width="1.4" marker-end="url(#ar)"/>
+      <rect x="856" y="103" width="44" height="34" fill="rgba(42,99,73,.11)" stroke="#2A6349" stroke-width="1"/>
+      <rect x="856" y="163" width="44" height="34" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity=".4"/>
+      <rect x="856" y="223" width="44" height="34" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity=".4"/>
+      <text x="670" y="128" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">exactly one</text>
+      <text x="670" y="144" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor">business</text>
+      <text x="670" y="192" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity=".55">others unreachable</text>
+    </svg>
+    <figcaption>The blast radius of one leaked token, before and after API-1. Everything else in this document
+    degrades gracefully; this is the one that decides who we can hand the plugin to.</figcaption>
+  </figure>
+</section>
+
+<section id="four-oh-four">
+  <h2>Section 03</h2>
+  <p class="h2sub">The two 404s, and why we read your error strings</p>
+  <p class="prose">A withdrawn artifact and an artifact that has not been generated yet both return
+  <code>404</code>. Your route already tells them apart — and that distinction is load-bearing, because
+  the two demand opposite responses. Right now we get it by matching the English message, which means a
+  copy edit on your side silently changes plugin behaviour on customer sites.</p>
+
+  <figure class="scroll">
+    <svg viewBox="0 0 900 258" role="img" aria-label="A 404 from the lookup forks on its message into a withdrawal candidate, which suspends injection, and a not-yet-generated case, which holds last known good.">
+      <rect x="0" y="98" width="180" height="46" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="90" y="120" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">GET /jsonld?url=</text>
+      <text x="90" y="135" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity=".65">→ 404</text>
+
+      <path d="M180 121 L212 121 L212 56 L246 56" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+      <path d="M180 121 L212 121 L212 186 L246 186" fill="none" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)"/>
+
+      <rect x="250" y="34" width="272" height="44" fill="rgba(166,56,44,.10)" stroke="#A6382C" stroke-width="1.3"/>
+      <text x="386" y="61" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#A6382C">"URL not found in your businesses"</text>
+      <rect x="250" y="164" width="272" height="44" fill="rgba(138,90,5,.11)" stroke="#8A5A05" stroke-width="1.3"/>
+      <text x="386" y="191" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="#8A5A05">"JSON-LD not generated yet…"</text>
+
+      <line x1="522" y1="56" x2="566" y2="56" stroke="#A6382C" stroke-width="1.3" marker-end="url(#ar)"/>
+      <line x1="522" y1="186" x2="566" y2="186" stroke="#8A5A05" stroke-width="1.3" marker-end="url(#ar)"/>
+
+      <rect x="570" y="30" width="330" height="52" fill="none" stroke="#A6382C" stroke-width="1.3"/>
+      <text x="586" y="50" font-family="IBM Plex Sans, sans-serif" font-size="12.5" font-weight="600" fill="#A6382C">Suspend injection, purge the page</text>
+      <text x="586" y="68" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity=".75">the Url row is gone — a real withdrawal</text>
+
+      <rect x="570" y="160" width="330" height="52" fill="none" stroke="#8A5A05" stroke-width="1.3"/>
+      <text x="586" y="180" font-family="IBM Plex Sans, sans-serif" font-size="12.5" font-weight="600" fill="#8A5A05">Keep serving last known good</text>
+      <text x="586" y="198" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity=".75">regenerating — deactivating here is the bug</text>
+
+      <text x="250" y="122" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity=".7">the fork is a string comparison —</text>
+      <text x="250" y="138" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity=".7">one copy edit on your side changes</text>
+      <text x="250" y="154" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="currentColor" opacity=".7">what live customer sites do</text>
+
+      <text x="0" y="244" font-family="IBM Plex Sans, sans-serif" font-size="11.5" fill="#1F5C8C" font-weight="500">API-3 replaces the comparison with a stable code. It is a one-field change.</text>
+    </svg>
+    <figcaption>Both branches are correct today; only the mechanism is fragile. An unrecognised 404 body falls
+    to the conservative branch — we keep serving rather than risk removing valid structured data.</figcaption>
+  </figure>
+</section>
+
+<section id="requirements">
+  <h2>Section 04</h2>
+  <p class="h2sub">The requirements</p>
+
+  <div class="req" id="API-1" data-requirement="API-1" data-priority="blocker">
+    <div class="rail"><div class="rid">API-1</div><span class="chip blocker">Blocker</span></div>
+    <div class="body">
+      <h3>Business-scoped read-only tokens</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd><code>ApiToken</code> carries only <code>userId</code> — no scope,
+        no expiry, no <code>revokedAt</code>. <code>requireApiToken()</code> resolves a token to a user and every
+        route scopes by it: <span class="fields">chain: { business: { userId: auth.userId } }</span>.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">One token in one customer's WordPress database grants read
+        access to every business on the account. An agency account with thirty clients exposes all thirty through
+        any one of them. Until this changes, the connector cannot ship to installs we do not control.</dd></div>
+        <div><dt>Proposed contract</dt><dd>A nullable <code>ApiToken.businessId</code> — null preserves today's
+        behaviour for existing tokens. When set, every endpoint resolves only within that business and 404s
+        outside it, exactly as it already does for another user's data. Permission flags
+        <code>jsonld:read</code> and <code>events:write</code>, as the edge connector's V-02 already specified.
+        <code>GET /me</code> reports the binding so an integration can show what its token reaches.</dd></div>
+        <div><dt>Unlocks</dt><dd>Customer-managed installs, and any path to WordPress.org distribution.</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="req" id="API-2" data-requirement="API-2" data-priority="high">
+    <div class="rail"><div class="rid">API-2</div><span class="chip high">High</span></div>
+    <div class="body">
+      <h3>An explicit retraction signal</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>No <code>suppressedAt</code>, publication state or tombstone.
+        <code>UrlJsonLdArtifact</code> has <code>staleAt</code>, which means "inputs changed, regenerate" — not
+        "withdrawn". Withdrawal today is a hard delete of the <code>Url</code> row, cascading to the artifact and
+        leaving no trace.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">Retraction is the operation with real consequences: a wrong
+        price, an incorrect claim, a stale offer already ingested by AI crawlers. "Publish a correction" is not
+        equivalent — the customer needs the block <em>gone</em>. We infer withdrawal from two signals today, and
+        worst-case latency is a full sync interval.</dd></div>
+        <div><dt>Proposed contract</dt><dd><code>UrlJsonLdArtifact.suppressedAt</code>, set by a per-URL
+        Unpublish action plus a chain-level bulk action — reversible, and it keeps the audit trail the hard
+        delete destroys. While suppressed, the lookup returns <strong>410 Gone</strong>, and the inventory row
+        reports it so a sync pass sees it without a per-URL fetch.
+<pre>GET /api/public/v1/jsonld?url=…
+410 Gone
+{ "error": { "code": "withdrawn",
+             "message": "This artifact was unpublished",
+             "suppressedAt": "2026-09-05T11:20:00.000Z" } }</pre></dd></div>
+        <div><dt>Unlocks</dt><dd>Immediate withdrawal instead of inference. Without it, every consumer builds the
+        same two-signal guess, and each gets it slightly wrong.</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="req" id="API-3" data-requirement="API-3" data-priority="high">
+    <div class="rail"><div class="rid">API-3</div><span class="chip high">High</span></div>
+    <div class="body">
+      <h3>A stable machine-readable error code</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>The route already separates the two 404 causes — but only as prose in
+        <code>{"error":{"message":…}}</code>, and the published OpenAPI description flattens both into one line:
+        <em>"URL not found in your businesses, or JSON-LD not generated yet."</em></dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">We string-match your message to decide whether to pull
+        structured data off a live page. It works, and it is the right distinction — it is just carried by
+        something neither side treats as a contract.</dd></div>
+        <div><dt>Proposed contract</dt><dd>A <code>code</code> beside the message, versioned with the API while
+        messages stay free to change. Initial vocabulary: <code>url_not_found</code>,
+        <code>jsonld_not_generated</code>, <code>withdrawn</code>, <code>invalid_token</code>,
+        <code>account_deactivated</code>, <code>bad_request</code>.</dd></div>
+        <div><dt>Unlocks</dt><dd>Makes the retraction fast path contractual instead of fragile. Cheapest item in
+        this document.</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="req" id="API-4" data-requirement="API-4" data-priority="medium">
+    <div class="rail"><div class="rid">API-4</div><span class="chip medium">Medium</span></div>
+    <div class="body">
+      <h3>Conditional requests</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>No <code>ETag</code>, <code>Last-Modified</code> or
+        <code>Cache-Control</code> on any endpoint. Every poll transfers a full payload.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">A 3,000-URL site re-reads its entire inventory every
+        fifteen minutes, forever, to discover that nothing changed. That is the bulk of the traffic in the table
+        in Section 01, and it scales with catalogue size rather than with change rate.</dd></div>
+        <div><dt>Proposed contract</dt><dd><code>ETag</code> on the artifact endpoints — the artifact's
+        <code>updatedAt</code> plus a payload hash is sufficient — honouring <code>If-None-Match</code> with
+        <code>304</code>. On list endpoints, a per-page <code>ETag</code> keyed on the newest
+        <code>updatedAt</code> in that page.</dd></div>
+        <div><dt>Unlocks</dt><dd>A 5-minute freshness target that stays affordable at scale.</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="req" id="API-5" data-requirement="API-5" data-priority="medium">
+    <div class="rail"><div class="rid">API-5</div><span class="chip medium">Medium</span></div>
+    <div class="body">
+      <h3>Per-URL inventory lookup</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>Inventory state — <code>jsonLd.ready</code>, <code>jsonLd.stale</code>,
+        <code>captureStatus</code> — is reachable only by paginating an entire chain.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">The "Refresh this page now" button in the WordPress admin
+        is an O(1) question that currently costs an O(chain) walk.</dd></div>
+        <div><dt>Proposed contract</dt><dd>A <code>?url=</code> filter on <code>/chains/{id}/urls</code>, or the
+        inventory fields on a <code>GET /urls/{id}</code> response.</dd></div>
+        <div><dt>Unlocks</dt><dd>Single-URL freshness checks, and a much faster confirmation step for
+        retraction.</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="req" id="API-6" data-requirement="API-6" data-priority="medium">
+    <div class="rail"><div class="rid">API-6</div><span class="chip medium">Medium</span></div>
+    <div class="body">
+      <h3>A change feed</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>No way to ask what changed since a given point. Sync is a full
+        inventory walk every interval.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">Polling sets the floor on how fast a correction reaches a
+        live page. On WordPress there is no CDN purge hook to piggyback on, so this is the only lever that moves
+        retraction latency below the sync interval.</dd></div>
+        <div><dt>Proposed contract</dt><dd>In ascending order of effort: an <code>updatedSince</code> parameter on
+        <code>/chains/{id}/urls</code>; or the HMAC-signed outbound refresh ping already sketched as the edge
+        connector's V-03, calling a consumer-registered endpoint after a generate or a retract.</dd></div>
+        <div><dt>Unlocks</dt><dd>Near-real-time sync; drops the polling floor for every consumer.</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="req" id="API-7" data-requirement="API-7" data-priority="low">
+    <div class="rail"><div class="rid">API-7</div><span class="chip low">Low</span></div>
+    <div class="body">
+      <h3>Documented rate limits</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>No rate limiting exists in the codebase and none is documented.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">We self-throttle to twenty artifact requests per job — a
+        number chosen to be obviously polite, not because it matches anything real. If it is too conservative we
+        are needlessly slow; if it is too aggressive nobody finds out until it hurts.</dd></div>
+        <div><dt>Proposed contract</dt><dd>Document the intended per-token limits. When limits arrive, return
+        <code>429</code> with <code>Retry-After</code> — already implemented defensively on our side, so it will
+        be honoured the day it appears.</dd></div>
+        <div><dt>Unlocks</dt><dd>A real budget to design against.</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <div class="req" id="API-8" data-requirement="API-8" data-priority="filed">
+    <div class="rail"><div class="rid">API-8</div><span class="chip filed">Filed, not requested</span></div>
+    <div class="body">
+      <h3>Host-level URL equivalence</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd><code>lib/public-api/lookup.ts</code> matches exact plus a
+        trailing-slash variant, and says why: <em>"Anything beyond that (scheme swaps, host case, query strings)
+        stays an exact-match miss on purpose — silently matching the wrong page would be worse than a
+        404."</em></dd></div>
+        <div><dt>Our position</dt><dd class="serif"><strong>We think that judgement is right</strong>, and this
+        entry exists so the decision is on the record rather than rediscovered later. The edge connector's V-07
+        asked for full server-side normalization; on reflection the failure it prevents — a missing block — is
+        far safer than the one it introduces.</dd></div>
+        <div><dt>The one narrow ask</dt><dd>Host-level <code>www</code> equivalence only, resolved against the
+        business's own <code>baseUrl</code>. That is the single variant that arises from ordinary WordPress
+        configuration rather than from a genuinely different page. Scheme, case and query handling should stay
+        strict.</dd></div>
+        <div><dt>Unlocks</dt><dd>Removes the last class of silent misses that is not the site's own fault.</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section id="meanwhile">
+  <h2>Section 05</h2>
+  <p class="h2sub">What we do until then</p>
+  <p class="prose">So it is clear what is being worked around rather than waited on. Nothing in this list blocks
+  the connector from being built or from working.</p>
+  <table class="sheet">
+    <thead><tr><th>Gap</th><th>Interim behaviour</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">API-1</td><td>v1 restricted to AIVIS-controlled installs. Token preferentially in <code>wp-config.php</code>, not the database. Mandatory <code>businessId</code> equality on every artifact, plus <code>chainId</code> membership when inventory context exists.</td></tr>
+      <tr><td class="mono">API-2</td><td>Withdrawal inferred from the 404 body plus an authoritative inventory pass. Worst-case latency: one sync interval.</td></tr>
+      <tr><td class="mono">API-3</td><td>Defensive string match on the 404 message, conservative fallback on anything unrecognised.</td></tr>
+      <tr><td class="mono">API-4</td><td>Full-payload polling at a 15-minute default.</td></tr>
+      <tr><td class="mono">API-5</td><td>Chain walk for a single-URL refresh.</td></tr>
+      <tr><td class="mono">API-6</td><td>Interval polling only.</td></tr>
+      <tr><td class="mono">API-7</td><td>Self-imposed cap of 20 artifact requests per job.</td></tr>
+      <tr><td class="mono">API-8</td><td>Outbound lookups send the permalink unmodified; normalization applies only to our local index key.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="machine">
+  <h2>Section 06</h2>
+  <p class="h2sub">Machine-readable</p>
+  <p class="prose">This page carries its own data. Two embedded blocks describe it to a parser: a schema.org
+  <code>TechArticle</code> in JSON-LD, and a typed requirements list under
+  <code>#api-requirements-data</code>. Every requirement section also carries stable
+  <code>id</code>, <code>data-requirement</code> and <code>data-priority</code> attributes, so
+  <code>document.querySelectorAll('[data-priority="blocker"]')</code> is a valid way to read this document.</p>
+  <pre>const doc  = document.getElementById('api-requirements-data');
+const reqs = JSON.parse(doc.textContent).requirements;
+reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pre>
+  <div class="note">The same requirements are maintained as Markdown in
+  <code>docs/API-REQUIREMENTS.md</code> in the connector repository, and the call sequences above are on the
+  <a href="https://www.figma.com/board/zQo3mgU7G8eRrVqsBa2LnP">program map board</a> alongside the sync loop and
+  retraction tree. This page is the version meant to be handed over.</div>
+</section>
+
+<footer>
+  <p><strong>Verified against</strong> the live OpenAPI at
+  <code>aivis-new.dev.onepoint.ro/api/public/v1/openapi.json</code> and the merged implementation on
+  <code>epoint-digital/aivis@e96b89c</code>, both read 5 September 2026. Field names, status codes, error
+  messages and the tenancy filter quoted here come from that source, not from the earlier specification —
+  which asserted several things about this API that were never checked.</p>
+  <p style="margin-top:12px">A contract suite pins every claim in Section 01 and Section 03:
+  <code>node tests/contract/run.mjs</code> in the connector repository, 35 assertions, no credentials required.</p>
+</footer>
+
+</article>
+</div>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "name": "AIVIS Public API Requirements",
+  "headline": "What the WordPress connector needs from the Public API",
+  "abstract": "Eight requirements the AIVIS WordPress Connector places on the AIVIS Public API v1.0.0, with the call patterns that motivate them. API-1 (business-scoped tokens) is the only hard blocker.",
+  "datePublished": "2026-09-05",
+  "dateModified": "2026-09-05",
+  "inLanguage": "en",
+  "audience": { "@type": "Audience", "audienceType": "AIVIS platform engineering team" },
+  "about": { "@type": "WebAPI", "name": "AIVIS Public API", "version": "1.0.0",
+             "documentation": "https://aivis-new.dev.onepoint.ro/api/public/v1/docs" },
+  "isBasedOn": "https://aivis-new.dev.onepoint.ro/api/public/v1/openapi.json",
+  "hasPart": [
+    { "@type": "WebPageElement", "identifier": "API-1", "name": "Business-scoped read-only tokens" },
+    { "@type": "WebPageElement", "identifier": "API-2", "name": "An explicit retraction signal" },
+    { "@type": "WebPageElement", "identifier": "API-3", "name": "A stable machine-readable error code" },
+    { "@type": "WebPageElement", "identifier": "API-4", "name": "Conditional requests" },
+    { "@type": "WebPageElement", "identifier": "API-5", "name": "Per-URL inventory lookup" },
+    { "@type": "WebPageElement", "identifier": "API-6", "name": "A change feed" },
+    { "@type": "WebPageElement", "identifier": "API-7", "name": "Documented rate limits" },
+    { "@type": "WebPageElement", "identifier": "API-8", "name": "Host-level URL equivalence" }
+  ]
+}
+</script>
+
+<script type="application/json" id="api-requirements-data">
+{
+  "document": "aivis-public-api-connector-requirements",
+  "version": "1.0.0",
+  "date": "2026-09-05",
+  "consumer": "aivis-wordpress-connector",
+  "api": {
+    "name": "AIVIS Public API",
+    "version": "1.0.0",
+    "basePath": "/api/public/v1",
+    "verifiedAgainst": { "commit": "e96b89c", "date": "2026-08-11", "openapi": "https://aivis-new.dev.onepoint.ro/api/public/v1/openapi.json" }
+  },
+  "loadProfilePerSite": {
+    "assumptions": { "urls": 3000, "chains": 2, "syncIntervalMinutes": 15 },
+    "requestsPerHour": { "chains": 4, "urls": 60, "jsonld": 80, "me": 4, "total": 148 },
+    "requestsPerSecond": 0.04
+  },
+  "requirements": [
+    { "id": "API-1", "title": "Business-scoped read-only tokens", "priority": "blocker",
+      "currentBehaviour": "ApiToken carries only userId; no scope, expiry or revokedAt. Every route scopes by userId.",
+      "proposedContract": "Nullable ApiToken.businessId; when set, all endpoints resolve only within that business. Permission flags jsonld:read and events:write. GET /me reports the binding.",
+      "unlocks": ["customer-managed installs", "WordPress.org distribution"],
+      "blocking": true, "interim": "v1 restricted to AIVIS-controlled installs; token preferentially in wp-config.php; mandatory businessId equality check." },
+    { "id": "API-2", "title": "An explicit retraction signal", "priority": "high",
+      "currentBehaviour": "No suppressedAt, publication state or tombstone. Withdrawal is a hard delete of the Url row, cascading to the artifact.",
+      "proposedContract": "UrlJsonLdArtifact.suppressedAt set by an Unpublish action; lookup returns 410 Gone with code 'withdrawn'; inventory row reports jsonLd.suppressedAt.",
+      "unlocks": ["immediate withdrawal instead of two-signal inference"],
+      "blocking": false, "interim": "Inferred from the 404 body plus an authoritative inventory pass; worst case one sync interval." },
+    { "id": "API-3", "title": "A stable machine-readable error code", "priority": "high",
+      "currentBehaviour": "The route distinguishes the two 404 causes, but only as an English message; the OpenAPI description flattens both into one line.",
+      "proposedContract": "A versioned `code` beside the message: url_not_found, jsonld_not_generated, withdrawn, invalid_token, account_deactivated, bad_request.",
+      "unlocks": ["contractual retraction fast path"],
+      "blocking": false, "interim": "Defensive string match with a conservative fallback." },
+    { "id": "API-4", "title": "Conditional requests", "priority": "medium",
+      "currentBehaviour": "No ETag, Last-Modified or Cache-Control on any endpoint.",
+      "proposedContract": "ETag plus If-None-Match with 304 on artifact endpoints; per-page ETag on list endpoints.",
+      "unlocks": ["5-minute freshness at catalogue scale"],
+      "blocking": false, "interim": "Full-payload polling at a 15-minute default." },
+    { "id": "API-5", "title": "Per-URL inventory lookup", "priority": "medium",
+      "currentBehaviour": "Inventory state is reachable only by paginating a whole chain.",
+      "proposedContract": "A ?url= filter on /chains/{id}/urls, or inventory fields on GET /urls/{id}.",
+      "unlocks": ["O(1) single-URL freshness checks"],
+      "blocking": false, "interim": "Chain walk for a single-URL refresh." },
+    { "id": "API-6", "title": "A change feed", "priority": "medium",
+      "currentBehaviour": "No updatedSince cursor, no webhooks.",
+      "proposedContract": "An updatedSince parameter on /chains/{id}/urls, or an HMAC-signed outbound refresh ping.",
+      "unlocks": ["near-real-time sync", "retraction latency below the sync interval"],
+      "blocking": false, "interim": "Interval polling only." },
+    { "id": "API-7", "title": "Documented rate limits", "priority": "low",
+      "currentBehaviour": "No rate limiting exists and none is documented.",
+      "proposedContract": "Document intended per-token limits; return 429 with Retry-After when introduced.",
+      "unlocks": ["a real budget to throttle against"],
+      "blocking": false, "interim": "Self-imposed cap of 20 artifact requests per job." },
+    { "id": "API-8", "title": "Host-level URL equivalence", "priority": "filed",
+      "currentBehaviour": "Matching is exact plus a trailing-slash variant, deliberately.",
+      "position": "We agree with the current behaviour. Filed for the record, not requested as a change.",
+      "proposedContract": "Host-level www equivalence only, resolved against the business baseUrl. Scheme, case and query handling stay strict.",
+      "unlocks": ["removes misses caused by ordinary WordPress host configuration"],
+      "blocking": false, "interim": "Outbound lookups send the permalink unmodified." }
+  ]
+}
+</script>
