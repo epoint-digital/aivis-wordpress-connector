@@ -12,6 +12,7 @@ import { VALID_TOKEN } from '../mock/data.js';
 import { validateEnvelope, checkBinding, classifyLookup, decideFromLookup, decideFromInventory, Action, NOT_FOUND, NOT_GENERATED }
   from '../../src/reference/connector-logic.mjs';
 import { test, assert, eq, heading, finish } from '../harness.mjs';
+import { loadSpec, conform, specOperations, validate } from './openapi.mjs';
 
 const LIVE = process.argv.includes('--live');
 const FIXTURE = { skip: LIVE, skipReason: 'needs fixture data' };
@@ -31,6 +32,10 @@ if (LIVE) {
   token = VALID_TOKEN;
 }
 
+const SPEC = loadSpec();
+const observed = [];          // every response this run saw, with its verdict
+const unchecked = [];         // responses the document declares no schema for
+
 async function api(path, { auth = token, ...opts } = {}) {
   const res = await fetch(base + path, {
     ...opts,
@@ -39,6 +44,12 @@ async function api(path, { auth = token, ...opts } = {}) {
   });
   let body = null;
   try { body = await res.json(); } catch {}
+  // Every response in this suite is checked against the vendored document, not
+  // only the ones a test remembers to look at.
+  const v = conform(SPEC, 'GET', path, res.status, body);
+  const where = `GET ${path.split('?')[0]} -> ${res.status}`;
+  if (!v.checked) unchecked.push(`${where}: ${v.errors.join('; ') || 'no body schema in the document'}`);
+  observed.push({ where, errors: v.errors });
   return { status: res.status, body };
 }
 const scenario = async stage => { if (!LIVE) await fetch(`${base.replace('/api/public/v1', '')}/__scenario?stage=${stage}`, { method: 'POST' }); };
@@ -97,9 +108,11 @@ await test('limit is clamped to 200, not rejected', async () => {
   assert(r.status === 200, `status ${r.status}`);
   assert(r.body.items.length <= 200, `returned ${r.body.items.length} rows`);
 });
-await test('a bogus limit is a 400', async () => {
+await test('a bogus limit falls back to the default rather than erroring', async () => {
+  // Verified against lib/pagination.ts: parseInt("abc") || 100, then clamped.
   const r = await api('/businesses?limit=abc');
-  assert(r.status === 400, `status ${r.status}`);
+  assert(r.status === 200, `status ${r.status} — the real API does not reject this`);
+  assert(r.body.items.length <= 200, 'clamp not applied');
 }, FIXTURE);
 
 /* ── Inventory shape ──────────────────────────────────────────────────── */
@@ -253,6 +266,77 @@ await test('two businesses share this domain, so selection cannot be automatic (
   eq(matching.length, 2, 'businesses matching the site host');
   return 'the admin must disambiguate';
 }, FIXTURE);
+
+/* ── Conformance to the vendored OpenAPI document ─────────────────────── */
+heading('openapi conformance');
+
+await test('the validator actually rejects a wrong response', () => {
+  // Without this, a validator that returned [] for everything would make every
+  // conformance test below pass while checking nothing.
+  const missing = conform(SPEC, 'GET', '/me', 200, { email: 'a@b.c', name: 'A' });
+  const extra   = conform(SPEC, 'GET', '/me', 200, { email: 'a@b.c', name: 'A', tokenName: 't', surprise: 1 });
+  const badType = conform(SPEC, 'GET', '/businesses', 200, { items: [], nextCursor: null, hasMore: 'yes', total: 0 });
+  const badEnum = validate(SPEC.paths['/chains/{chainId}/urls'].get.responses['200'].content['application/json'].schema.properties.items.items.properties.layer, 'nonsense');
+  assert(missing.errors.length, 'a missing required property passed');
+  assert(extra.errors.length,   'an unexpected property passed');
+  assert(badType.errors.length, 'a wrong type passed');
+  assert(badEnum.length,        'a value outside an enum passed');
+  return '4 deliberately broken payloads all rejected';
+});
+
+await test('the validator refuses to check keywords it does not understand', () => {
+  let threw = false;
+  try { validate({ type: 'string', pattern: '^x$' }, 'x'); } catch { threw = true; }
+  assert(threw, 'an unknown keyword was silently ignored — that is false confidence');
+});
+
+await test('the mock serves exactly the operations the document declares', async () => {
+  const declared = specOperations(SPEC);
+  eq(declared.length, 6, 'operation count');
+  for (const op of declared) {
+    const [, tpl] = op.split(' ');
+    const concrete = tpl
+      .replace('{businessId}', 'biz_live')
+      .replace('{chainId}', 'chain_core')
+      .replace('{urlId}', 'u_home');
+    const path = concrete === '/jsonld' ? '/jsonld?url=' + encodeURIComponent('https://example.com/') : concrete;
+    const r = await api(path);
+    assert(r.status !== 404 || tpl === '/jsonld', `${op} is declared but the mock does not serve it (${r.status})`);
+  }
+  return declared.length + ' operations reachable';
+}, FIXTURE);
+
+await test('every 200 body conforms to its declared schema', async () => {
+  const b = (await api('/businesses')).body.items[0];
+  const c = (await api(`/businesses/${b.id}/chains`)).body.items[0];
+  await api(`/chains/${c.id}/urls`);
+  await api('/me');
+  await api('/jsonld?url=' + encodeURIComponent('https://example.com/'));
+  await api('/urls/u_home/jsonld');
+  const bad = observed.filter(o => o.errors.length);
+  assert(bad.length === 0, bad.map(o => `${o.where}: ${o.errors.join('; ')}`).join(' | '));
+  return observed.length + ' responses checked so far';
+}, FIXTURE);
+
+await test('error envelopes conform too (401, 404, 400)', async () => {
+  await api('/me', { auth: null });
+  await api('/jsonld?url=' + encodeURIComponent('https://example.com/nichts/'));
+  await api('/jsonld');
+  const bad = observed.filter(o => o.errors.length);
+  assert(bad.length === 0, bad.map(o => `${o.where}: ${o.errors.join('; ')}`).join(' | '));
+}, FIXTURE);
+
+await test('no response in this entire run violated the document', () => {
+  const bad = observed.filter(o => o.errors.length);
+  assert(bad.length === 0, `${bad.length} of ${observed.length} responses violated the spec:\n    ` +
+    bad.slice(0, 6).map(o => `${o.where}: ${o.errors.join('; ')}`).join('\n    '));
+  return `${observed.length} responses, 0 violations`;
+});
+
+await test('no response was skipped for lack of a schema', () => {
+  assert(unchecked.length === 0, `${unchecked.length} unchecked:\n    ` + unchecked.slice(0, 6).join('\n    '));
+  return 'every observed response had a schema to check against';
+});
 
 if (server) server.close();
 process.exit(finish(LIVE ? 'contract (live)' : 'contract') ? 1 : 0);

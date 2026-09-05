@@ -4,14 +4,16 @@
   "type": "module",
   "description": "Dev tooling for the AIVIS WordPress Connector. The plugin itself is PHP; this holds the mock AIVIS API and the contract suite.",
   "scripts": {
-    "test": "npm run test:unit --silent && npm run test:contract --silent",
+    "test": "npm run test:unit --silent && npm run test:serializer --silent && npm run test:contract --silent",
     "test:unit": "node tests/unit/run.mjs",
     "test:contract": "node tests/contract/run.mjs",
     "test:live": "node tests/contract/run.mjs --live",
     "check:docs": "node tests/docs/check-embedded-json.mjs",
     "check:drift": "node tests/fixtures/refresh.mjs --check",
     "mock": "node tests/mock/server.js",
-    "vendor:openapi": "node tests/fixtures/refresh.mjs"
+    "vendor:openapi": "node tests/fixtures/refresh.mjs",
+    "test:serializer": "node tests/unit/serializer.mjs",
+    "known-issues": "node tests/known-issues/node26-json-roundtrip.mjs"
   },
   "engines": {
     "node": ">=20"

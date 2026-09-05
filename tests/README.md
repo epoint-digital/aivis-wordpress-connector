@@ -5,7 +5,8 @@ Two layers, deliberately separate. `npm test` runs both.
 | Layer | Command | Count | Crosses the wire? |
 |---|---|---|---|
 | **Unit** | `npm run test:unit` | 65 | No — pure functions only |
-| **Contract** | `npm run test:contract` | 27 | Yes — real HTTP to the mock |
+| **Serializer** | `npm run test:serializer` | 17 | No — properties and fuzz over the ZT-05 serializer |
+| **Contract** | `npm run test:contract` | 34 | Yes — real HTTP to the mock, every response validated against the vendored OpenAPI |
 
 ## Unit tests
 
@@ -21,6 +22,25 @@ normalisation. Instant, no server.
 These pin the decisions that can silently pull structured data off a live
 customer page — the class of bug that has no visible symptom until a client
 asks why their rich results vanished.
+
+## Serializer properties and fuzz
+
+```bash
+npm run test:serializer
+```
+
+The ZT-05 re-serializer is the one function where a miss is a stored-XSS on a
+customer's site, so it is not checked against a corpus of the breakouts we
+happened to think of. Two properties are asserted over 4,000 generated
+documents: `<`, `>`, `&` and `'` never appear in the output at all, and
+`JSON.parse(serialize(x))` is structurally identical to `x`. Safety without
+fidelity is trivial (emit `{}`); fidelity without safety is trivial
+(`JSON.stringify`); together they pin the function.
+
+The fuzz is seeded, so any failure replays: `FUZZ_SEED=0x… npm run test:serializer`.
+
+On Node v26.0.0 the fidelity property skips itself — see
+[docs/KNOWN-ISSUES.md](../docs/KNOWN-ISSUES.md).
 
 ## Contract suite
 
@@ -77,6 +97,10 @@ only add flake.
 | `tests/mock/server.js` | Mock AIVIS Public API v1, no dependencies |
 | `tests/mock/data.js` | Fixtures: duplicate domains, multi-chain URLs, an ungenerated URL, a retraction subject |
 | `tests/contract/run.mjs` | Contract suite — everything that crosses the wire |
+| `tests/contract/openapi.mjs` | Validates responses against the vendored OpenAPI; throws on any schema keyword it cannot check |
+| `tests/unit/serializer.mjs` | ZT-05 properties and fuzz |
+| `tests/unit/fuzz-gen.mjs` | Seeded document generator, shared so failures replay |
+| `tests/known-issues/` | Self-contained reproducers for environment defects |
 | `tests/unit/run.mjs` | Unit tests for the decision rules |
 | `tests/harness.mjs` | Shared assertions and reporting; no framework, no install step |
 | `tests/docs/check-embedded-json.mjs` | Verifies `docs/api-requirements.html` is still machine-readable |

@@ -26,6 +26,8 @@ jobs:
       # runs exactly what a maintainer runs.
       - name: Unit tests
         run: npm run test:unit
+      - name: Serializer properties and fuzz
+        run: npm run test:serializer
       - name: Contract tests (mock API)
         run: npm run test:contract
       - name: Documentation is still machine-readable

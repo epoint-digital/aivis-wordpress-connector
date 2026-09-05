@@ -50,17 +50,24 @@ export function compareCandidates(a, b) {
   return new Date(b.artifact.generatedAt) - new Date(a.artifact.generatedAt);
 }
 
+// Mirrors lib/pagination.ts on origin/main exactly. Note what it does NOT do:
+// it never rejects a bad `limit`. parseInt("abc") is NaN, `NaN || 100` is 100,
+// and the result is clamped to [1, 200] — so a nonsense limit silently becomes
+// the default and returns 200. An earlier version of this mock invented a 400
+// there; the OpenAPI conformance check caught it, since the document declares
+// no 400 for the list endpoints.
 function paginate(items, q) {
-  const rawLimit = q.get('limit');
-  let limit = rawLimit === null ? 100 : Number(rawLimit);
-  if (!Number.isInteger(limit) || limit < 1) return { error: 'Query parameter `limit` must be a positive integer' };
-  limit = Math.min(limit, 200);
+  const raw = q.get('limit');
+  const limit = Math.min(Math.max(parseInt(raw || '100', 10) || 100, 1), 200);
   const cursor = q.get('cursor');
   let start = 0;
   if (cursor !== null) {
-    start = items.findIndex(i => i.id === cursor);
-    if (start < 0) return { error: 'Invalid cursor' };
-    start += 1;
+    const idx = items.findIndex(i => i.id === cursor);
+    // Unverified against the real API: Prisma is handed the cursor id directly,
+    // so an unknown one probably errors rather than paging from the start. The
+    // document declares no error response for it, so the mock does not invent
+    // one — and nothing asserts this branch.
+    start = idx < 0 ? items.length : idx + 1;
   }
   const page = items.slice(start, start + limit);
   const hasMore = start + limit < items.length;
