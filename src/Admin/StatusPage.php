@@ -32,6 +32,8 @@ final class StatusPage {
 		$last     = (int) ( $state['last_complete_at'] ?? 0 );
 		$auth     = $state['last_authoritative'] ?? null;
 		$verify   = (array) ( $state['verify'] ?? [] );
+		$conf     = $o->conflicts();
+		$conflict_by_url = (array) $conf['items'];
 		?>
 		<div class="wrap aivis-os">
 			<h1>AIVIS OS</h1>
@@ -67,6 +69,7 @@ final class StatusPage {
 					<div class="aivis-tile"><div class="n"><?php echo (int) $counts['hold']; ?></div><div class="l"><?php esc_html_e( 'Awaiting AIVIS', 'aivis-os' ); ?></div></div>
 					<div class="aivis-tile aivis-tile--bad"><div class="n"><?php echo (int) $counts['suspended']; ?></div><div class="l"><?php esc_html_e( 'Suspended', 'aivis-os' ); ?></div></div>
 					<div class="aivis-tile"><div class="n"><?php echo (int) $counts['retired']; ?></div><div class="l"><?php esc_html_e( 'Retired', 'aivis-os' ); ?></div></div>
+					<div class="aivis-tile <?php echo $conflict_by_url && $o->conflicts_unacknowledged() ? 'aivis-tile--bad' : ''; ?>"><div class="n"><?php echo count( $conflict_by_url ); ?></div><div class="l"><?php esc_html_e( 'Other JSON-LD found', 'aivis-os' ); ?></div></div>
 				</div>
 				<div class="aivis-legend">
 					<span><span class="aivis-chip aivis-chip--ok">Active</span> <?php esc_html_e( 'injected on the page', 'aivis-os' ); ?></span>
@@ -106,7 +109,10 @@ final class StatusPage {
 							<?php echo Menu::action_form( 'retired' === $st ? 'restore_url' : 'disable_url', 'retired' === $st ? __( 'Restore', 'aivis-os' ) : __( 'Disable here', 'aivis-os' ), [ 'url_key' => $r['url_key'] ], 'button-link' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?> |
 							<a href="<?php echo esc_url( (string) $r['source_url'] ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Open page', 'aivis-os' ); ?></a>
 						</div></td>
-					<td><?php echo $this->chip( $st ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></td>
+					<td><?php echo $this->chip( $st ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+						<?php if ( isset( $conflict_by_url[ $r['source_url'] ] ) ) : $cf = $conflict_by_url[ $r['source_url'] ]; ?>
+							<div style="margin-top:4px"><span class="aivis-chip aivis-chip--bad"><?php echo esc_html( sprintf( /* translators: 1: sources, 2: types */ __( 'Conflict: %1$s (%2$s)', 'aivis-os' ), implode( ', ', array_map( [ \AivisOS\Delivery\Conflicts::class, 'label' ], (array) $cf['sources'] ) ), implode( ', ', array_slice( (array) $cf['types'], 0, 4 ) ) ) ); ?></span></div>
+						<?php endif; ?></td>
 					<td><code><?php echo esc_html( (string) ( $chains[ $r['chain_id'] ]['name'] ?? $r['chain_id'] ) ); ?></code></td>
 					<td class="description"><?php echo $r['source_generated_at'] ? esc_html( (string) $r['source_generated_at'] ) : '—'; ?></td></tr>
 				<?php endforeach; ?>

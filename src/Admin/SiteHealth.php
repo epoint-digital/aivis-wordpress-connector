@@ -26,6 +26,7 @@ final class SiteHealth {
 		$tests['direct']['aivis_os_cron']   = [ 'label' => 'AIVIS OS: sync is running', 'test' => [ $this, 'test_cron' ] ];
 		$tests['direct']['aivis_os_cache']  = [ 'label' => 'AIVIS OS: cache purge is confirmable', 'test' => [ $this, 'test_cache' ] ];
 		$tests['direct']['aivis_os_schema'] = [ 'label' => 'AIVIS OS: storage', 'test' => [ $this, 'test_schema' ] ];
+		$tests['direct']['aivis_os_conflicts'] = [ 'label' => 'AIVIS OS: single source of structured data', 'test' => [ $this, 'test_conflicts' ] ];
 		return $tests;
 	}
 
@@ -73,6 +74,24 @@ final class SiteHealth {
 			return $this->result( 'good', 'AIVIS OS purges through LiteSpeed Cache', 'LiteSpeed accepts purge requests without confirming them, so pages are reported as “purge requested” rather than confirmed live.' );
 		}
 		return $this->result( 'good', 'AIVIS OS purges through ' . $a->label(), 'Purges are synchronous and confirmed.' );
+	}
+
+	public function test_conflicts(): array {
+		$o = $this->plugin->options();
+		$c = $o->conflicts();
+		if ( empty( $c['items'] ) ) {
+			return $this->result( 'good', 'AIVIS is the only source of structured data', $c['scanned_at'] ? sprintf( '%d pages scanned, no other JSON-LD found.', $c['pages_scanned'] ) : 'No scan yet — run one from AIVIS OS → Settings.' );
+		}
+		$srcs = [];
+		foreach ( $c['items'] as $f ) {
+			foreach ( (array) ( $f['sources'] ?? [] ) as $s ) {
+				$srcs[ $s ] = \AivisOS\Delivery\Conflicts::label( (string) $s );
+			}
+		}
+		$desc = sprintf( 'Other JSON-LD on %d of %d scanned pages, from %s. Two Organization or WebSite nodes on one page give search engines conflicting answers. Disable the other source, or suppress it under AIVIS OS → Settings.', count( $c['items'] ), $c['pages_scanned'], implode( ', ', $srcs ) );
+		return $o->conflicts_unacknowledged()
+			? $this->result( 'critical', 'Other plugins also emit structured data', $desc )
+			: $this->result( 'recommended', 'Other structured data present (overridden by an administrator)', $desc );
 	}
 
 	public function test_schema(): array {

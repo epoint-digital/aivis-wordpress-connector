@@ -12,15 +12,74 @@ declare( strict_types=1 );
 
 namespace AivisOS\Sync;
 
+use AivisOS\Delivery\Conflicts;
 use AivisOS\Storage\Options;
 use AivisOS\Storage\Repository;
 
 final class Verifier {
 
+	public const SCAN_PAGES = 10;
+
 	public function __construct(
 		private readonly Repository $repository,
-		private readonly Options $options
+		private readonly Options $options,
+		private readonly ?Notifier $notifier = null
 	) {}
+
+	/** The daily job: verify one page, then scan for conflicts. */
+	public function daily(): void {
+		$this->run();
+		$this->scan_conflicts();
+	}
+
+	/**
+	 * §09a — fetch up to SCAN_PAGES active pages over loopback and find every
+	 * JSON-LD block that is not ours. Merges into the conflict store, computes
+	 * the fingerprint, and notifies when the set changed and is not the
+	 * acknowledged one.
+	 *
+	 * @return array{pages:int, conflicts:int, changed:bool, unreachable:int}
+	 */
+	public function scan_conflicts( int $limit = self::SCAN_PAGES ): array {
+		$prev  = $this->options->conflicts();
+		$items = [];
+		$pages = 0;
+		$down  = 0;
+		foreach ( $this->repository->all_for_admin( 200 ) as $row ) {
+			if ( $pages >= $limit ) {
+				break;
+			}
+			if ( (int) $row['active'] !== 1 || ! empty( $row['retired_at'] ) ) {
+				continue;
+			}
+			$url = (string) $row['source_url'];
+			$res = wp_safe_remote_get( $url, [ 'timeout' => 10, 'redirection' => 2, 'sslverify' => false, 'user-agent' => 'aivis-os-verify/' . AIVIS_OS_VERSION ] );
+			if ( is_wp_error( $res ) || 200 !== (int) wp_remote_retrieve_response_code( $res ) ) {
+				$down++;
+				continue;
+			}
+			$pages++;
+			$scan = Conflicts::scan_html( (string) wp_remote_retrieve_body( $res ) );
+			if ( $scan['blocks'] > 0 ) {
+				$items[ $url ] = $scan + [ 'seen_at' => time() ];
+			}
+		}
+		$fingerprint = Conflicts::fingerprint( $items );
+		$changed     = $fingerprint !== $prev['fingerprint'];
+		$this->options->patch_conflicts(
+			[
+				'fingerprint'   => $fingerprint,
+				'scanned_at'    => time(),
+				'pages_scanned' => $pages,
+				'items'         => $items,
+				'plugins'       => Conflicts::active_plugins(),
+			]
+		);
+		if ( $changed && '' !== $fingerprint && $fingerprint !== $prev['acknowledged'] && null !== $this->notifier ) {
+			$this->notifier->conflicts_changed( $this->options->conflicts() );
+		}
+		return [ 'pages' => $pages, 'conflicts' => count( $items ), 'changed' => $changed, 'unreachable' => $down ];
+	}
 
 	/** @return array{result:string, url:?string, detail:string} */
 	public function run( ?string $url = null ): array {

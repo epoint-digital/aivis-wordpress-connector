@@ -246,6 +246,72 @@ final class Options {
 		return (string) preg_replace( '/aivis_[A-Za-z0-9_\-]{8,}/', 'aivis_[redacted]', $s );
 	}
 
+	/* ── structured-data conflicts (§09a) ────────────────────────────── */
+
+	/** @return array{fingerprint:string, scanned_at:int, pages_scanned:int, items:array<string,array<string,mixed>>, acknowledged:?string, plugins:list<string>} */
+	public function conflicts(): array {
+		$d = (array) get_option( 'aivis_os_conflicts', [] );
+		return [
+			'fingerprint'   => (string) ( $d['fingerprint'] ?? '' ),
+			'scanned_at'    => (int) ( $d['scanned_at'] ?? 0 ),
+			'pages_scanned' => (int) ( $d['pages_scanned'] ?? 0 ),
+			'items'         => (array) ( $d['items'] ?? [] ),
+			'acknowledged'  => isset( $d['acknowledged'] ) ? (string) $d['acknowledged'] : null,
+			'plugins'       => array_values( (array) ( $d['plugins'] ?? [] ) ),
+		];
+	}
+
+	/** @param array<string,mixed> $patch */
+	public function patch_conflicts( array $patch ): void {
+		update_option( 'aivis_os_conflicts', array_merge( $this->conflicts(), $patch ), false );
+	}
+
+	/** Override: silence the red warning for exactly this conflict set. */
+	public function acknowledge_conflicts(): void {
+		$this->patch_conflicts( [ 'acknowledged' => $this->conflicts()['fingerprint'] ] );
+	}
+
+	public function conflicts_unacknowledged(): bool {
+		$c = $this->conflicts();
+		return '' !== $c['fingerprint'] && $c['acknowledged'] !== $c['fingerprint'];
+	}
+
+	/** @return list<string> registry keys whose output the admin chose to suppress */
+	public function suppressed_sources(): array {
+		$d = (array) get_option( 'aivis_os_delivery', [] );
+		return array_values( array_map( 'strval', (array) ( $d['suppress'] ?? [] ) ) );
+	}
+
+	/** @param list<string> $keys */
+	public function set_suppressed_sources( array $keys ): void {
+		$d             = (array) get_option( 'aivis_os_delivery', [] );
+		$d['suppress'] = array_values( array_unique( array_map( 'sanitize_key', $keys ) ) );
+		update_option( 'aivis_os_delivery', $d, false );
+	}
+
+	public function notify_email(): bool {
+		$d = (array) get_option( 'aivis_os_delivery', [] );
+		return (bool) ( $d['notify_email'] ?? true );
+	}
+
+	public function set_notify_email( bool $on ): void {
+		$d                 = (array) get_option( 'aivis_os_delivery', [] );
+		$d['notify_email'] = $on;
+		update_option( 'aivis_os_delivery', $d, false );
+	}
+
+	/** API-9. Connector state only — never anything about people. */
+	public function report_to_aivis(): bool {
+		$d = (array) get_option( 'aivis_os_delivery', [] );
+		return (bool) ( $d['report_to_aivis'] ?? true );
+	}
+
+	public function set_report_to_aivis( bool $on ): void {
+		$d                    = (array) get_option( 'aivis_os_delivery', [] );
+		$d['report_to_aivis'] = $on;
+		update_option( 'aivis_os_delivery', $d, false );
+	}
+
 	/* ── uninstall ───────────────────────────────────────────────────── */
 
 	public function keep_data_on_uninstall(): bool {

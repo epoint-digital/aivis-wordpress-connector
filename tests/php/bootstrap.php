@@ -15,8 +15,26 @@ define( 'AIVIS_OS_VERSION', '1.0.0' );
 define( 'AIVIS_OS_BASENAME', 'aivis-os/aivis-os.php' );
 define( 'AIVIS_OS_DIR', dirname( __DIR__, 2 ) . '/' );
 define( 'AIVIS_OS_URL', 'https://example.com/wp-content/plugins/aivis-os/' );
+define( 'ARRAY_A', 'ARRAY_A' );
+define( 'ARRAY_N', 'ARRAY_N' );
+define( 'OBJECT', 'OBJECT' );
 
 require dirname( __DIR__, 2 ) . '/src/autoload.php';
+
+/** Minimal $wpdb: enough for Repository to run its SQL without a database. */
+final class WPDBStub {
+	public string $prefix = 'wp_';
+	public array $rows = [];
+	public function prepare( string $sql, mixed ...$args ): string { return vsprintf( str_replace( [ '%s', '%d' ], [ "'%s'", '%d' ], $sql ), array_map( fn( $a ) => is_array( $a ) ? $a[0] : $a, $args ) ); }
+	public function get_row( string $sql, mixed $out = null ): ?array { return $this->rows[0] ?? null; }
+	public function get_results( string $sql, mixed $out = null ): array { return $this->rows; }
+	public function get_var( string $sql ): ?string { return null; }
+	public function query( string $sql ): int|bool { return 0; }
+	public function update( string $t, array $d, array $w, mixed $f = null, mixed $wf = null ): int|false { return 1; }
+	public function insert( string $t, array $d, mixed $f = null ): int|false { return 1; }
+	public function get_charset_collate(): string { return ''; }
+}
+$GLOBALS['wpdb'] = new WPDBStub();
 
 final class WPStub {
 	public static array $options = [];
@@ -26,10 +44,12 @@ final class WPStub {
 	public static array $http_log = [];
 	public static array $scheduled = [];
 	public static array $flags = [];
+	public static array $filters = [];
+	public static array $mail = [];
 	public static string $home = 'https://example.com';
 
 	public static function reset(): void {
-		self::$options = self::$transients = self::$site_transients = self::$http_queue = self::$http_log = self::$scheduled = self::$flags = [];
+		self::$options = self::$transients = self::$site_transients = self::$http_queue = self::$http_log = self::$scheduled = self::$flags = self::$filters = self::$mail = [];
 		self::$home = 'https://example.com';
 	}
 	public static function queue( int $status, mixed $body, array $headers = [] ): void {
@@ -77,7 +97,7 @@ function get_bloginfo( string $k ): string { return '7.1'; }
 function apply_filters( string $hook, mixed $v, mixed ...$args ): mixed { return $v; }
 function do_action( string $hook, mixed ...$args ): void {}
 function add_action( string $h, mixed $cb, int $p = 10, int $a = 1 ): void {}
-function add_filter( string $h, mixed $cb, int $p = 10, int $a = 1 ): void {}
+function add_filter( string $h, mixed $cb, int $p = 10, int $a = 1 ): void { WPStub::$filters[] = [ $h, $cb, $p ]; }
 function __( string $s, string $d = '' ): string { return $s; }
 function _n( string $s, string $p, int $n, string $d = '' ): string { return 1 === $n ? $s : $p; }
 function esc_html( string $s ): string { return htmlspecialchars( $s, ENT_QUOTES ); }
@@ -110,6 +130,15 @@ function wp_safe_remote_get( string $url, array $args = [] ): mixed {
 	if ( ! WPStub::$http_queue ) { return new WP_Error( 'no_queue', 'test queue empty' ); }
 	return array_shift( WPStub::$http_queue );
 }
+function wp_safe_remote_post( string $url, array $args = [] ): mixed {
+	WPStub::$http_log[] = [ $url, $args + [ '_method' => 'POST' ] ];
+	if ( ! WPStub::$http_queue ) { return new WP_Error( 'no_queue', 'test queue empty' ); }
+	return array_shift( WPStub::$http_queue );
+}
+function wp_mail( string $to, string $subject, string $message ): bool { WPStub::$mail[] = compact( 'to', 'subject', 'message' ); return true; }
+function admin_url( string $path = '' ): string { return WPStub::$home . '/wp-admin/' . $path; }
+function __return_false(): bool { return false; }
+function __return_true(): bool { return true; }
 function is_wp_error( mixed $x ): bool { return $x instanceof WP_Error; }
 function wp_remote_retrieve_response_code( mixed $r ): int { return (int) ( $r['response']['code'] ?? 0 ); }
 function wp_remote_retrieve_header( mixed $r, string $h ): string { return (string) ( $r['headers'][ strtolower( $h ) ] ?? '' ); }

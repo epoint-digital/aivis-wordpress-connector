@@ -483,6 +483,33 @@
     </div>
   </div>
 
+  <div class="req" id="API-9" data-requirement="API-9" data-priority="medium">
+    <div class="rail"><div class="rid">API-9</div><span class="chip medium">Medium</span></div>
+    <div class="body">
+      <h3>Connector status report</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>AIVIS has no visibility into connected sites — whether they sync, which
+        version they run, whether purges confirm, and whether <strong>other plugins are also emitting structured
+        data</strong> on the same pages. <code>ApiToken.lastUsedAt</code> is the only signal.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">AIVIS is meant to be the primary source of structured data. The
+        connector now detects Yoast, Rank Math and friends emitting their own <code>Organization</code> and
+        <code>WebSite</code> nodes next to ours, flags it red, and can suppress it — but that finding is only useful
+        if it reaches the people who own the customer relationship.</dd></div>
+        <div><dt>Proposed contract</dt><dd><code>POST /businesses/{businessId}/connector-status</code> → <strong>202</strong>,
+        sent after each authoritative sync and whenever the conflict set changes. Carries plugin version, site host,
+        sync counts, cache state and the conflicts found — <strong>nothing about people</strong>. Opt-out in the plugin.
+<pre>{ "connector": "aivis-os", "version": "1.0.0", "site": "example.com",
+  "sync": { "authoritative": true, "counts": { "active": 312, "suspended": 0, … } },
+  "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed" },
+  "conflicts": { "activePlugins": ["yoast"], "suppressed": [],
+                 "items": [ { "url": "https://example.com/", "sources": ["yoast"],
+                              "types": ["Organization", "WebSite"] } ] } }</pre></dd></div>
+        <div><dt>Unlocks</dt><dd>A connected-sites view per business, and the conversation with a customer whose SEO plugin
+        is fighting AIVIS for the same node. The connector already sends it; a 404 backs off for a day.</dd></div>
+      </dl>
+    </div>
+  </div>
+
   <div class="req" id="API-8" data-requirement="API-8" data-priority="filed">
     <div class="rail"><div class="rid">API-8</div><span class="chip filed">Filed, not requested</span></div>
     <div class="body">
@@ -578,7 +605,8 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
     { "@type": "WebPageElement", "identifier": "API-5", "name": "Per-URL inventory lookup" },
     { "@type": "WebPageElement", "identifier": "API-6", "name": "A change feed" },
     { "@type": "WebPageElement", "identifier": "API-7", "name": "Documented rate limits" },
-    { "@type": "WebPageElement", "identifier": "API-8", "name": "Host-level URL equivalence" }
+    { "@type": "WebPageElement", "identifier": "API-8", "name": "Host-level URL equivalence" },
+    { "@type": "WebPageElement", "identifier": "API-9", "name": "Connector status report" }
   ]
 }
 </script>
@@ -636,6 +664,11 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
       "proposedContract": "Document intended per-token limits; return 429 with Retry-After when introduced.",
       "unlocks": ["a real budget to throttle against"],
       "blocking": false, "interim": "Self-imposed cap of 20 artifact requests per job." },
+    { "id": "API-9", "title": "Connector status report", "priority": "medium",
+      "currentBehaviour": "AIVIS has no visibility into connected sites; ApiToken.lastUsedAt is the only signal.",
+      "proposedContract": "POST /businesses/{businessId}/connector-status -> 202, after each authoritative sync and on conflict changes. Plugin version, site host, sync counts, cache state, structured-data conflicts. Nothing about people. Opt-out.",
+      "unlocks": ["connected-sites view per business", "visibility of SEO plugins competing with AIVIS for the same nodes"],
+      "blocking": false, "interim": "Report sent anyway; 404 backs off 24 h. Conflicts flagged in WordPress and emailed to the site admin." },
     { "id": "API-8", "title": "Host-level URL equivalence", "priority": "filed",
       "currentBehaviour": "Matching is exact plus a trailing-slash variant, deliberately.",
       "position": "We agree with the current behaviour. Filed for the record, not requested as a change.",

@@ -29,6 +29,7 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | **API-6** | Change feed / push | Medium |
 | **API-7** | Documented rate limits + `Retry-After` | Low |
 | **API-8** | Server-side URL normalization | Low, and contested — see the note |
+| **API-9** | Connector status report (conflicts, sync health) | Medium — the only monitoring that respects WP-I9 |
 
 ---
 
@@ -256,6 +257,50 @@ genuinely different page. Scheme, case and query-string handling should stay str
 
 ---
 
+## API-9 — Connector status report
+
+**Priority: medium.**
+
+AIVIS has no visibility into connected sites: whether they sync, which plugin
+version they run, whether their cache purges confirm, and — the one that matters
+for the product — whether **other plugins are also emitting structured data**
+on the same pages. The connector detects that (§09a: AIVIS is the primary
+source; Yoast, Rank Math and friends are flagged red) and needs somewhere to
+send it.
+
+**Proposed contract**
+
+```
+POST /api/public/v1/businesses/{businessId}/connector-status
+Authorization: Bearer aivis_…
+Content-Type: application/json
+
+{ "connector": "aivis-os", "version": "1.0.0", "site": "example.com",
+  "businessId": "…", "trigger": "sync" | "conflicts", "reportedAt": "…",
+  "sync":  { "lastCompleteAt": "…", "authoritative": true, "intervalSec": 900,
+             "counts": { "active": 312, "stale": 4, "hold": 2, "suspended": 0, "retired": 1, "total": 319 } },
+  "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed" },
+  "conflicts": { "fingerprint": "…", "acknowledged": false, "pagesScanned": 10,
+                 "activePlugins": ["yoast"], "suppressed": [],
+                 "items": [ { "url": "https://example.com/", "sources": ["yoast"],
+                              "types": ["Organization","WebSite"], "blocks": 1 } ] } }
+
+202 Accepted
+```
+
+Sent after each authoritative sync and whenever the conflict set changes.
+**Nothing about people** — no visitor, crawler, IP, user-agent or WordPress
+user data; WP-I9 is amended to say exactly that, and the report is opt-out in
+the plugin settings.
+
+**Until it ships:** the connector already sends it; a 404/405 marks the endpoint
+unavailable for 24 hours and nothing else changes. The client is contract-tested
+against the mock.
+
+**Unlocks:** a "connected sites" view per business (last seen, version, sync
+health), and the product conversation with a customer whose Yoast is fighting
+AIVIS for the same `Organization` node.
+
 ## What the connector does in the meantime
 
 For the record, so the platform team can see what is being worked around rather than waited on:
@@ -270,3 +315,4 @@ For the record, so the platform team can see what is being worked around rather 
 | API-6 | Interval polling only |
 | API-7 | Self-imposed 20 artifact requests per job |
 | API-8 | Outbound lookups send the site permalink unmodified; normalization is applied only to the plugin's local index key |
+| API-9 | Report sent anyway; 404 backs off for a day. Conflicts still flagged inside WordPress and emailed to the site admin |

@@ -78,7 +78,7 @@ Each maps to at least one automated test (§16).
 | **WP-I6** | **Secret containment.** The bearer token never appears in HTML, JS, REST responses, logs, exceptions, Site Health, or support bundles |
 | **WP-I7** | **Zero-trust artifact handling.** Size-limited, strictly decoded, schema-checked, business- and host-bound, re-serialized, escaped (§08) |
 | **WP-I8** | **Last-known-good, bounded by retraction.** A failed refresh never overwrites a valid artifact. An artifact is withdrawn only on admin disable, confirmed withdrawal (R-01), or inventory retirement (R-02) |
-| **WP-I9** | **No telemetry.** No visitor, crawler, page-view, IP, UA or WP-user data goes to AIVIS. Only API auth plus the URLs and IDs needed to retrieve content. Permanent (§13) |
+| **WP-I9** | **No telemetry about people.** No visitor, crawler, page-view, IP, UA or WP-user data goes to AIVIS — permanent (§13). The **connector status report** (§09a, API-9) is the one deliberate exception and carries only the connector's own state: version, site host, sync counts, cache state, structured-data conflicts. Opt-out |
 | **WP-I10** | **Honest cache status.** "Live on the site" is claimed only after adapter-confirmed invalidation or a public-page verification that finds the marker and the expected hash |
 
 ---
@@ -365,6 +365,37 @@ miss-scheduling guard.
 
 ---
 
+## §09a · AIVIS is the primary source of structured data
+
+Any JSON-LD on a page that the connector did not emit is a **conflict**: two
+`Organization` or `WebSite` nodes on one page give search engines conflicting
+answers. The connector identifies such blocks, attributes them where a marker
+allows (Yoast, Rank Math, All in One SEO, SEOPress, Slim SEO, Schema Pro, WPSSO,
+or *unknown* for theme/hand-written blocks), extracts their `@type`s, and flags
+them **red**. Publishing is never blocked.
+
+**Detection** runs on the background loopback scan — daily, on demand, and once
+after the first authoritative sync — over up to 10 active pages. Never on the
+render path. Active emitter plugins are also detected statically so the warning
+can appear before the first scan.
+
+**Override.** The admin can acknowledge the current conflict set ("Override — I
+know, keep publishing"). The red warning stays silent until the *set* changes
+(new page, new source, new types), then re-arms. Site Health reports an
+acknowledged set as *recommended*, an unacknowledged one as *critical*.
+
+**Suppression.** For emitters whose output can be switched off through their
+own public filter (`wpseo_json_ld_output`, `rank_math/json_ld`,
+`aioseo_schema_disable`, `slim_seo_schema_graph`) the connector offers a
+per-plugin toggle, **off by default** — the admin makes AIVIS the only source
+with one checkbox, and can undo it the same way. Emitters without a filter get
+manual guidance.
+
+**Notifications.** Inside WordPress: the red notice on the plugin screens,
+a Conflicts tile and per-URL badge on Status, a Site Health test, and an email
+to the site admin when the conflict set changes (opt-out). Toward AIVIS: the
+connector status report, API-9 (opt-out; see WP-I9).
+
 ## §10 · Cache publication
 
 ```php
@@ -507,6 +538,9 @@ Demonstrated on staging against the designated AIVIS environment.
 | **AC-18** | **A 404 meaning "JSON-LD not generated yet" never deactivates a live artifact** |
 | **AC-19** | **An artifact whose `businessId` differs from the selected business is rejected and never stored** |
 | **AC-20** | **A business whose `baseUrl` host differs from the site's host cannot be bound; two businesses sharing this site's domain force an explicit choice** |
+| **AC-21** | **A page carrying foreign JSON-LD is flagged with its source and `@type`s after one scan; the connector's own block is never counted** |
+| **AC-22** | **Enabling suppression for a supported plugin removes its JSON-LD from the page, confirmed by a rescan; injection of the AIVIS block is unaffected either way** |
+| **AC-23** | **Overriding silences the warning for exactly the current conflict set and re-arms it when the set changes** |
 
 AC-17 is rewritten from rev 1, where it required immediate deactivation on any fetch-404 — which the
 API cannot support. AC-18 and AC-19 are new, and both guard failure modes that would otherwise be

@@ -19,11 +19,13 @@ use AivisOS\Admin\SiteHealth;
 use AivisOS\Api\Client;
 use AivisOS\Cache\AdapterFactory;
 use AivisOS\Cli\Commands;
+use AivisOS\Delivery\Conflicts;
 use AivisOS\Delivery\Injector;
 use AivisOS\Storage\Options;
 use AivisOS\Storage\Repository;
 use AivisOS\Storage\Schema;
 use AivisOS\Sync\Gc;
+use AivisOS\Sync\Notifier;
 use AivisOS\Sync\Scheduler;
 use AivisOS\Sync\Synchronizer;
 use AivisOS\Sync\Verifier;
@@ -81,6 +83,12 @@ final class Plugin {
 		// Keep the schema current on upgrade without a re-activation.
 		add_action( 'init', [ $this, 'maybe_upgrade' ], 1 );
 
+		// §09a — AIVIS is the primary source: register the off-switches for
+		// other emitters the admin chose to suppress, before anything renders.
+		add_action( 'init', static function (): void {
+			Conflicts::apply_suppressions( ( new Options() )->suppressed_sources() );
+		}, 0 );
+
 		// Delivery — the only thing that runs on a public request (WP-I2).
 		add_action( 'wp_head', [ $this->injector(), 'render' ], 100 );
 
@@ -88,7 +96,9 @@ final class Plugin {
 		add_filter( 'cron_schedules', [ Scheduler::class, 'add_schedules' ] );
 		add_action( 'aivis_os_sync', [ $this->synchronizer(), 'run' ] );
 		add_action( 'aivis_os_gc', [ $this->gc(), 'run' ] );
-		add_action( 'aivis_os_verify', [ $this->verifier(), 'run' ] );
+		add_action( 'aivis_os_verify', [ $this->verifier(), 'daily' ] );
+		add_action( 'aivis_os_scan_conflicts', [ $this->verifier(), 'scan_conflicts' ] );
+		add_action( 'aivis_connector_sync_completed', [ $this->notifier(), 'sync_completed' ] );
 		// On-demand miss lookups (opt-in, §05): scheduled by the injector, run here.
 		add_action( 'aivis_os_lookup', [ $this->synchronizer(), 'refresh_url' ] );
 
@@ -146,7 +156,11 @@ final class Plugin {
 	}
 
 	public function verifier(): Verifier {
-		return $this->services['verifier'] ??= new Verifier( $this->repository(), $this->options() );
+		return $this->services['verifier'] ??= new Verifier( $this->repository(), $this->options(), $this->notifier() );
+	}
+
+	public function notifier(): Notifier {
+		return $this->services['notifier'] ??= new Notifier( $this->options(), $this->client(), $this->repository(), $this->cache() );
 	}
 
 	public function updater(): GitHubReleases {

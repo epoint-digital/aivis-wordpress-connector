@@ -129,6 +129,48 @@ final class SettingsPage {
 					</table>
 				</div></div>
 
+				<div class="postbox" id="aivis-sources"><h2 class="hndle"><?php esc_html_e( 'Structured data sources', 'aivis-os' ); ?></h2><div class="inside">
+					<p class="description"><?php esc_html_e( 'AIVIS is the primary source of structured data on this site. Anything else that emits JSON-LD is flagged. Where a plugin exposes an off-switch, the connector can apply it for you — publishing continues either way.', 'aivis-os' ); ?></p>
+					<?php
+					$conf     = $o->conflicts();
+					$active   = $conf['plugins'] ?: \AivisOS\Delivery\Conflicts::active_plugins();
+					$found    = [];
+					foreach ( (array) $conf['items'] as $f ) {
+						foreach ( (array) ( $f['sources'] ?? [] ) as $s ) {
+							$found[ (string) $s ] = ( $found[ (string) $s ] ?? 0 ) + 1;
+						}
+					}
+					$rows = array_values( array_unique( array_merge( $active, array_keys( $found ) ) ) );
+					if ( ! $rows ) :
+					?>
+						<p><span class="aivis-chip aivis-chip--ok"><?php esc_html_e( 'No other emitter detected', 'aivis-os' ); ?></span>
+						<?php if ( $conf['scanned_at'] ) : ?><span class="description"> <?php echo esc_html( sprintf( /* translators: 1: pages, 2: time ago */ __( '%1$d pages scanned %2$s ago', 'aivis-os' ), $conf['pages_scanned'], human_time_diff( $conf['scanned_at'] ) ) ); ?></span><?php endif; ?></p>
+					<?php else : ?>
+					<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'Source', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Found on', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Suppress', 'aivis-os' ); ?></th></tr></thead><tbody>
+					<?php foreach ( $rows as $key ) : $sup = in_array( $key, $o->suppressed_sources(), true ); ?>
+						<tr>
+							<td><strong><?php echo esc_html( \AivisOS\Delivery\Conflicts::label( $key ) ); ?></strong>
+								<?php if ( in_array( $key, $active, true ) ) : ?><span class="description"> · <?php esc_html_e( 'plugin active', 'aivis-os' ); ?></span><?php endif; ?></td>
+							<td><?php echo isset( $found[ $key ] ) ? '<span class="aivis-chip aivis-chip--bad">' . esc_html( sprintf( /* translators: %d: pages */ _n( '%d page', '%d pages', $found[ $key ], 'aivis-os' ), $found[ $key ] ) ) . '</span>' : '<span class="description">' . esc_html__( 'not seen in the last scan', 'aivis-os' ) . '</span>'; ?></td>
+							<td><?php if ( \AivisOS\Delivery\Conflicts::suppressible( $key ) ) : ?>
+								<label><input type="checkbox" name="suppress[]" value="<?php echo esc_attr( $key ); ?>" <?php checked( $sup ); ?>> <?php esc_html_e( 'Switch its structured data off (uses the plugin’s own filter)', 'aivis-os' ); ?></label>
+							<?php else : ?>
+								<span class="description"><?php echo esc_html( \AivisOS\Delivery\Conflicts::guidance( $key ) ); ?></span>
+							<?php endif; ?></td>
+						</tr>
+					<?php endforeach; ?>
+					</tbody></table>
+					<?php endif; ?>
+					<p style="margin-top:10px"><?php echo Menu::action_form( 'scan_conflicts', __( 'Scan pages now', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+					<table class="form-table" role="presentation">
+						<tr><th scope="row"><?php esc_html_e( 'Notifications', 'aivis-os' ); ?></th><td>
+							<label class="check"><input type="checkbox" name="notify_email" value="1" <?php checked( $o->notify_email() ); ?>> <?php echo esc_html( sprintf( /* translators: %s: admin email */ __( 'Email %s when the set of conflicts changes', 'aivis-os' ), (string) get_option( 'admin_email' ) ) ); ?></label><br>
+							<label class="check"><input type="checkbox" name="report_to_aivis" value="1" <?php checked( $o->report_to_aivis() ); ?>> <?php esc_html_e( 'Report connector status to AIVIS after each complete sync and when conflicts change', 'aivis-os' ); ?></label>
+							<p class="description"><?php esc_html_e( 'The report carries the plugin version, this site’s host, sync counts, cache state and the conflicts found. Nothing about visitors, crawlers or users — ever.', 'aivis-os' ); ?></p>
+						</td></tr>
+					</table>
+				</div></div>
+
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Page cache', 'aivis-os' ); ?></h2><div class="inside">
 					<table class="form-table" role="presentation">
 						<tr><th scope="row"><label for="aivis_cache"><?php esc_html_e( 'Cache plugin', 'aivis-os' ); ?></label></th><td>
@@ -170,6 +212,9 @@ final class SettingsPage {
 		}
 		$o->set_injection_enabled( ! empty( $post['injection'] ) );
 		$o->set_on_demand_enabled( ! empty( $post['on_demand'] ) );
+		$o->set_suppressed_sources( array_map( 'strval', (array) ( $post['suppress'] ?? [] ) ) );
+		$o->set_notify_email( ! empty( $post['notify_email'] ) );
+		$o->set_report_to_aivis( ! empty( $post['report_to_aivis'] ) );
 		$interval = (int) ( $post['interval'] ?? 900 );
 		if ( $interval !== $o->sync_interval() ) {
 			$o->set_sync_interval( $interval );

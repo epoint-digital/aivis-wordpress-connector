@@ -58,12 +58,37 @@ final class Client {
 		return 200 === $this->me()->status;
 	}
 
+	/**
+	 * API-9 (proposed) — connector status report. Until the platform ships
+	 * the endpoint this returns 404 and the Notifier backs off for a day.
+	 *
+	 * @param array<string,mixed> $report
+	 */
+	public function report_status( string $business_id, array $report ): Response {
+		return $this->post( '/businesses/' . rawurlencode( $business_id ) . '/connector-status', $report );
+	}
+
 	/* ── transport ───────────────────────────────────────────────────── */
+
+	/**
+	 * @param array<string,mixed> $json
+	 */
+	public function post( string $path, array $json ): Response {
+		return $this->request( 'POST', $path, [], $json );
+	}
 
 	/**
 	 * @param array<string,string|int> $query
 	 */
 	public function get( string $path, array $query = [] ): Response {
+		return $this->request( 'GET', $path, $query, null );
+	}
+
+	/**
+	 * @param array<string,string|int> $query
+	 * @param array<string,mixed>|null $json
+	 */
+	private function request( string $method, string $path, array $query, ?array $json ): Response {
 		$token = $this->options->token();
 		if ( '' === $token ) {
 			return new Response( 401, [ 'error' => [ 'message' => 'Missing bearer token' ] ] );
@@ -80,20 +105,24 @@ final class Client {
 			return new Response( 0, null, 'host mismatch' );
 		}
 
-		$res = wp_safe_remote_get(
-			$url,
-			[
-				'timeout'             => self::TIMEOUT,
-				'redirection'         => 0,
-				'sslverify'           => true,
-				'limit_response_size' => self::MAX_BYTES,
-				'user-agent'          => 'aivis-os/' . AIVIS_OS_VERSION . ' (WordPress/' . get_bloginfo( 'version' ) . '; +https://github.com/epoint-digital/aivis-wordpress-connector)',
-				'headers'             => [
-					'Authorization' => 'Bearer ' . $token,
-					'Accept'        => 'application/json',
-				],
-			]
-		);
+		$args = [
+			'timeout'             => self::TIMEOUT,
+			'redirection'         => 0,
+			'sslverify'           => true,
+			'limit_response_size' => self::MAX_BYTES,
+			'user-agent'          => 'aivis-os/' . AIVIS_OS_VERSION . ' (WordPress/' . get_bloginfo( 'version' ) . '; +https://github.com/epoint-digital/aivis-wordpress-connector)',
+			'headers'             => [
+				'Authorization' => 'Bearer ' . $token,
+				'Accept'        => 'application/json',
+			],
+		];
+		if ( 'POST' === $method ) {
+			$args['headers']['Content-Type'] = 'application/json';
+			$args['body']                    = wp_json_encode( $json ?? [] );
+			$res                             = wp_safe_remote_post( $url, $args );
+		} else {
+			$res = wp_safe_remote_get( $url, $args );
+		}
 
 		if ( is_wp_error( $res ) ) {
 			// Redact defensively: WP_Error messages can echo request details.

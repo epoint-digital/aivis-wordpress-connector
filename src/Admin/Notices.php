@@ -36,6 +36,9 @@ final class Notices {
 				'synced'         => __( 'Sync run finished.', 'aivis-os' ),
 				'saved'          => __( 'Settings saved.', 'aivis-os' ),
 				'disconnected'   => __( 'Disconnected. Local structured data removed and caches purged.', 'aivis-os' ),
+				'overridden'     => __( 'Override recorded. The warning stays silent until the set of conflicts changes.', 'aivis-os' ),
+				'scan_clean'     => __( 'Scan finished — no other structured data found on the sampled pages.', 'aivis-os' ),
+				'scan_conflicts' => __( 'Scan finished — other structured data found. See the warning below.', 'aivis-os' ),
 				default          => '',
 			};
 			if ( '' !== $text ) {
@@ -43,6 +46,8 @@ final class Notices {
 				echo '<div class="notice notice-' . esc_attr( $kind ) . ' is-dismissible"><p>' . esc_html( $text ) . '</p></div>';
 			}
 		}
+
+		$this->conflict_notice( $o );
 
 		if ( 'none' === $o->token_source() ) {
 			$this->notice( 'warning', __( '<strong>AIVIS OS is not connected yet.</strong> Add an API token under Settings to start delivering structured data. Nothing is injected until a business is bound.', 'aivis-os' ) );
@@ -82,6 +87,53 @@ final class Notices {
 		}
 		if ( ( $state['last_authoritative'] ?? null ) === false ) {
 			$this->notice( 'info', __( 'The last sync did not complete fully, so nothing was retired. It will retry on the next tick.', 'aivis-os' ) );
+		}
+	}
+
+	/** §09a — AIVIS is the primary source. Red, with a way out and a way through. */
+	private function conflict_notice( \AivisOS\Storage\Options $o ): void {
+		$c = $o->conflicts();
+		if ( ! empty( $c['items'] ) && $o->conflicts_unacknowledged() ) {
+			$labels = [];
+			foreach ( $c['items'] as $f ) {
+				foreach ( (array) ( $f['sources'] ?? [] ) as $s ) {
+					$labels[ (string) $s ] = \AivisOS\Delivery\Conflicts::label( (string) $s );
+				}
+			}
+			$suppressible = array_filter( array_keys( $labels ), [ \AivisOS\Delivery\Conflicts::class, 'suppressible' ] );
+			echo '<div class="notice notice-error"><p>';
+			echo wp_kses_post( sprintf(
+				/* translators: 1: pages with conflicts, 2: pages scanned, 3: comma-separated sources */
+				__( '<strong>Other structured data found on %1$d of %2$d scanned pages</strong> — from %3$s. AIVIS should be the only source of JSON-LD on this site: two <code>Organization</code> or <code>WebSite</code> nodes on one page give search engines conflicting answers.', 'aivis-os' ),
+				count( $c['items'] ),
+				(int) $c['pages_scanned'],
+				esc_html( implode( ', ', $labels ) )
+			) );
+			echo '</p><p>';
+			if ( $suppressible ) {
+				echo wp_kses_post( __( 'The connector can switch the other plugin’s structured data off for you under <strong>Settings → Structured data sources</strong>. Publishing continues either way.', 'aivis-os' ) );
+			} else {
+				echo wp_kses_post( __( 'Disable the structured-data output in the other plugin or theme. Publishing continues either way.', 'aivis-os' ) );
+			}
+			echo '</p><p>';
+			echo Menu::action_form( 'acknowledge_conflicts', __( 'Override — I know, keep publishing', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo ' ';
+			echo Menu::action_form( 'scan_conflicts', __( 'Scan again', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo ' <a class="button" href="' . esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_SETTINGS . '#aivis-sources' ) ) . '">' . esc_html__( 'Structured data sources', 'aivis-os' ) . '</a>';
+			echo '</p></div>';
+			return;
+		}
+		$plugins = $c['plugins'] ?: \AivisOS\Delivery\Conflicts::active_plugins();
+		$unsuppressed = array_diff( $plugins, $o->suppressed_sources() );
+		if ( $unsuppressed && 0 === (int) $c['scanned_at'] ) {
+			$names = array_map( [ \AivisOS\Delivery\Conflicts::class, 'label' ], $unsuppressed );
+			echo '<div class="notice notice-warning"><p>';
+			echo wp_kses_post( sprintf(
+				/* translators: %s: plugin names */
+				__( '<strong>%s is active</strong> and usually emits its own JSON-LD. AIVIS should be the only source — run a scan to see what these pages actually carry.', 'aivis-os' ),
+				esc_html( implode( ', ', $names ) )
+			) );
+			echo '</p><p>' . Menu::action_form( 'scan_conflicts', __( 'Scan for other structured data', 'aivis-os' ), [], 'button' ) . '</p></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		}
 	}
 

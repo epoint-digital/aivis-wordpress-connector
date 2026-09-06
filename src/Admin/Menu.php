@@ -109,6 +109,14 @@ final class Menu {
 				$this->plugin->options()->clear_diagnostics();
 				$msg = 'cleared';
 				break;
+			case 'acknowledge_conflicts':
+				$this->plugin->options()->acknowledge_conflicts();
+				$msg = 'overridden';
+				break;
+			case 'scan_conflicts':
+				$r   = $this->plugin->verifier()->scan_conflicts();
+				$msg = $r['conflicts'] > 0 ? 'scan_conflicts' : 'scan_clean';
+				break;
 		}
 		wp_safe_redirect( add_query_arg( 'aivis_msg', $msg, $back ) );
 		exit;
