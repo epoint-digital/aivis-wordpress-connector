@@ -10,8 +10,30 @@ never fetched on a public request.
 
 ## Status
 
-Pre-implementation. The specification is verified against the live API and the merged platform
-implementation; code lands per the milestones in the spec.
+**Built, not yet piloted.** The plugin, its admin screens, WP-CLI, update
+channel, release tooling and documentation are complete against the verified
+API contract. What remains is [#18](https://github.com/epoint-digital/aivis-wordpress-connector/issues/18):
+a pilot on an AIVIS-controlled site with a real page cache, the failure drills
+in the runbook, and the `v1.0.0` tag. Work is tracked as GitHub issues and
+milestones M1–M6.
+
+```
+aivis-os.php            bootstrap · Update URI · activation
+src/
+  Api/        Client, Response                  transport rules, status classification
+  Security/   Envelope, Serializer, Binding     zero-trust pipeline (ZT-01…06)
+  Sync/       Synchronizer, Decision, Lock, Scheduler, Gc, Verifier
+  Delivery/   Gates, UrlResolver, Injector      the only code on a public request
+  Cache/      CacheAdapter, PurgeResult, Adapters/…
+  Storage/    Schema, Options, Repository
+  Admin/      Menu, SettingsPage, StatusPage, Notices, SiteHealth
+  Cli/        wp aivis …
+  Update/     GitHubReleases
+  reference/  JS reference for the decision rules and serializer (fuzzed)
+tests/        JS unit + serializer fuzz + API contract (mock validated against OpenAPI)
+tests/php/    PHPUnit
+docs/         SPECIFICATION · API-REQUIREMENTS · INSTALL · RUNBOOK · KNOWN-ISSUES
+```
 
 ## Documentation
 
@@ -26,15 +48,21 @@ implementation; code lands per the milestones in the spec.
 ## Tests
 
 ```bash
-npm test
+npm test               # JS: 65 unit + serializer fuzz + 34 contract (offline)
+./scripts/phpunit.sh   # PHPUnit (Docker if no local PHP)
+./scripts/lint.sh      # php -l on every file (Docker if no local PHP)
 ```
 
-92 tests in two layers — 65 unit tests over the decision rules and 27 contract
-tests against a built-in mock of the AIVIS Public API. No network, no
-credentials, no install step. CI runs both on Node 20, 22 and 24.
+The contract suite validates every mock response against AIVIS's own vendored
+OpenAPI document, so a mis-shaped mock cannot pass. CI runs the JS suites on
+Node 20/22/24, PHPUnit on PHP 8.1/8.3/8.5, and a version-consistency check;
+a scheduled job diffs the vendored OpenAPI against the live one. See
+[tests/README.md](tests/README.md).
 
-See [tests/README.md](tests/README.md) for the live-API mode and the OpenAPI
-drift check.
+## Install
+
+Fifteen minutes: [docs/INSTALL.md](docs/INSTALL.md). Drills for when things go
+wrong: [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ## Distribution restriction (v1)
 
