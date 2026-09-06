@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<ruleset name="AIVIS OS">
+  <description>WordPress coding standards for the AIVIS OS plugin.</description>
+  <file>aivis-os.php</file>
+  <file>uninstall.php</file>
+  <file>src</file>
+  <exclude-pattern>src/reference/*</exclude-pattern>
+  <arg name="extensions" value="php"/>
+  <arg name="colors"/>
+  <arg value="sp"/>
+  <config name="minimum_supported_wp_version" value="6.5"/>
+  <config name="testVersion" value="8.1-"/>
+  <rule ref="WordPress">
+    <exclude name="WordPress.Files.FileName"/>
+    <exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+    <exclude name="Generic.Arrays.DisallowShortArraySyntax"/>
+    <exclude name="WordPress.PHP.YodaConditions"/>
+  </rule>
+  <rule ref="WordPress.WP.I18n">
+    <properties><property name="text_domain" type="array" value="aivis-os"/></properties>
+  </rule>
+  <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+    <properties><property name="prefixes" type="array" value="aivis_os,AivisOS,AIVIS_OS"/></properties>
+  </rule>
+</ruleset>
