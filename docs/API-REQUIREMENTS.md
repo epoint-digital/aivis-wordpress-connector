@@ -31,6 +31,7 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | **API-8** | Server-side URL normalization | Low, and contested — see the note |
 | **API-9** | Fetch the connector's publishing status (site-served, key-gated) | Medium — AIVIS-side fetcher; the connector pushes nothing |
 | **API-10** | `languageCode` on the chain resource | Medium — makes chain → language assignment exact instead of sampled |
+| **API-11** | Versioning and compatibility policy | **High** — nothing else in this list can ship safely without it |
 
 ---
 
@@ -367,6 +368,57 @@ site.
 
 ---
 
+## API-11 — Versioning and compatibility policy
+
+**Priority: high.** Every other item in this document changes the API; this one says how such
+changes reach a plugin installed on sites nobody redeploys.
+
+### Current behaviour
+
+The API is path-versioned (`/api/public/v1`) and the OpenAPI document says `info.version: 1.0.0`.
+Nothing else exists: no written compatibility policy, no deprecation signalling, no changelog, no
+way for the API to tell a client it is too old. And the published document declares
+`additionalProperties: false` on **every** object — so even an additive field, which API-1 and
+API-10 assume is harmless, technically breaks the contract as written.
+
+### Why it matters
+
+The connector pins v1 in the path, tolerates fields it does not know, and is strict on the eight
+envelope fields (ZT-02). If a response stops validating, it holds last-known-good and records
+`AIVIS_SCHEMA_INVALID` — pages stay correct, but the failure is silent toward AIVIS and visible only
+in the plugin's diagnostics. Its only early warning is a nightly CI job comparing the live
+`openapi.json` with the vendored copy. There is no runtime version negotiation at all. A plugin
+version on a customer site can stay in service for years; the API must be able to say, in-band,
+"this client is too old" before something breaks, and "this endpoint is going away" before it goes.
+
+### Proposed contract
+
+1. **Additive within `/v1`.** New endpoints, new optional or nullable fields, new query parameters.
+   Breaking changes — removed or retyped fields, changed semantics, changed matching rules — go to
+   `/v2`, with v1 kept running in parallel for a stated period (six months is the usual floor).
+2. **Say what "compatible" means for strict validators.** State that consumers must tolerate unknown
+   fields, and either drop `additionalProperties: false` from the published schema or accept that
+   validators alarm on additive changes. Either is fine; undefined is not.
+3. **Enums.** Decide whether new values for `state`, `layer` and `captureStatus` count as breaking.
+   The connector tolerates unknown values at runtime; its contract suite does not. Declaring them
+   open (a documented "other values may appear") settles it.
+4. **Deprecation signalling.** `Deprecation` and `Sunset` response headers (RFC 9745 / RFC 8594) on
+   endpoints and versions being retired, with a `Link rel="deprecation"` to the notice.
+5. **A visible version.** Bump `info.version` on every change, publish a changelog next to the
+   OpenAPI document, and echo the version in a response header (`X-Aivis-Api-Version`).
+6. **Minimum client.** AIVIS already sees `aivis-os/1.0.0 (WordPress/7.1; …)` in the user agent.
+   A response header naming the minimum supported connector version (`X-Aivis-Min-Client: 1.3.0`)
+   — and, once a version is actually unsupported, `426 Upgrade Required` with the API-3 code
+   `client_too_old` — lets the plugin show "update required" in Site Health before the break.
+
+### What the connector does in the meantime
+
+Path-pinned v1; unknown fields ignored; strict on required fields; last-known-good on validation
+failure; nightly drift job. A runtime check that reads the version and minimum-client headers and
+surfaces them in Site Health is planned on the connector side and lands the day the headers exist.
+
+---
+
 ## What the connector does in the meantime
 
 - **API-10:** samples the first five inventory rows of each chain for a language hint (cached
@@ -386,3 +438,4 @@ For the record, so the platform team can see what is being worked around rather 
 | API-7 | Self-imposed 20 artifact requests per job |
 | API-8 | Outbound lookups send the site permalink unmodified; normalization is applied only to the plugin's local index key |
 | API-9 | The status document is already served (`/wp-json/aivis-os/v1/status`, key-gated). Until AIVIS fetches it, conflicts are flagged inside WordPress and emailed to the site admin |
+| API-11 | v1 pinned in the path; unknown fields tolerated; strict on required fields; last-known-good on validation failure; nightly OpenAPI drift job. No runtime version negotiation yet |

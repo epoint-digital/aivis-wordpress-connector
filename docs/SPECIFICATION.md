@@ -735,6 +735,19 @@ all equal it; `scripts/version-check.mjs` enforces this in CI and in the
 release job. Semver. The API contract version (v1.0.0) is tracked separately —
 the plugin at 1.2.0 may still speak API v1.
 
+**Four things are versioned, by two owners.** The Public API (`/api/public/v1`,
+AIVIS); the plugin (semver, us); the local schema (`aivis_os_schema_version`,
+forward-only within a major) and the status document AIVIS fetches
+(`schema: 1`, §11a) — both us; and artifacts, which have no revision concept on
+the AIVIS side and are reconciled by content hash. **What the connector assumes
+about the API:** v1 is pinned in the path; fields it does not know are ignored;
+the eight envelope fields are strict (ZT-02); a response that stops validating
+holds last-known-good (`AIVIS_SCHEMA_INVALID`); the nightly drift job against
+the live `openapi.json` is the only early warning. There is no runtime version
+negotiation yet — API-11 asks AIVIS for a compatibility policy, deprecation
+headers and a minimum-client signal; the connector-side check that reads them
+and surfaces "update required" in Site Health follows the day they exist.
+
 **Updates.** WordPress only auto-updates plugins from wordpress.org, so the
 plugin declares `Update URI: https://github.com/epoint-digital/aivis-wordpress-connector`.
 That header does two things:

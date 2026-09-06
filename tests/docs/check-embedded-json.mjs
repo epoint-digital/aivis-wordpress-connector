@@ -17,7 +17,7 @@ for (const [, kind, raw] of blocks) {
 
 if (data) {
   const ids = (data.requirements || []).map(r => r.id);
-  const expected = ['API-1','API-2','API-3','API-4','API-5','API-6','API-7','API-8','API-9','API-10'];
+  const expected = ['API-1','API-2','API-3','API-4','API-5','API-6','API-7','API-8','API-9','API-10','API-11'];
   for (const id of expected) {
     if (!ids.includes(id)) problems.push(`requirements data is missing ${id}`);
     if (!new RegExp(`id="${id}"[^>]*data-requirement="${id}"`).test(html)) problems.push(`${id} has no matching section with id and data-requirement`);

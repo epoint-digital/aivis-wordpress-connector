@@ -548,6 +548,41 @@
     </div>
   </div>
 
+  <div class="req" id="API-11" data-requirement="API-11" data-priority="high">
+    <div class="rail"><div class="rid">API-11</div><span class="chip high">High</span></div>
+    <div class="body">
+      <h3>Versioning and compatibility policy</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>Path-versioned (<code>/api/public/v1</code>), <code>info.version: 1.0.0</code> — and
+        nothing else: no written compatibility policy, no deprecation signalling, no changelog, no way to tell a client it is too
+        old. The published document declares <code>additionalProperties: false</code> on every object, so even the additive
+        fields API-1 and API-10 assume are harmless break the contract as written.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">Every other item here changes the API; this one says how a change reaches a
+        plugin installed on sites nobody redeploys. Today the connector pins v1, tolerates unknown fields, holds last-known-good
+        when a response stops validating, and learns of drift from a nightly CI job. That fails safe for the customer's pages and
+        silently for AIVIS. There is no runtime version negotiation at all.</dd></div>
+        <div><dt>Proposed contract</dt><dd>
+          <strong>1.</strong> Additive within <code>/v1</code>; breaking changes go to <code>/v2</code> with v1 kept running in parallel for a stated period.
+          <strong>2.</strong> Say what "compatible" means for strict validators: consumers must tolerate unknown fields, and either drop
+          <code>additionalProperties: false</code> or accept that validators alarm on additive changes.
+          <strong>3.</strong> Decide whether new enum values (<code>state</code>, <code>layer</code>, <code>captureStatus</code>) are breaking, or declare the enums open.
+          <strong>4.</strong> <code>Deprecation</code> and <code>Sunset</code> headers (RFC 9745 / 8594) on retiring endpoints and versions.
+          <strong>5.</strong> Bump <code>info.version</code> on every change, publish a changelog, echo it as <code>X-Aivis-Api-Version</code>.
+          <strong>6.</strong> Minimum client: AIVIS sees <code>aivis-os/1.0.0</code> in the user agent — answer with
+          <code>X-Aivis-Min-Client</code>, and <code>426 Upgrade Required</code> (code <code>client_too_old</code>) once a version is unsupported.
+<pre>HTTP/1.1 200 OK
+X-Aivis-Api-Version: 1.2.0
+X-Aivis-Min-Client: 1.1.0
+Deprecation: @1767225600          ← only on retiring endpoints
+Sunset: Wed, 01 Jul 2026 00:00:00 GMT
+Link: &lt;https://app.aivis-os.com/api/public/changelog#v1-jsonld&gt;; rel="deprecation"</pre></dd></div>
+        <div><dt>Unlocks</dt><dd>Every other change on this page shipping without breaking an installed site; "update required" in
+        Site Health before the break instead of a silent hold after it; a connector that can tell the platform team exactly
+        which client versions are still out there.</dd></div>
+      </dl>
+    </div>
+  </div>
+
   <div class="req" id="API-8" data-requirement="API-8" data-priority="filed">
     <div class="rail"><div class="rid">API-8</div><span class="chip filed">Filed, not requested</span></div>
     <div class="body">
@@ -627,7 +662,7 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
   "@type": "TechArticle",
   "name": "AIVIS Public API Requirements",
   "headline": "What the WordPress connector needs from the Public API",
-  "abstract": "Ten requirements the AIVIS WordPress Connector places on the AIVIS Public API v1.0.0, with the call patterns that motivate them. API-1 (business-scoped tokens) is the only hard blocker.",
+  "abstract": "Eleven requirements the AIVIS WordPress Connector places on the AIVIS Public API v1.0.0, with the call patterns that motivate them. API-1 (business-scoped tokens) is the only hard blocker.",
   "datePublished": "2026-09-05",
   "dateModified": "2026-09-06",
   "inLanguage": "en",
@@ -645,7 +680,8 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
     { "@type": "WebPageElement", "identifier": "API-7", "name": "Documented rate limits" },
     { "@type": "WebPageElement", "identifier": "API-8", "name": "Host-level URL equivalence" },
     { "@type": "WebPageElement", "identifier": "API-9", "name": "Fetch the connector's publishing status" },
-    { "@type": "WebPageElement", "identifier": "API-10", "name": "Language on the chain resource" }
+    { "@type": "WebPageElement", "identifier": "API-10", "name": "Language on the chain resource" },
+    { "@type": "WebPageElement", "identifier": "API-11", "name": "Versioning and compatibility policy" }
   ]
 }
 </script>
@@ -715,6 +751,11 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
       "unlocks": ["exact chain-to-language assignment in the connector", "authoritative language-mismatch warnings", "one request per site instead of one per chain"],
       "answered": "AIVIS collects URLs by following links or by manual entry; no host/subdomain concept; no correlation between the URLs of different languages.",
       "blocking": false, "interim": "Five inventory rows sampled per chain as a hint (cached 15 min); automatic assignment only when unambiguous; disagreements reported, never acted on." },
+    { "id": "API-11", "title": "Versioning and compatibility policy", "priority": "high",
+      "currentBehaviour": "Path-versioned /v1 with info.version 1.0.0 and nothing else: no compatibility policy, no deprecation signalling, no changelog, no minimum-client signal. additionalProperties:false on every object makes additive changes break the published contract.",
+      "proposedContract": "Additive within /v1, breaking changes under /v2 with parallel v1; declare that consumers must tolerate unknown fields (relax additionalProperties or accept validator alarms); decide whether new enum values are breaking; Deprecation + Sunset headers on retiring endpoints; bump info.version per change with a changelog and an X-Aivis-Api-Version header; X-Aivis-Min-Client header and 426 client_too_old once a client version is unsupported.",
+      "unlocks": ["every other change shipping without breaking installed sites", "update-required warning in Site Health before a break", "knowing which client versions are still in service"],
+      "blocking": false, "interim": "v1 pinned in the path; unknown fields tolerated; strict on required fields; last-known-good on validation failure; nightly OpenAPI drift job; no runtime version negotiation yet." },
     { "id": "API-8", "title": "Host-level URL equivalence", "priority": "filed",
       "currentBehaviour": "Matching is exact plus a trailing-slash variant, deliberately.",
       "position": "We agree with the current behaviour. Filed for the record, not requested as a change.",
