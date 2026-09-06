@@ -1,0 +1,56 @@
+name: Release
+
+# Tag `vX.Y.Z` on main -> verify the version is consistent -> build the
+# reproducible ZIP -> attach ZIP + SHA-256SUMS to a GitHub Release.
+# The updater (src/Update/GitHubReleases.php) serves exactly that asset.
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '8.3', tools: none }
+
+      - name: Version is consistent with the tag
+        run: node scripts/version-check.mjs "${GITHUB_REF_NAME}"
+
+      - name: PHP syntax
+        run: ./scripts/lint.sh
+
+      - name: Tests
+        run: npm test
+
+      - name: Build reproducible ZIP
+        run: ./scripts/build-zip.sh dist
+
+      - name: Build it again and prove it is byte-identical
+        run: |
+          ./scripts/build-zip.sh dist2
+          cmp dist/aivis-os.zip dist2/aivis-os.zip && echo "reproducible: identical bytes"
+
+      - name: Release notes from CHANGELOG
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '
+            $0 ~ "^## \\[?v?"v { on=1; next }
+            on && /^## / { exit }
+            on { print }' CHANGELOG.md > dist/NOTES.md
+          test -s dist/NOTES.md || echo "Release ${GITHUB_REF_NAME}" > dist/NOTES.md
+
+      - name: Publish GitHub Release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "AIVIS OS ${GITHUB_REF_NAME}" \
+            --notes-file dist/NOTES.md \
+            dist/aivis-os.zip dist/SHA-256SUMS

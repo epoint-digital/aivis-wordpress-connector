@@ -1,0 +1,25 @@
+# Excluded from the release ZIP. Everything else ships.
+.git
+.github
+.gitignore
+.distignore
+.editorconfig
+node_modules
+vendor
+tests
+src/reference
+docs
+scripts
+build
+dist
+package.json
+package-lock.json
+composer.json
+composer.lock
+phpcs.xml.dist
+phpunit.xml.dist
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+*.zip
+.DS_Store
