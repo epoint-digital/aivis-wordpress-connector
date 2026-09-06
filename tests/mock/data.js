@@ -10,7 +10,7 @@ export const SITE = 'https://example.com';
 
 export const businesses = [
   { id: 'biz_live',  name: 'Example GmbH',            baseUrl: 'https://example.com',
-    industry: { key: 'general', name: 'General' }, chainCount: 2, createdAt: '2026-03-01T10:00:00.000Z' },
+    industry: { key: 'general', name: 'General' }, chainCount: 3, createdAt: '2026-03-01T10:00:00.000Z' },
   // Same domain, different business — a rebuild. This is why businessId
   // equality is checked on every artifact (SPECIFICATION §07).
   { id: 'biz_rebuild', name: 'Example GmbH (rebuild)', baseUrl: 'https://example.com',
@@ -25,6 +25,10 @@ export const chains = {
       currentStep: 9, knowledgeGraphReady: true, graphScore: 0.82, urlCount: 4, createdAt: '2026-03-02T10:00:00.000Z' },
     { id: 'chain_edit', name: 'Editorial',       description: 'Blog', state: 're_ingesting',
       currentStep: 9, knowledgeGraphReady: true, graphScore: 0.71, urlCount: 2, createdAt: '2026-05-02T10:00:00.000Z' },
+    // One chain per language (SPECIFICATION §07a): the English site lives in
+    // its own chain, under /en/ on the same domain.
+    { id: 'chain_en',   name: 'English site',    description: null, state: 'ready',
+      currentStep: 9, knowledgeGraphReady: true, graphScore: 0.77, urlCount: 2, createdAt: '2026-06-01T10:00:00.000Z' },
   ],
   biz_rebuild: [
     { id: 'chain_rebuild', name: 'Rebuild', description: null, state: 'building',
@@ -59,6 +63,14 @@ export const urls = [
   { id: 'u_retract', businessId: 'biz_live', chainId: 'chain_core', url: 'https://example.com/altes-angebot/',
     languageCode: 'de', layer: 'editorial', captureStatus: 'processed',
     artifact: { generatedAt: '2026-08-15T10:00:00.000Z', staleAt: null, jsonLd: { '@context': 'https://schema.org', '@type': 'Offer', name: 'Altes Angebot' } } },
+
+  // The English chain: same domain, /en/ prefix, languageCode en.
+  { id: 'u_en_home', businessId: 'biz_live', chainId: 'chain_en', url: 'https://example.com/en/',
+    languageCode: 'en', layer: 'structural_core', captureStatus: 'processed',
+    artifact: { generatedAt: '2026-09-03T10:00:00.000Z', staleAt: null, jsonLd: { '@context': 'https://schema.org', '@type': 'Organization', name: 'Example Ltd' } } },
+  { id: 'u_en_services', businessId: 'biz_live', chainId: 'chain_en', url: 'https://example.com/en/services/',
+    languageCode: 'en', layer: 'structural_core', captureStatus: 'processed',
+    artifact: { generatedAt: '2026-09-03T10:00:00.000Z', staleAt: null, jsonLd: { '@context': 'https://schema.org', '@type': 'Service', name: 'Services (en)' } } },
 
   // Cross-business collision: same path, different business. The client guard
   // must reject this if it is ever returned for the selected business.

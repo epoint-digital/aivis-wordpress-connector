@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace AivisOS\Admin;
 
 use AivisOS\Cache\PurgeResult;
+use AivisOS\Delivery\Language;
 use AivisOS\Plugin;
 use AivisOS\Sync\Scheduler;
 
@@ -34,6 +35,12 @@ final class StatusPage {
 		$verify   = (array) ( $state['verify'] ?? [] );
 		$conf     = $o->conflicts();
 		$conflict_by_url = (array) $conf['items'];
+		$map      = $o->chain_languages();
+		$langs    = Language::site_languages();
+		$summary  = $this->plugin->assignment()->summary( null );
+		$by_chain = $this->plugin->repository()->counts_by_chain();
+		$mismatch = (array) ( $state['language_mismatch'] ?? [] );
+		$unassigned_chains = array_values( array_filter( array_keys( $chains ), static fn( string $id ): bool => ! isset( $map[ $id ] ) ) );
 		?>
 		<div class="wrap aivis-os">
 			<h1>AIVIS OS</h1>
@@ -50,6 +57,16 @@ final class StatusPage {
 					<div class="inside"><dl class="aivis-kv">
 						<dt><?php esc_html_e( 'Business', 'aivis-os' ); ?></dt><dd><?php echo '' !== $biz['business_name'] ? esc_html( $biz['business_name'] ) : '<span class="description">' . esc_html__( 'not bound', 'aivis-os' ) . '</span>'; ?></dd>
 						<dt><?php esc_html_e( 'Domain', 'aivis-os' ); ?></dt><dd><code><?php echo esc_html( $o->site_host() ); ?></code> <?php esc_html_e( 'matched to', 'aivis-os' ); ?> <code><?php echo esc_html( (string) wp_parse_url( $biz['base_url'], PHP_URL_HOST ) ?: '—' ); ?></code></dd>
+						<dt><?php esc_html_e( 'Languages', 'aivis-os' ); ?></dt><dd><?php
+							$parts = [];
+							foreach ( $summary['languages'] as $l ) {
+								$parts[] = $l['chains']
+									? esc_html( $l['name'] ) . ' → ' . esc_html( implode( ', ', array_map( static fn( string $id ) => (string) ( $chains[ $id ]['name'] ?? $id ), $l['chains'] ) ) )
+									: '<span class="aivis-chip aivis-chip--bad">' . esc_html( sprintf( /* translators: %s: language */ __( '%s — no chain', 'aivis-os' ), $l['name'] ) ) . '</span>';
+							}
+							echo implode( ' · ', $parts ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+							echo ' <span class="description">(' . esc_html( Language::provider_label( Language::provider() ) ) . ')</span>';
+						?></dd>
 						<dt><?php esc_html_e( 'Token', 'aivis-os' ); ?></dt><dd><?php echo 'constant' === $o->token_source() ? esc_html__( 'From wp-config.php', 'aivis-os' ) : ( 'option' === $o->token_source() ? esc_html__( 'From the database', 'aivis-os' ) : esc_html__( 'None', 'aivis-os' ) ); ?> · <code><?php echo esc_html( $o->token_display() ); ?></code></dd>
 						<dt><?php esc_html_e( 'Last complete sync', 'aivis-os' ); ?></dt><dd><?php echo $last ? esc_html( human_time_diff( $last ) . ' ' . __( 'ago', 'aivis-os' ) ) : '—'; ?> <?php if ( false === $auth ) : ?><span class="description">(<?php esc_html_e( 'incomplete — nothing retired', 'aivis-os' ); ?>)</span><?php endif; ?></dd>
 						<dt><?php esc_html_e( 'Next sync', 'aivis-os' ); ?></dt><dd><?php echo $next ? esc_html( sprintf( /* translators: %s: time */ __( 'in %s', 'aivis-os' ), human_time_diff( $next ) ) ) : esc_html__( 'manual only', 'aivis-os' ); ?></dd>
@@ -80,11 +97,39 @@ final class StatusPage {
 				</div>
 			</div>
 
+			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Languages', 'aivis-os' ); ?> <span class="description" style="font-weight:400"><?php esc_html_e( 'one chain per language', 'aivis-os' ); ?></span></h2>
+				<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'Language', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Chains', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Injected', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Holding', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Suspended', 'aivis-os' ); ?></th></tr></thead><tbody>
+				<?php foreach ( $summary['languages'] as $l ) :
+					$tot = [ 'active' => 0, 'hold' => 0, 'suspended' => 0 ];
+					foreach ( $l['chains'] as $id ) {
+						foreach ( $tot as $k => $v ) {
+							$tot[ $k ] += (int) ( $by_chain[ $id ][ $k ] ?? 0 );
+						}
+					}
+					?>
+					<tr><td><strong><?php echo esc_html( $l['name'] ); ?></strong> <code><?php echo esc_html( $l['code'] ); ?></code><?php if ( $l['default'] ) : ?> <span class="description"><?php esc_html_e( 'default', 'aivis-os' ); ?></span><?php endif; ?></td>
+					<td><?php echo $l['chains'] ? esc_html( implode( ', ', array_map( static fn( string $id ) => (string) ( $chains[ $id ]['name'] ?? $id ), $l['chains'] ) ) ) : '<span class="aivis-chip aivis-chip--bad">' . esc_html__( 'no chain — nothing is injected on these pages', 'aivis-os' ) . '</span>'; ?></td>
+					<td><?php echo (int) $tot['active']; ?></td><td><?php echo (int) $tot['hold']; ?></td><td><?php echo (int) $tot['suspended']; ?></td></tr>
+				<?php endforeach; ?>
+				</tbody></table>
+				<?php if ( $unassigned_chains ) : ?><p class="description" style="padding:8px 12px"><?php echo esc_html( sprintf( /* translators: %s: chain names */ _n( 'Not synced — no language assigned: %s', 'Not synced — no language assigned: %s', count( $unassigned_chains ), 'aivis-os' ), implode( ', ', array_map( static fn( string $id ) => (string) ( $chains[ $id ]['name'] ?? $id ), $unassigned_chains ) ) ) ); ?> — <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_SETTINGS . '#aivis-languages' ) ); ?>"><?php esc_html_e( 'assign under Settings', 'aivis-os' ); ?></a></p><?php endif; ?>
+			</div>
+
 			<?php if ( $chains ) : ?>
 			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Pipelines', 'aivis-os' ); ?></h2>
-				<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Pipeline state', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Knowledge graph', 'aivis-os' ); ?></th><th><?php esc_html_e( 'URLs', 'aivis-os' ); ?></th></tr></thead><tbody>
-				<?php foreach ( $chains as $c ) : ?>
+				<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Language', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Pipeline state', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Knowledge graph', 'aivis-os' ); ?></th><th><?php esc_html_e( 'URLs', 'aivis-os' ); ?></th></tr></thead><tbody>
+				<?php foreach ( $chains as $id => $c ) : ?>
 					<tr><td><strong><?php echo esc_html( (string) $c['name'] ); ?></strong></td>
+					<td><?php
+						if ( isset( $map[ $id ] ) ) {
+							echo esc_html( ( $langs[ $map[ $id ] ]['name'] ?? $map[ $id ] ) ) . ' <code>' . esc_html( $map[ $id ] ) . '</code>';
+							if ( isset( $mismatch[ $id ] ) ) {
+								echo ' <span class="aivis-chip aivis-chip--bad">' . esc_html( sprintf( /* translators: 1: count, 2: code */ __( 'AIVIS reports %1$d pages as %2$s', 'aivis-os' ), (int) $mismatch[ $id ]['count'], (string) $mismatch[ $id ]['aivis'] ) ) . '</span>';
+							}
+						} else {
+							echo '<span class="aivis-chip aivis-chip--warn">' . esc_html__( 'not assigned — not synced', 'aivis-os' ) . '</span>';
+						}
+					?></td>
 					<td><?php echo 'ready' === $c['state'] ? '<span class="aivis-chip aivis-chip--ok">' . esc_html__( 'Ready', 'aivis-os' ) . '</span>' : '<span class="aivis-chip aivis-chip--info">' . esc_html( ucfirst( str_replace( '_', ' ', (string) $c['state'] ) ) ) . '</span>'; ?> <span class="description"><?php echo esc_html( sprintf( /* translators: %d: step */ __( 'step %d of 9', 'aivis-os' ), (int) $c['step'] ) ); ?></span></td>
 					<td><?php echo $c['kg'] ? esc_html__( 'Built', 'aivis-os' ) : '<span class="description">' . esc_html__( 'Not built', 'aivis-os' ) . '</span>'; ?></td>
 					<td><?php echo (int) $c['urlCount']; ?></td></tr>
@@ -98,8 +143,8 @@ final class StatusPage {
 					<?php echo $this->purge_chip( (string) ( $purge['state'] ?? '' ), $adapter->id() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					<?php echo Menu::action_form( 'sync_run', __( 'Sync now', 'aivis-os' ), [], 'button button-small' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				</span></h2>
-				<table class="widefat striped aivis-pages"><thead><tr><th style="width:44%"><?php esc_html_e( 'Page', 'aivis-os' ); ?></th><th><?php esc_html_e( 'State', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Generated', 'aivis-os' ); ?></th></tr></thead><tbody>
-				<?php if ( ! $rows ) : ?><tr><td colspan="4" class="description"><?php esc_html_e( 'Nothing synced yet.', 'aivis-os' ); ?></td></tr><?php endif; ?>
+				<table class="widefat striped aivis-pages"><thead><tr><th style="width:40%"><?php esc_html_e( 'Page', 'aivis-os' ); ?></th><th><?php esc_html_e( 'State', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Language', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Generated', 'aivis-os' ); ?></th></tr></thead><tbody>
+				<?php if ( ! $rows ) : ?><tr><td colspan="5" class="description"><?php esc_html_e( 'Nothing synced yet.', 'aivis-os' ); ?></td></tr><?php endif; ?>
 				<?php foreach ( $rows as $r ) : $st = $this->state_of( $r ); ?>
 					<tr><td>
 						<div class="aivis-url"><?php echo esc_html( (string) wp_parse_url( (string) $r['source_url'], PHP_URL_PATH ) ?: '/' ); ?></div>
@@ -114,6 +159,7 @@ final class StatusPage {
 							<div style="margin-top:4px"><span class="aivis-chip aivis-chip--bad"><?php echo esc_html( sprintf( /* translators: 1: sources, 2: types */ __( 'Conflict: %1$s (%2$s)', 'aivis-os' ), implode( ', ', array_map( [ \AivisOS\Delivery\Conflicts::class, 'label' ], (array) $cf['sources'] ) ), implode( ', ', array_slice( (array) $cf['types'], 0, 4 ) ) ) ); ?></span></div>
 						<?php endif; ?></td>
 					<td><code><?php echo esc_html( (string) ( $chains[ $r['chain_id'] ]['name'] ?? $r['chain_id'] ) ); ?></code></td>
+					<td><code><?php echo esc_html( (string) ( $r['language_code'] ?: '—' ) ); ?></code><?php if ( isset( $map[ $r['chain_id'] ] ) && '' !== (string) $r['language_code'] && ! Language::same( (string) $r['language_code'], $map[ $r['chain_id'] ] ) ) : ?> <span class="aivis-chip aivis-chip--warn" title="<?php esc_attr_e( 'AIVIS reports a different language than the chain is assigned to', 'aivis-os' ); ?>">≠ <?php echo esc_html( $map[ $r['chain_id'] ] ); ?></span><?php endif; ?></td>
 					<td class="description"><?php echo $r['source_generated_at'] ? esc_html( (string) $r['source_generated_at'] ) : '—'; ?></td></tr>
 				<?php endforeach; ?>
 				</tbody></table>
@@ -180,6 +226,7 @@ final class StatusPage {
 			'AIVIS_AUTH_401'      => __( 'Serving last known good — token rejected', 'aivis-os' ),
 			'AIVIS_SCHEMA_INVALID' => __( 'Last response failed validation — previous artifact kept', 'aivis-os' ),
 			'AIVIS_ADMIN_DISABLED' => __( 'Disabled on this site by an administrator', 'aivis-os' ),
+			'AIVIS_LANGUAGE_UNASSIGNED' => __( 'Its chain is not assigned to a language — not synced, not injected', 'aivis-os' ),
 			default               => $code,
 		};
 	}

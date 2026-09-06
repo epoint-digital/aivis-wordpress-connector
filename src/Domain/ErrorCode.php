@@ -23,4 +23,8 @@ final class ErrorCode {
 	public const PURGE_UNSUPPORTED = 'AIVIS_PURGE_UNSUPPORTED';
 	public const PURGE_FAILED      = 'AIVIS_PURGE_FAILED';
 	public const LOCKED            = 'AIVIS_LOCKED';
+	/** §07a: a site language has no chain, or a chain is not assigned to any language. */
+	public const LANGUAGE_UNASSIGNED = 'AIVIS_LANGUAGE_UNASSIGNED';
+	/** §07a: AIVIS's languageCode for a chain's pages disagrees with the assignment. */
+	public const LANGUAGE_MISMATCH   = 'AIVIS_LANGUAGE_MISMATCH';
 }

@@ -141,8 +141,14 @@ final class Plugin {
 			$this->client(),
 			$this->repository(),
 			$this->options(),
-			$this->cache()
+			$this->cache(),
+			$this->assignment()
 		);
+	}
+
+	/** §07a — chain → language assignment, catalogue and hints. */
+	public function assignment(): \AivisOS\Sync\ChainAssignment {
+		return $this->services['assignment'] ??= new \AivisOS\Sync\ChainAssignment( $this->client(), $this->options() );
 	}
 
 	public function injector(): Injector {

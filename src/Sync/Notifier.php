@@ -84,6 +84,12 @@ final class Notifier {
 				'adapter'   => $this->cache->adapter()->id(),
 				'lastPurge' => $state['last_purge']['state'] ?? null,
 			],
+			// §07a — which chain serves which WordPress language. Configuration, not people.
+			'languages'  => [
+				'provider' => \AivisOS\Delivery\Language::provider(),
+				'site'     => array_keys( \AivisOS\Delivery\Language::site_languages() ),
+				'chains'   => (object) $this->options->chain_languages(),
+			],
 			'conflicts'  => [
 				'fingerprint'  => (string) ( $conflicts['fingerprint'] ?? '' ),
 				'acknowledged' => ! empty( $conflicts['fingerprint'] ) && ( $conflicts['acknowledged'] ?? null ) === $conflicts['fingerprint'],

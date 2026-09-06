@@ -98,6 +98,11 @@ final class Commands {
 			'last_authoritative' => isset( $state['last_authoritative'] ) ? ( $state['last_authoritative'] ? 'yes' : 'no' ) : '-',
 			'cache_adapter'      => $this->plugin->cache()->adapter()->id(),
 			'last_purge'         => $state['last_purge']['state'] ?? '-',
+			'language_provider'  => \AivisOS\Delivery\Language::provider(),
+			'languages'          => implode( ', ', array_map(
+				static fn( array $l ): string => $l['code'] . ':' . count( $l['chains'] ),
+				$this->plugin->assignment()->summary( null )['languages']
+			) ),
 		] + $counts;
 		if ( ( $assoc['format'] ?? 'table' ) === 'json' ) {
 			\WP_CLI::line( (string) wp_json_encode( $data + [ 'recent' => array_slice( $o->diagnostics(), -10 ) ], JSON_PRETTY_PRINT ) );
@@ -110,6 +115,80 @@ final class Commands {
 		\WP_CLI\Utils\format_items( 'table', $rows, [ 'key', 'value' ] );
 		foreach ( array_slice( $o->diagnostics(), -5 ) as $d ) {
 			\WP_CLI::log( sprintf( '%s  %s  %s %s', gmdate( 'H:i', (int) $d['t'] ), $d['code'], $d['message'], $d['url'] ) );
+		}
+	}
+
+	/**
+	 * Languages on this site and the chains that serve them (one chain per language).
+	 *
+	 * ## OPTIONS
+	 * [<action>]
+	 * : list (default) | assign | auto
+	 *
+	 * [<chain>]
+	 * : For assign: the chain id.
+	 *
+	 * [<language>]
+	 * : For assign: a language code this site has, or "none" to unassign.
+	 *
+	 * ## EXAMPLES
+	 *     wp aivis languages
+	 *     wp aivis languages assign chain_core de
+	 *     wp aivis languages assign chain_edit none
+	 *     wp aivis languages auto
+	 */
+	public function languages( array $args, array $assoc ): void {
+		$o     = $this->plugin->options();
+		$a     = $this->plugin->assignment();
+		$langs = \AivisOS\Delivery\Language::site_languages();
+		$act   = (string) ( $args[0] ?? 'list' );
+
+		if ( 'assign' === $act ) {
+			$chain = (string) ( $args[1] ?? '' );
+			$code  = \AivisOS\Delivery\Language::normalize( (string) ( $args[2] ?? '' ) );
+			if ( '' === $chain || '' === $code ) {
+				\WP_CLI::error( 'Usage: wp aivis languages assign <chain> <language|none>' );
+			}
+			if ( 'none' !== $code && ! isset( $langs[ $code ] ) ) {
+				\WP_CLI::error( sprintf( 'Unknown language "%s". This site has: %s', $code, implode( ', ', array_keys( $langs ) ) ) );
+			}
+			$map = $o->chain_languages();
+			if ( 'none' === $code ) {
+				unset( $map[ $chain ] );
+			} else {
+				$map[ $chain ] = $code;
+			}
+			( new \AivisOS\Admin\SettingsPage( $this->plugin ) )->save_chain_languages( $map );
+			\WP_CLI::success( 'none' === $code ? "Chain {$chain} unassigned; its pages stop being served now." : "Chain {$chain} serves {$code}. Sync requested." );
+			return;
+		}
+		if ( 'auto' === $act ) {
+			$r = $a->auto_assign();
+			if ( ! $r['catalog_ok'] ) {
+				\WP_CLI::error( 'AIVIS could not be reached.' );
+			}
+			\WP_CLI::log( sprintf( 'assigned: %s; left to you: %s', $r['assigned'] ? implode( ', ', $r['assigned'] ) : '-', $r['unresolved'] ? implode( ', ', $r['unresolved'] ) : '-' ) );
+		}
+
+		\WP_CLI::log( sprintf( 'Languages (%s): %s', \AivisOS\Delivery\Language::provider_label( \AivisOS\Delivery\Language::provider() ), implode( ', ', array_map( static fn( array $l ): string => $l['name'] . ' [' . $l['code'] . ']' . ( $l['default'] ? '*' : '' ), $langs ) ) ) );
+		$catalog = $a->catalog();
+		$map     = $o->chain_languages();
+		$counts  = $this->plugin->repository()->counts_by_chain();
+		$rows    = [];
+		foreach ( $catalog ?? array_map( static fn( string $id ): array => [ 'id' => $id, 'name' => $id, 'state' => '?', 'urlCount' => 0 ], array_keys( $map ) ) as $c ) {
+			$h      = null === $catalog ? [ 'language' => null, 'mixed' => false ] : $a->hint( $c['id'] );
+			$rows[] = [
+				'chain'    => $c['id'],
+				'name'     => $c['name'],
+				'state'    => $c['state'],
+				'serves'   => $map[ $c['id'] ] ?? '(not assigned — not synced)',
+				'aivis'    => $h['mixed'] ? 'mixed' : ( $h['language'] ?? '-' ),
+				'injected' => (string) ( $counts[ $c['id'] ]['active'] ?? 0 ),
+			];
+		}
+		\WP_CLI\Utils\format_items( 'table', $rows, [ 'chain', 'name', 'state', 'serves', 'aivis', 'injected' ] );
+		foreach ( $a->summary( $catalog )['missing'] as $code ) {
+			\WP_CLI::warning( sprintf( '%s has no chain — nothing is injected on its pages.', $langs[ $code ]['name'] ) );
 		}
 	}
 

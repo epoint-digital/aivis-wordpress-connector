@@ -9,6 +9,8 @@ declare( strict_types=1 );
 
 namespace AivisOS\Admin;
 
+use AivisOS\Delivery\Language;
+use AivisOS\Domain\ErrorCode;
 use AivisOS\Plugin;
 use AivisOS\Sync\Scheduler;
 
@@ -96,6 +98,10 @@ final class SettingsPage {
 							<p class="description"><?php esc_html_e( 'Structured data is rejected unless the page it names is on one of these hosts (this site’s own host is always included). The check is what stops another business’s data appearing on this site.', 'aivis-os' ); ?></p>
 						</td></tr>
 					</table>
+				</div></div>
+
+				<div class="postbox" id="aivis-languages"><h2 class="hndle"><?php esc_html_e( 'Languages & chains', 'aivis-os' ); ?></h2><div class="inside">
+					<?php $this->languages_box( $biz ); ?>
 				</div></div>
 
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Delivery', 'aivis-os' ); ?></h2><div class="inside">
@@ -239,7 +245,138 @@ final class SettingsPage {
 			$cur = $o->business();
 			$o->set_business( $cur['business_id'], $cur['business_name'], $cur['base_url'], $hosts );
 		}
+		if ( isset( $post['chain_lang'] ) && is_array( $post['chain_lang'] ) ) {
+			$this->save_chain_languages( (array) $post['chain_lang'] );
+		}
 		return 'saved';
+	}
+
+	/**
+	 * §07a — persist the chain → language assignment. Only chains of the bound
+	 * business and only languages this site has; a chain that loses its language
+	 * stops serving now (rows deactivated, caches purged) rather than on the
+	 * next sync.
+	 *
+	 * @param array<mixed,mixed> $posted chain_id => language code ('' = unassigned)
+	 */
+	public function save_chain_languages( array $posted ): void {
+		$o       = $this->plugin->options();
+		$catalog = $this->plugin->assignment()->catalog();
+		$ids     = null === $catalog ? null : array_map( static fn( array $c ): string => $c['id'], $catalog );
+		$langs   = Language::site_languages();
+		$map     = [];
+		foreach ( $posted as $chain => $code ) {
+			$chain = sanitize_text_field( (string) $chain );
+			$code  = Language::normalize( sanitize_text_field( (string) $code ) );
+			if ( '' === $chain || '' === $code || ! isset( $langs[ $code ] ) ) {
+				continue;
+			}
+			if ( null !== $ids && ! in_array( $chain, $ids, true ) ) {
+				continue;
+			}
+			$map[ $chain ] = $code;
+		}
+		if ( $map === $o->chain_languages() ) {
+			return;
+		}
+		$o->set_chain_languages( $map );
+		$urls = $this->plugin->repository()->deactivate_chains_not_in( array_keys( $map ), ErrorCode::LANGUAGE_UNASSIGNED );
+		if ( $urls ) {
+			$this->plugin->synchronizer()->purge( $urls );
+		}
+		Scheduler::request_sync_now();
+	}
+
+	/** @param array<string,mixed> $biz */
+	private function languages_box( array $biz ): void {
+		$o        = $this->plugin->options();
+		$provider = Language::provider();
+		$langs    = Language::site_languages();
+		$names    = array_map( static fn( array $l ): string => $l['name'] . ' (' . $l['code'] . ')' . ( $l['default'] ? ' · ' . __( 'default', 'aivis-os' ) : '' ), $langs );
+		?>
+		<p><?php echo wp_kses_post( sprintf(
+			/* translators: 1: comma-separated languages, 2: provider name */
+			_n( 'This site publishes in <strong>%1$s</strong> — %2$s.', 'This site publishes in <strong>%1$s</strong> — managed by %2$s.', count( $langs ), 'aivis-os' ),
+			esc_html( implode( ', ', $names ) ),
+			esc_html( Language::provider_label( $provider ) )
+		) ); ?></p>
+		<p class="description"><?php esc_html_e( 'Each chain is one language in AIVIS — intents and forensic prompts are bound per language. Assign every chain to the WordPress language its pages are in. A language without a chain receives no structured data; a chain without a language is not synced. Language subdomains (de.example.com) are fine; a separate domain per language needs its own AIVIS business and its own WordPress site.', 'aivis-os' ); ?></p>
+		<?php
+		if ( '' === $biz['business_id'] ) {
+			echo '<p class="description">' . esc_html__( 'Bind a business first — the chains come from AIVIS.', 'aivis-os' ) . '</p>';
+			return;
+		}
+		$assignment = $this->plugin->assignment();
+		$catalog    = $assignment->catalog();
+		if ( null === $catalog ) {
+			echo '<div class="notice notice-warning inline" style="margin:0"><p>' . esc_html__( 'AIVIS could not be reached, so the chain list is unavailable right now. Existing assignments are unchanged.', 'aivis-os' ) . '</p></div>';
+			return;
+		}
+		if ( ! $catalog ) {
+			echo '<p>' . esc_html__( 'This business has no chains yet. Create one in AIVIS for each language of this site.', 'aivis-os' ) . '</p>';
+			return;
+		}
+		$map      = $o->chain_languages();
+		$counts   = $this->plugin->repository()->counts_by_chain();
+		$mismatch = (array) ( $o->sync_state()['language_mismatch'] ?? [] );
+		?>
+		<table class="widefat striped"><thead><tr>
+			<th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th>
+			<th><?php esc_html_e( 'AIVIS reports', 'aivis-os' ); ?></th>
+			<th><?php esc_html_e( 'Serves WordPress language', 'aivis-os' ); ?></th>
+			<th><?php esc_html_e( 'Pages', 'aivis-os' ); ?></th>
+		</tr></thead><tbody>
+		<?php foreach ( $catalog as $c ) :
+			$hint    = $assignment->hint( $c['id'] );
+			$current = $map[ $c['id'] ] ?? '';
+			$suggest = '';
+			if ( '' === $current && null !== $hint['language'] && ! $hint['mixed'] ) {
+				foreach ( $langs as $code => $l ) {
+					if ( Language::same( $hint['language'], $code ) ) {
+						$suggest = $code;
+						break;
+					}
+				}
+			}
+			$cnt = $counts[ $c['id'] ] ?? [ 'active' => 0, 'hold' => 0, 'suspended' => 0, 'inactive' => 0, 'total' => 0 ];
+			?>
+			<tr>
+				<td><strong><?php echo esc_html( $c['name'] ); ?></strong><br><span class="description"><code><?php echo esc_html( $c['id'] ); ?></code> · <?php echo esc_html( sprintf( /* translators: 1: state, 2: url count */ __( '%1$s · %2$d URLs', 'aivis-os' ), ucfirst( str_replace( '_', ' ', $c['state'] ) ), $c['urlCount'] ) ); ?></span></td>
+				<td><?php
+					if ( null === $hint['language'] ) {
+						echo '<span class="description">' . esc_html__( 'no pages yet', 'aivis-os' ) . '</span>';
+					} elseif ( $hint['mixed'] ) {
+						echo '<span class="aivis-chip aivis-chip--warn">' . esc_html( sprintf( /* translators: %s: language code */ __( 'mixed (%s and more)', 'aivis-os' ), $hint['language'] ) ) . '</span>';
+					} else {
+						echo '<code>' . esc_html( $hint['language'] ) . '</code>';
+					}
+					if ( isset( $mismatch[ $c['id'] ] ) ) {
+						echo ' <span class="aivis-chip aivis-chip--bad">' . esc_html( sprintf( /* translators: 1: count, 2: code */ __( '%1$d pages reported as %2$s', 'aivis-os' ), (int) $mismatch[ $c['id'] ]['count'], (string) $mismatch[ $c['id'] ]['aivis'] ) ) . '</span>';
+					}
+				?></td>
+				<td>
+					<select name="chain_lang[<?php echo esc_attr( $c['id'] ); ?>]">
+						<option value=""><?php esc_html_e( '— not assigned (not synced) —', 'aivis-os' ); ?></option>
+						<?php foreach ( $langs as $code => $l ) : ?>
+							<option value="<?php echo esc_attr( $code ); ?>" <?php selected( '' !== $current ? $current : $suggest, $code ); ?>><?php echo esc_html( $l['name'] . ' (' . $code . ')' ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<?php if ( '' === $current && '' !== $suggest ) : ?><br><span class="description"><?php esc_html_e( 'suggested from what AIVIS reports — save to confirm', 'aivis-os' ); ?></span><?php endif; ?>
+				</td>
+				<td><?php echo esc_html( sprintf( /* translators: 1: active, 2: holding */ __( '%1$d injected · %2$d holding', 'aivis-os' ), $cnt['active'], $cnt['hold'] ) ); ?></td>
+			</tr>
+		<?php endforeach; ?>
+		</tbody></table>
+		<p style="margin-top:10px">
+		<?php foreach ( $assignment->summary( $catalog )['languages'] as $l ) :
+			if ( $l['chains'] ) : ?>
+				<span class="aivis-chip aivis-chip--ok"><?php echo esc_html( sprintf( /* translators: 1: language, 2: chain count */ _n( '%1$s — %2$d chain', '%1$s — %2$d chains', count( $l['chains'] ), 'aivis-os' ), $l['name'], count( $l['chains'] ) ) ); ?></span>
+			<?php else : ?>
+				<span class="aivis-chip aivis-chip--bad"><?php echo esc_html( sprintf( /* translators: %s: language */ __( '%s — no chain: nothing is injected on these pages', 'aivis-os' ), $l['name'] ) ); ?></span>
+			<?php endif;
+		endforeach; ?>
+		</p>
+		<?php
 	}
 
 	/** @return list<array<string,mixed>> cached briefly; this is admin-only. */

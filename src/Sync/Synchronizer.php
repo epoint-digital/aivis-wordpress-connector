@@ -17,6 +17,7 @@ namespace AivisOS\Sync;
 use AivisOS\Api\Client;
 use AivisOS\Api\Response;
 use AivisOS\Cache\AdapterFactory;
+use AivisOS\Delivery\Language;
 use AivisOS\Domain\Action;
 use AivisOS\Domain\ErrorCode;
 use AivisOS\Domain\UrlKey;
@@ -39,13 +40,17 @@ final class Synchronizer {
 	private bool $api_reachable = false;
 	/** @var list<string> */
 	private array $purge = [];
+	private readonly ChainAssignment $assignment;
 
 	public function __construct(
 		private readonly Client $client,
 		private readonly Repository $repository,
 		private readonly Options $options,
-		private readonly AdapterFactory $cache
-	) {}
+		private readonly AdapterFactory $cache,
+		?ChainAssignment $assignment = null
+	) {
+		$this->assignment = $assignment ?? new ChainAssignment( $client, $options );
+	}
 
 	/**
 	 * One tick. Returns a summary for CLI/admin.
@@ -72,6 +77,20 @@ final class Synchronizer {
 			return $summary + [ 'skipped' => 'domain mismatch' ];
 		}
 
+		// §07a — only chains assigned to a WordPress language sync. Assign
+		// automatically where there is nothing to decide (one language, or a
+		// chain whose language AIVIS reports matches exactly one); otherwise
+		// the admin must, and nothing runs until then.
+		if ( ! $this->options->assigned_chain_ids() ) {
+			$auto = $this->assignment->auto_assign();
+			if ( ! $auto['map'] ) {
+				if ( $auto['catalog_ok'] ) {
+					$this->options->record( ErrorCode::LANGUAGE_UNASSIGNED, 'no chain is assigned to a language yet — assign chains under Settings → Languages & chains' );
+				}
+				return $summary + [ 'skipped' => 'no chain assigned to a language' ];
+			}
+		}
+
 		$lock = new Lock( $this->options );
 		if ( ! $lock->acquire( 'sync' ) ) {
 			return $summary + [ 'skipped' => 'locked' ];
@@ -89,6 +108,7 @@ final class Synchronizer {
 					'cursor'      => null,
 					'inventory'   => [],     // url_key => compact row
 					'totals'      => [],     // chain_id => [seen, total]
+					'mismatch'    => [],     // chain_id => AIVIS languageCode vs assignment (§07a)
 					'phase'       => 'inventory',
 					'started_at'  => time(),
 				];
@@ -107,10 +127,21 @@ final class Synchronizer {
 					];
 				}
 			}
+			if ( 'aborted' === $state['phase'] ) {
+				// Token rejected, account problem, or no assigned chain exists (§07a):
+				// nothing to fetch, nothing to retire, and not a "partial" run either.
+				$this->options->patch_sync_state( [ 'in_progress' => '', 'inventory' => [], 'chains' => null, 'pending' => [] ] );
+				do_action( 'aivis_connector_sync_failed', 'AIVIS_SYNC_ABORTED' );
+				return $summary + [ 'skipped' => 'aborted', 'sync_id' => $sync_id ];
+			}
 
 			$authoritative = $this->reconciles( $state );
 			$fetched       = $this->fetch_artifacts( $state, $biz, $sync_id );
 			$this->options->patch_sync_state( $state );
+
+			if ( empty( $state['pending'] ) ) {
+				$this->note_language_mismatch( (array) ( $state['mismatch'] ?? [] ) );
+			}
 
 			$retired = 0;
 			if ( $authoritative && empty( $state['pending'] ) ) {
@@ -166,12 +197,40 @@ final class Synchronizer {
 		if ( '' === $biz['business_id'] ) {
 			return [ 'ok' => false, 'error' => 'no business bound' ];
 		}
+		if ( ! $this->options->assigned_chain_ids() ) {
+			return [ 'ok' => false, 'error' => 'no chain assigned to a language' ];
+		}
 		$sync_id = 'manual-' . wp_generate_uuid4();
 		$r       = $this->client->jsonld_by_url( $absolute_url );
 		$this->api_reachable = $this->api_reachable || 200 === $r->status;
-		$out = $this->apply_lookup( $absolute_url, $r, $biz, $sync_id, null );
+		[ $chains, $context ] = $this->chains_for_url( $absolute_url );
+		$out = $this->apply_lookup( $absolute_url, $r, $biz, $sync_id, $chains, $context );
 		$this->flush_purges();
 		return $out;
+	}
+
+	/** Purge a set of URLs now (used when an assignment change deactivates rows). */
+	public function purge( array $urls ): void {
+		foreach ( $urls as $u ) {
+			$this->purge[] = (string) $u;
+		}
+		$this->flush_purges();
+	}
+
+	/**
+	 * §07a — which chains may serve this URL: the ones assigned to the page's
+	 * language. Falls back to every assigned chain only when the site has a
+	 * single language (then they are the same set) or nothing narrower exists.
+	 *
+	 * @return array{0:list<string>,1:string}
+	 */
+	private function chains_for_url( string $url ): array {
+		$lang   = Language::of_url( $url );
+		$chains = $this->options->chains_for_language( $lang );
+		if ( ! $chains ) {
+			return [ $this->options->assigned_chain_ids(), "language {$lang} (no chain assigned; any assigned chain)" ];
+		}
+		return [ $chains, "language {$lang}" ];
 	}
 
 	/* ── phase 1: inventory ──────────────────────────────────────────── */
@@ -179,9 +238,23 @@ final class Synchronizer {
 	/** @param array<string,mixed> $state */
 	private function walk_inventory( array $state, string $business_id ): array {
 		if ( null === $state['chains'] ) {
-			$chains = $this->list_all_chains( $business_id );
-			if ( null === $chains ) {
+			$all = $this->list_all_chains( $business_id );
+			if ( null === $all ) {
 				return $state; // transport problem; try again next tick
+			}
+			// §07a: an assignment to a chain that no longer exists is dropped; the
+			// walk covers assigned chains only, so unassigned ones never sync.
+			$map   = $this->options->chain_languages();
+			$stale = array_diff( array_keys( $map ), $all );
+			if ( $stale ) {
+				$this->options->set_chain_languages( array_diff_key( $map, array_flip( $stale ) ) );
+				$this->options->record( ErrorCode::LANGUAGE_UNASSIGNED, 'chain(s) no longer exist in AIVIS, assignment dropped: ' . implode( ', ', $stale ) );
+			}
+			$chains = array_values( array_intersect( $all, $this->options->assigned_chain_ids() ) );
+			if ( ! $chains ) {
+				$this->options->record( ErrorCode::LANGUAGE_UNASSIGNED, 'none of this business\'s chains is assigned to a language; nothing synced' );
+				$state['phase'] = 'aborted';
+				return $state;
 			}
 			$state['chains']    = $chains;
 			$state['chain_pos'] = 0;
@@ -192,8 +265,9 @@ final class Synchronizer {
 			if ( $this->over_budget() ) {
 				return $state;
 			}
-			$chain_id = (string) $chains[ $state['chain_pos'] ];
-			$r        = $this->client->urls( $chain_id, $state['cursor'] );
+			$chain_id   = (string) $chains[ $state['chain_pos'] ];
+			$chain_lang = (string) ( $this->options->language_for_chain( $chain_id ) ?? '' );
+			$r          = $this->client->urls( $chain_id, $state['cursor'] );
 			if ( ! $r->ok() ) {
 				$this->note_failure( $r, "inventory {$chain_id}" );
 				if ( in_array( $r->kind(), [ 'auth', 'account' ], true ) ) {
@@ -214,6 +288,15 @@ final class Synchronizer {
 					$key = UrlKey::of( $url );
 				} catch ( \Throwable ) {
 					continue;
+				}
+				// AIVIS's own language for the row vs the admin's assignment: a
+				// disagreement is reported, not acted on — the assignment is the
+				// admin's decision, and the API-10 chain language would settle it.
+				$aivis_lang = Language::normalize( (string) ( $item['languageCode'] ?? '' ) );
+				if ( '' !== $aivis_lang && '' !== $chain_lang && ! Language::same( $aivis_lang, $chain_lang ) ) {
+					$m                              = (array) ( $state['mismatch'][ $chain_id ] ?? [ 'aivis' => $aivis_lang, 'assigned' => $chain_lang, 'count' => 0, 'url' => $url ] );
+					$m['count']                     = (int) $m['count'] + 1;
+					$state['mismatch'][ $chain_id ] = $m;
 				}
 				$compact = [
 					'url'           => $url,
@@ -337,12 +420,17 @@ final class Synchronizer {
 			if ( null === $row ) {
 				continue;
 			}
-			$r = $this->client->jsonld_by_url( (string) $row['url'] );
+			// Fetch by urlId: it pins the chain. /jsonld?url= would return the
+			// freshest artifact across every chain (and business) on the account,
+			// which with one chain per language can be another language's page.
+			$url_id = (string) ( $row['urlId'] ?? '' );
+			$r      = '' !== $url_id ? $this->client->jsonld_by_id( $url_id ) : $this->client->jsonld_by_url( (string) $row['url'] );
 			if ( 200 === $r->status ) {
 				$this->api_reachable = true;
 			}
-			// The chain list in state is the inventory context ZT-03 needs.
-			$this->apply_lookup( (string) $row['url'], $r, $biz, $sync_id, array_values( (array) ( $state['chains'] ?? [] ) ) );
+			// ZT-03 chain context: the chains assigned to this page's language.
+			[ $chains, $context ] = $this->chains_for_url( (string) $row['url'] );
+			$this->apply_lookup( (string) $row['url'], $r, $biz, $sync_id, $chains, $context );
 			$done++;
 			if ( 'throttled' === $r->kind() ) {
 				// Honour Retry-After by yielding; never sleep in-process.
@@ -365,7 +453,7 @@ final class Synchronizer {
 	 * @param list<string>|null   $known_chain_ids
 	 * @return array<string,mixed>
 	 */
-	private function apply_lookup( string $url, Response $r, array $biz, string $sync_id, ?array $known_chain_ids ): array {
+	private function apply_lookup( string $url, Response $r, array $biz, string $sync_id, ?array $known_chain_ids, ?string $chain_context = null ): array {
 		$key = UrlKey::of( $url );
 		// R-01 needs confirmed reachability in the same run. If this 404 is the
 		// first thing we heard from the API, ask /me once rather than assume.
@@ -385,7 +473,7 @@ final class Synchronizer {
 					}
 					return [ 'ok' => false, 'action' => 'hold', 'code' => ErrorCode::SCHEMA_INVALID ];
 				}
-				$b = Binding::check( $r->body, (string) $biz['business_id'], $this->options->allowed_hosts(), $known_chain_ids ?: null, $url );
+				$b = Binding::check( $r->body, (string) $biz['business_id'], $this->options->allowed_hosts(), $known_chain_ids ?: null, $url, $chain_context );
 				if ( ! $b['ok'] ) {
 					$this->options->record( ErrorCode::SCOPE_MISMATCH, implode( '; ', $b['errors'] ), $url );
 					return [ 'ok' => false, 'action' => 'reject', 'code' => ErrorCode::SCOPE_MISMATCH ];
@@ -477,11 +565,15 @@ final class Synchronizer {
 		}
 
 		// Rows the inventory did NOT see: two authoritative absences retire (R-02).
+		// A row whose chain is no longer assigned to a language is absent by the
+		// admin's decision, not AIVIS's — it retires under its own code (§07a).
+		$assigned = $this->options->assigned_chain_ids();
 		foreach ( $this->repository->unseen_in_sync( $business_id, $sync_id ) as $local ) {
 			$runs = $this->repository->increment_missing( (string) $local['url_key'] );
 			$d    = Decision::from_inventory( true, null, $runs - 1 );
 			if ( Action::RETIRE === $d['action'] ) {
-				$this->repository->retire( (string) $local['url_key'], ErrorCode::RETRACTED );
+				$code = in_array( (string) $local['chain_id'], $assigned, true ) ? ErrorCode::RETRACTED : ErrorCode::LANGUAGE_UNASSIGNED;
+				$this->repository->retire( (string) $local['url_key'], $code );
 				$this->purge[] = (string) $local['source_url'];
 				$retired++;
 			}
@@ -513,6 +605,23 @@ final class Synchronizer {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * §07a — persist the per-chain language disagreement for the Status screen
+	 * and Site Health, and record one diagnostic per chain per run.
+	 *
+	 * @param array<string,array{aivis:string,assigned:string,count:int,url:string}> $mismatch
+	 */
+	private function note_language_mismatch( array $mismatch ): void {
+		$this->options->patch_sync_state( [ 'language_mismatch' => $mismatch ] );
+		foreach ( $mismatch as $chain_id => $m ) {
+			$this->options->record(
+				ErrorCode::LANGUAGE_MISMATCH,
+				sprintf( 'chain %s is assigned to %s but AIVIS reports %d of its pages as %s', $chain_id, $m['assigned'], (int) $m['count'], $m['aivis'] ),
+				(string) $m['url']
+			);
+		}
 	}
 
 	private function flush_purges(): void {

@@ -173,6 +173,26 @@ await test('a missing url parameter is 400, not 404', async () => {
   const r = await api('/jsonld');
   assert(r.status === 400, `status ${r.status}`);
 });
+
+// §07a — one chain per language. /jsonld?url= picks the freshest artifact
+// across chains; /urls/{urlId}/jsonld pins the chain the inventory row came
+// from. The connector fetches inventory targets by id for exactly this reason.
+await test('fetching by urlId pins the chain that /jsonld?url= would not choose', async () => {
+  const byUrl = await api(q('https://example.com/services/'));
+  const byId = await api('/urls/u_services/jsonld');
+  eq(byId.status, 200);
+  eq(byId.body.chainId, 'chain_core', 'pinned chain');
+  eq(byUrl.body.chainId, 'chain_edit', 'winner by url');
+  eq(byId.body.urlId, 'u_services');
+  return 'same URL, two chains, two answers';
+}, FIXTURE);
+
+await test('a language chain carries its languageCode on every inventory row', async () => {
+  const rows = (await api('/chains/chain_en/urls')).body.items;
+  assert(rows.length > 0, 'english rows');
+  for (const row of rows) eq(row.languageCode, 'en', row.url);
+  return `${rows.length} rows, all en`;
+}, FIXTURE);
 await test('a relative url parameter is 400', async () => {
   const r = await api('/jsonld?url=' + encodeURIComponent('/services/'));
   assert(r.status === 400, `status ${r.status}`);

@@ -29,7 +29,9 @@ final class WPDBStub {
 	public function get_row( string $sql, mixed $out = null ): ?array { return $this->rows[0] ?? null; }
 	public function get_results( string $sql, mixed $out = null ): array { return $this->rows; }
 	public function get_var( string $sql ): ?string { return null; }
-	public function query( string $sql ): int|bool { return 0; }
+	public function get_col( string $sql ): array { $this->queries[] = $sql; return array_values( array_map( fn( $r ) => (string) reset( $r ), $this->rows ) ); }
+	public array $queries = [];
+	public function query( string $sql ): int|bool { $this->queries[] = $sql; return 0; }
 	public function update( string $t, array $d, array $w, mixed $f = null, mixed $wf = null ): int|false { return 1; }
 	public function insert( string $t, array $d, mixed $f = null ): int|false { return 1; }
 	public function get_charset_collate(): string { return ''; }
@@ -47,10 +49,19 @@ final class WPStub {
 	public static array $filters = [];
 	public static array $mail = [];
 	public static string $home = 'https://example.com';
+	public static string $locale = 'de_DE';
+	/** hook => value or Closure(value, ...args) — what apply_filters answers. */
+	public static array $filter_values = [];
+	/** url => post id, for url_to_postid(). */
+	public static array $post_ids = [];
 
 	public static function reset(): void {
-		self::$options = self::$transients = self::$site_transients = self::$http_queue = self::$http_log = self::$scheduled = self::$flags = self::$filters = self::$mail = [];
-		self::$home = 'https://example.com';
+		self::$options = self::$transients = self::$site_transients = self::$http_queue = self::$http_log = self::$scheduled = self::$flags = self::$filters = self::$mail = self::$filter_values = self::$post_ids = [];
+		self::$home   = 'https://example.com';
+		self::$locale = 'de_DE';
+		\AivisOS\Delivery\Language::$force_provider = null;
+		$GLOBALS['wpdb']->rows = [];
+		$GLOBALS['wpdb']->queries = [];
 	}
 	public static function queue( int $status, mixed $body, array $headers = [] ): void {
 		self::$http_queue[] = [
@@ -87,14 +98,20 @@ function add_query_arg( array $args, string $url ): string {
 	$q = array_merge( $q, $args );
 	return ( $p['scheme'] ?? 'https' ) . '://' . ( $p['host'] ?? '' ) . ( isset( $p['port'] ) ? ':' . $p['port'] : '' ) . ( $p['path'] ?? '' ) . ( $q ? '?' . http_build_query( $q, '', '&', PHP_QUERY_RFC3986 ) : '' );
 }
-function url_to_postid( string $url ): int { return 0; }
+function url_to_postid( string $url ): int { return WPStub::$post_ids[ $url ] ?? 0; }
+function get_locale(): string { return WPStub::$locale; }
+function determine_locale(): string { return WPStub::$locale; }
 function esc_url_raw( string $u ): string { return $u; }
 
 function wp_json_encode( mixed $v, int $flags = 0, int $depth = 512 ): string|false { return json_encode( $v, $flags, $depth ); }
 function current_time( string $type, bool $gmt = false ): string { return gmdate( 'Y-m-d H:i:s' ); }
 function wp_generate_uuid4(): string { return sprintf( '%08x-%04x-4%03x-%04x-%012x', mt_rand(), mt_rand( 0, 0xffff ), mt_rand( 0, 0xfff ), mt_rand( 0, 0xffff ), mt_rand() ); }
 function get_bloginfo( string $k ): string { return '7.1'; }
-function apply_filters( string $hook, mixed $v, mixed ...$args ): mixed { return $v; }
+function apply_filters( string $hook, mixed $v, mixed ...$args ): mixed {
+	if ( ! array_key_exists( $hook, WPStub::$filter_values ) ) { return $v; }
+	$f = WPStub::$filter_values[ $hook ];
+	return $f instanceof Closure ? $f( $v, ...$args ) : $f;
+}
 function do_action( string $hook, mixed ...$args ): void {}
 function add_action( string $h, mixed $cb, int $p = 10, int $a = 1 ): void {}
 function add_filter( string $h, mixed $cb, int $p = 10, int $a = 1 ): void { WPStub::$filters[] = [ $h, $cb, $p ]; }

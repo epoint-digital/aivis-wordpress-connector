@@ -30,6 +30,7 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | **API-7** | Documented rate limits + `Retry-After` | Low |
 | **API-8** | Server-side URL normalization | Low, and contested — see the note |
 | **API-9** | Connector status report (conflicts, sync health) | Medium — the only monitoring that respects WP-I9 |
+| **API-10** | `languageCode` on the chain resource | Medium — makes chain → language assignment exact instead of sampled |
 
 ---
 
@@ -301,7 +302,52 @@ against the mock.
 health), and the product conversation with a customer whose Yoast is fighting
 AIVIS for the same `Organization` node.
 
+## API-10 — Language on the chain resource
+
+### Current behaviour
+
+A chain is one language in AIVIS — intents and forensic prompts are bound per language — but the
+API exposes language only per **URL** row (`languageCode` on `/chains/{id}/urls` and on the
+artifact envelope). `GET /businesses/{id}/chains` items carry `id`, `name`, `description`,
+`state`, `currentStep`, `knowledgeGraphReady`, `graphScore`, `urlCount`, `createdAt` — no
+language.
+
+### Why it matters
+
+The WordPress connector assigns each chain to one WordPress language (SPECIFICATION §07a) and
+syncs only assigned chains. Without a chain-level language it must **sample inventory**
+(`/chains/{id}/urls?limit=5`, one request per chain) to suggest an assignment, cannot tell a
+genuinely mixed chain from a mislabelled one, and can only *report* a disagreement between the
+admin's assignment and what the rows say. With API-10:
+
+- automatic assignment becomes exact (chain language == site language) instead of a guess from
+  five rows;
+- Site Health can flag "chain X is `en` but assigned to Deutsch" authoritatively;
+- one request per site instead of one per chain on the Settings screen.
+
+### Proposed contract
+
+```json
+GET /api/public/v1/businesses/{id}/chains
+{ "items": [ { "id": "chain_de", "name": "Deutsch", "languageCode": "de", "…": "…" } ] }
+```
+
+`languageCode`: ISO 639-1, optionally with a region subtag (`pt-BR`). Additive — the connector
+ignores unknown fields today, so this ships without a version bump.
+
+### Also to confirm
+
+Whether one business (one `baseUrl`) may hold URLs on **language subdomains** (`de.example.com`).
+The connector allows them on its side; a separate domain per language needs a separate business
+and a separate site, which the connector documents as unsupported.
+
+---
+
 ## What the connector does in the meantime
+
+- **API-10:** samples the first five inventory rows of each chain for a language hint (cached
+  15 minutes), assigns automatically only when unambiguous, and reports — never acts on — a
+  disagreement between AIVIS's per-URL `languageCode` and the admin's assignment.
 
 For the record, so the platform team can see what is being worked around rather than waited on:
 

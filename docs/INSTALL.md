@@ -84,6 +84,28 @@ matches, the plugin refuses to bind: create the business for this domain in
 AIVIS, or correct its base URL there. Businesses on other domains are never
 offered.
 
+## 4a. Assign chains to languages
+
+AIVIS OS has no multilingual model: **each chain is one language** (intents
+and forensic prompts are bound per language). The connector therefore expects
+one chain per WordPress language, and syncs only chains that are assigned to
+one.
+
+On a **single-language site** with matching chains, this happens by itself on
+the first sync — nothing to do. Otherwise open AIVIS OS → **Settings →
+Languages & chains**: every chain of the business is listed with the language
+AIVIS reports for its pages; pick the WordPress language each chain serves and
+save. A language without a chain gets **no structured data**, and the plugin
+says so in red on Settings, on Status and in Site Health. From the command line:
+
+```bash
+wp aivis languages
+wp aivis languages assign chain_en en
+```
+
+See *Multilingual sites* below for what the plugin detects and what it does not
+support.
+
 ## 5. First sync
 
 AIVIS OS → **Status** → *Sync now*, or wait for the next cron tick, or:
@@ -138,6 +160,34 @@ your cache plugin and reports one of:
 The plugin never claims a page is live without confirmation. If you use a
 different cache, the purge is your responsibility, and Site Health will remind you.
 
+## Multilingual sites
+
+WordPress core knows one locale per site and has no multilingual content model
+(that is Gutenberg phase 4, 2027 or later), so languages come from a plugin.
+The connector reads them from whichever is active, in this order:
+
+| System | What the plugin reads | URL schemes it handles |
+|---|---|---|
+| **WPML** | active languages, the default, each language's home URL, the post's language | directory (`/de/`), subdomain (`de.example.com`), `?lang=` |
+| **Polylang** | the language list, the default, home URLs, the post's language | directory, subdomain, `?lang=` |
+| **TranslatePress** | published languages and URL slugs from its settings | directory |
+| **Weglot** | original and destination languages | directory |
+| **none** | the site locale — one language | — |
+
+Anything else can be wired in with the `aivis_connector_site_languages` and
+`aivis_connector_url_language` filters.
+
+What holds regardless of plugin:
+
+- **One chain per language, assigned by you** (step 4a). A chain may be assigned to one language;
+  a language may have several chains.
+- **Language subdomains are fine** — they are added to the allowed hosts automatically.
+- **A separate domain per language is not supported.** An AIVIS business has one domain, so
+  `example.de` and `example.fr` are two businesses — and two WordPress sites (or two sites of a
+  multisite, each with its own plugin activation).
+- If AIVIS reports pages of a chain in a language other than the one you assigned, the plugin
+  keeps your assignment and flags the disagreement on Status and in Site Health.
+
 ## Other SEO plugins
 
 AIVIS is the primary source of structured data. If Yoast, Rank Math, All in One
@@ -175,6 +225,9 @@ data on uninstall* is ticked — the token is removed either way.
 |---|---|
 | "Token invalid or revoked" | Recreate the token in AIVIS; update `wp-config.php` |
 | No business matches | The business's base URL in AIVIS must be this site's domain |
+| "… has no chain" in Site Health | Assign a chain to that language under Settings → Languages & chains, or create one in AIVIS |
+| Sync says *no chain assigned to a language* | Same — nothing syncs until at least one chain is assigned |
+| A chain shows *AIVIS reports N pages as en* | The chain's pages are not in the language you assigned; check the assignment, or the chain in AIVIS |
 | Pages say *Holding last good* | AIVIS has not generated that page yet; nothing is wrong on this side |
 | A page shows *Suspended* | It was unpublished in AIVIS; injection stopped, cache purged, awaiting confirmation |
 | Marker missing in view-source | Cache not purged, or the theme does not call `wp_head()` |

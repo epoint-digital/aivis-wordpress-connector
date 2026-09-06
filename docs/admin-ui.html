@@ -186,9 +186,18 @@ const BUSINESSES = [
 ];
 
 const CHAINS = [
-  { id:'chain_core', name:'Structural core', state:'ready',        kg:true,  urlCount:4, step:9 },
-  { id:'chain_edit', name:'Editorial',       state:'re_ingesting', kg:true,  urlCount:2, step:9 },
+  { id:'chain_core', name:'Structural core', state:'ready',        kg:true,  urlCount:4, step:9, lang:'de', hint:'de' },
+  { id:'chain_edit', name:'Editorial',       state:'re_ingesting', kg:true,  urlCount:2, step:9, lang:'de', hint:'de' },
+  { id:'chain_en',   name:'English site',    state:'ready',        kg:true,  urlCount:2, step:9, lang:'',   hint:'en' },
 ];
+// §07a — one chain per language. Languages come from the active translation
+// plugin (WPML here); core alone has exactly one.
+const LANGS = [
+  { code:'de', name:'Deutsch', def:true },
+  { code:'en', name:'English', def:false },
+  { code:'fr', name:'Français', def:false },
+];
+const PROVIDER = 'WPML';
 
 const baseUrls = () => ([
   { url:'https://example.com/',                 lang:'de', layer:'structural_core', chain:'Structural core', state:'active',  generated:'1 Sep 2026, 12:00', note:'' },
@@ -485,6 +494,28 @@ function settingsScreen(){
           </td>
         </tr>
       </table>
+    </div>
+  </div>
+
+  <div class="postbox" id="aivis-languages">
+    <h2>Languages &amp; chains</h2>
+    <div class="inside">
+      <p>This site publishes in <strong>${LANGS.map(l=>`${l.name} (${l.code})${l.def?' · default':''}`).join(', ')}</strong> — managed by ${PROVIDER}.</p>
+      <p class="description">Each chain is one language in AIVIS — intents and forensic prompts are bound per language. Assign every chain
+      to the WordPress language its pages are in. A language without a chain receives no structured data; a chain without a language is
+      not synced. Language subdomains are fine; a separate domain per language needs its own AIVIS business and its own site.</p>
+      <table class="widefat striped">
+        <thead><tr><th>Chain</th><th>AIVIS reports</th><th>Serves WordPress language</th><th>Pages</th></tr></thead>
+        <tbody>${CHAINS.map(c=>`<tr>
+          <td><strong>${esc(c.name)}</strong><br><span class="muted"><code>${c.id}</code> · ${c.state.replace('_',' ')} · ${c.urlCount} URLs</span></td>
+          <td><code>${c.hint}</code></td>
+          <td><select><option value="">— not assigned (not synced) —</option>${LANGS.map(l=>`<option value="${l.code}" ${(c.lang||c.hint)===l.code?'selected':''}>${l.name} (${l.code})</option>`).join('')}</select>
+          ${!c.lang?'<br><span class="muted">suggested from what AIVIS reports — save to confirm</span>':''}</td>
+          <td>${c.lang?`${c.urlCount-1} injected · 1 holding`:'—'}</td></tr>`).join('')}</tbody>
+      </table>
+      <p style="margin-top:10px">${LANGS.map(l=>{const n=CHAINS.filter(c=>c.lang===l.code).length;return n
+        ?`<span class="chip ok">${l.name} — ${n} chain${n>1?'s':''}</span>`
+        :`<span class="chip bad">${l.name} — no chain: nothing is injected on these pages</span>`;}).join(' ')}</p>
     </div>
   </div>
 

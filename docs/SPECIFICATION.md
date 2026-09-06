@@ -80,6 +80,7 @@ Each maps to at least one automated test (§16).
 | **WP-I8** | **Last-known-good, bounded by retraction.** A failed refresh never overwrites a valid artifact. An artifact is withdrawn only on admin disable, confirmed withdrawal (R-01), or inventory retirement (R-02) |
 | **WP-I9** | **No telemetry about people.** No visitor, crawler, page-view, IP, UA or WP-user data goes to AIVIS — permanent (§13). The **connector status report** (§09a, API-9) is the one deliberate exception and carries only the connector's own state: version, site host, sync counts, cache state, structured-data conflicts. Opt-out |
 | **WP-I10** | **Honest cache status.** "Live on the site" is claimed only after adapter-confirmed invalidation or a public-page verification that finds the marker and the expected hash |
+| **WP-I11** | **One chain per language.** AIVIS has no multilingual model — a chain is one language. An artifact is stored only from a chain the administrator assigned to the page's WordPress language; a language with no assigned chain receives nothing, and says so (§07a) |
 
 ---
 
@@ -199,7 +200,7 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 |---|---|
 | `aivis_os_token_status` | Token source (`constant` \| `option`), validation state, `tokenName`, last check |
 | `aivis_os_token` | The token, only when no constant is defined |
-| `aivis_os_business` | Selected `businessId`, `baseUrl`, allowed hosts |
+| `aivis_os_business` | Selected `businessId`, `baseUrl`, allowed hosts, and `chains`: the chain → language assignment (§07a) |
 | `aivis_os_delivery` | Injection switch, per-URL disables |
 | `aivis_os_sync_state` | Cursors, current sync id, last authoritative completion, lock |
 | `aivis_os_diagnostics` | Capped recent errors (100 entries, ring buffer) |
@@ -245,14 +246,19 @@ hitting `wp-cron.php`, or WP-CLI.
    www-equivalence. The plugin auto-selects when exactly one business matches and refuses to bind to
    any business that does not (§11). Allowed hosts derive from `home_url()` / `site_url()` plus
    configurable aliases.
-2. **Inventory walk.** `/businesses/{id}/chains` → for each non-archived chain,
-   `/chains/{id}/urls` with `limit=200`, following `nextCursor`.
+2. **Inventory walk.** `/businesses/{id}/chains` → for each chain **assigned to a WordPress
+   language** (§07a; unassigned chains are listed for the status screen but never walked),
+   `/chains/{id}/urls` with `limit=200`, following `nextCursor`. An assignment to a chain that no
+   longer exists is dropped and recorded.
 3. **Authoritative run.** A sync is *authoritative* only when every page of every chain completed
    and the row count reconciles with `total`. A partial traversal **never** deactivates or retires
    anything.
 4. **Target set.** The distinct absolute URLs with at least one row where `jsonLd.ready = true`.
-5. **Artifact fetch.** `/jsonld?url=` per URL (§07 outbound form), max 20 per job, resuming from
-   persisted cursors.
+5. **Artifact fetch.** `/urls/{urlId}/jsonld` per inventory row, max 20 per job, resuming from
+   persisted cursors. Fetching by id pins the chain; `/jsonld?url=` returns the freshest artifact
+   across every chain on the account, which with one chain per language can be another
+   language's page. `/jsonld?url=` (§07 outbound form) remains the path for "Refresh this URL
+   now" and on-demand lookups, where no inventory row exists.
 6. **Store.** Validate through §08, then atomically upsert. Purge caches only after a successful
    commit and only when `content_hash` or `active` changed.
 
@@ -322,6 +328,68 @@ candidate set; `businessId` equality pins the one the admin actually chose.
 
 ---
 
+## §07a · Languages — one chain per language
+
+**Decision (2026-09-06).** AIVIS OS has no multilingual capability: intents and forensic prompts
+are bound per language, so **each chain is one language**. The connector assumes each WordPress
+language has its own chain, and the administrator states which chain serves which language.
+
+### How WordPress manages languages
+
+WordPress core has **one locale per site** (`WPLANG`, `determine_locale()`) and no multilingual
+content model — as of 7.1 that is still Gutenberg phase 4, targeted for 2027+. Languages therefore
+come from a plugin, each with its own API and URL scheme:
+
+| System | Language list / current | Post-level language | URL schemes |
+|---|---|---|---|
+| **WPML** | `wpml_active_languages`, `wpml_current_language`, `wpml_default_language` filters | `wpml_post_language_details` | directory `/de/`, subdomain `de.example.com`, separate domain, `?lang=` |
+| **Polylang** | `pll_languages_list()`, `pll_current_language()`, `pll_default_language()`, `pll_home_url()` | `pll_get_post_language()` | directory, subdomain, domain, `?lang=` |
+| **TranslatePress** | `trp_settings` option (`publish-languages`, `default-language`, `url-slugs`) | none — same post, translated in place | directory only |
+| **Weglot** | `weglot_get_original_language()`, `weglot_get_destination_languages()` | none — same post | directory only |
+| **MultilingualPress / multisite** | one site per language | n/a | one domain or subdomain per site |
+| **Core only** | `determine_locale()` | n/a | single language |
+
+`Delivery\Language` detects the provider in that order and exposes the site's languages
+(`code`, native name, locale, home URL, default flag), the language of a URL **resolvable from
+cron** (post language where the provider has one, else the longest matching language home URL,
+else the default), and the hosts language home URLs use. Two filters cover anything else:
+`aivis_connector_site_languages` and `aivis_connector_url_language`.
+
+### Assignment
+
+- Stored as `aivis_os_business['chains']` = `chain_id → language code`. A chain serves exactly
+  one language; a language may have several chains (structural core + editorial, say).
+- **Automatic only where there is nothing to decide:** one site language → every chain is
+  assigned to it, except a chain AIVIS itself reports as another language; several languages →
+  a chain is assigned only when the language AIVIS reports for its pages matches exactly one of
+  them. Anything else waits for the admin, and nothing syncs until then.
+- Until the chain resource carries a language (API-10), "what AIVIS reports" is a **hint**
+  sampled from the chain's first five inventory rows (`languageCode`), cached 15 minutes.
+- **Unassigning a chain stops it now:** its rows are deactivated (`AIVIS_LANGUAGE_UNASSIGNED`)
+  and their caches purged; re-assigning brings them back on the next sync.
+
+### Enforcement (ZT-03, extended)
+
+- The inventory walk covers assigned chains only, and reconciles over that set.
+- Every inventory target is fetched by `urlId`, and the envelope's `chainId` must be one of the
+  chains assigned to **the page's WordPress language**. On the `?url=` paths (refresh,
+  on-demand) the same rule applies to whatever chain the API chose.
+- AIVIS's per-URL `languageCode` disagreeing with the assignment is **reported, not acted on**
+  (`AIVIS_LANGUAGE_MISMATCH`, per chain per run, shown on Status and in Site Health) — the
+  assignment is the admin's decision, and API-10 would settle it authoritatively.
+- Language subdomains are allowed hosts. **A separate domain per language is out of scope:** one
+  business has one domain, so each domain needs its own business and its own WordPress site.
+
+### Surfaces
+
+Settings → *Languages & chains* (chain table with what AIVIS reports, a language select per
+chain, a per-language summary); Status (languages table with counts, language column per page and
+per chain, mismatch chips); Site Health `aivis_os_languages` (critical when a language has no
+chain); `wp aivis languages [assign <chain> <lang>|auto]`; the API-9 report carries the
+assignment.
+
+---
+
 ## §08 · Zero-trust ingestion
 
 AIVIS output is untrusted input. The WordPress mirror of the edge connector's S-01…S-06.
@@ -336,7 +404,8 @@ AIVIS output is untrusted input. The WordPress mirror of the edge connector's S-
 | **ZT-06 Atomic commit** | Validate and serialize before the write transaction; atomic upsert; prior row preserved on failure; hash computed from the exact stored bytes; purge only after a successful commit and only when hash or activation state changed |
 
 **Stable error codes:** `AIVIS_AUTH_401`, `AIVIS_HTTP_TIMEOUT`, `AIVIS_SCHEMA_INVALID`,
-`AIVIS_SCOPE_MISMATCH`, `AIVIS_RETRACTED`, `AIVIS_DB_WRITE`, `AIVIS_PURGE_UNSUPPORTED`.
+`AIVIS_SCOPE_MISMATCH`, `AIVIS_RETRACTED`, `AIVIS_DB_WRITE`, `AIVIS_PURGE_UNSUPPORTED`,
+`AIVIS_LANGUAGE_UNASSIGNED`, `AIVIS_LANGUAGE_MISMATCH` (§07a).
 
 ---
 
@@ -430,8 +499,8 @@ never as live.
 ## §11 · Admin, status and verification
 
 **Settings.** Token entry (with the source and what it can reach stated plainly — §13), connection
-test via `/me`, domain-matched business selector, injection switch, sync interval, cache adapter
-selection.
+test via `/me`, domain-matched business selector, **languages & chains** (§07a), injection switch,
+sync interval, cache adapter selection.
 
 **Business selector behaviour**, given one business has exactly one domain:
 
@@ -442,15 +511,17 @@ selection.
 | None | Hard error: "No AIVIS business matches this site's domain." Non-matching businesses are **not** offered — binding to one would ship another site's structured data |
 
 **Status.** Sync state and last authoritative completion; counts of active, stale, suspended and
-retired artifacts; chain `state` and `knowledgeGraphReady` per chain; real retraction latency (R-03);
-recent errors by stable code; per-URL table with "Refresh this URL now" and per-URL disable.
+retired artifacts; **languages with their chains and counts, a language without a chain in red**;
+chain `state`, `knowledgeGraphReady` and assigned language per chain; real retraction latency
+(R-03); recent errors by stable code; per-URL table (with language) with "Refresh this URL now" and
+per-URL disable.
 
 **Live verification.** Fetch a sample page over loopback and confirm the marker and expected hash
 are present. *`verify at build`* — loopback is blocked on some hosts; fallbacks are an
 admin-browser check and `wp aivis verify`.
 
 **WP-CLI:** `wp aivis connection test`, `wp aivis sync --all`, `wp aivis status`,
-`wp aivis verify [--url=…]`.
+`wp aivis verify [--url=…]`, `wp aivis languages [assign <chain> <lang>|auto]`.
 
 ---
 
@@ -461,6 +532,8 @@ apply_filters( 'aivis_connector_current_url', $url, $query_context );
 apply_filters( 'aivis_connector_allowed_hosts', $hosts );
 apply_filters( 'aivis_connector_manage_capability', 'manage_options' );
 apply_filters( 'aivis_connector_sync_interval', $seconds );
+apply_filters( 'aivis_connector_site_languages', $languages, $provider ); // §07a
+apply_filters( 'aivis_connector_url_language', $code, $url );             // §07a
 
 do_action( 'aivis_connector_artifact_changed', $url, $old_hash, $new_hash );
 do_action( 'aivis_connector_purge_urls', $urls, $context );
@@ -544,6 +617,9 @@ Demonstrated on staging against the designated AIVIS environment.
 | **AC-21** | **A page carrying foreign JSON-LD is flagged with its source and `@type`s after one scan; the connector's own block is never counted** |
 | **AC-22** | **The connector registers no filter and alters no other plugin's output; every flagged source shows guidance on where to switch it off** |
 | **AC-23** | **Overriding silences the warning for exactly the current conflict set and re-arms it when the set changes** |
+| **AC-24** | **Only chains assigned to a language are walked; nothing syncs while no chain is assigned, and the reason is recorded** |
+| **AC-25** | **An artifact whose `chainId` is not assigned to the page's WordPress language is rejected and never stored; inventory targets are fetched by `urlId`** |
+| **AC-26** | **A site language with no chain is flagged critical in Site Health and red on Settings and Status; unassigning a chain deactivates its rows and purges their caches at once** |
 
 AC-17 is rewritten from rev 1, where it required immediate deactivation on any fetch-404 — which the
 API cannot support. AC-18 and AC-19 are new, and both guard failure modes that would otherwise be
@@ -554,7 +630,8 @@ silent.
 ## §16 · Testing
 
 - **Unit:** URL normalization tables (outbound vs local), the zero-trust pipeline, the injection
-  gates, retraction branch selection.
+  gates, retraction branch selection, language detection per provider and the chain-assignment
+  rules (§07a).
 - **Contract, against the mock server** (§17 M1): every status code in §04, malformed payloads,
   oversized bodies, script-breakout corpus, depth-33 nesting, wrong-business and wrong-host
   envelopes, pagination past 200 items, and the retraction scenario `ready:true` → `ready:false` →
@@ -644,3 +721,4 @@ is forward-only within a major version and data is kept.
 | Q-06 | Multisite | **Open** — per-site only if fully test-covered; otherwise block network activation in 1.0 |
 | Q-07 | Distribution beyond GitHub | **Resolved for v1** (§19): GitHub Releases only. WordPress.org cannot be considered until API-1, since public distribution implies customer-managed installs |
 | Q-08 | Public repo coordinates | **Open** — `aivis-wordpress-connector` under the org chosen in the shared edge decision |
+| Q-09 | Multilingual sites | **Resolved (2026-09-06)**: one chain per language, assigned by the admin (§07a). Separate domains per language are separate businesses and separate sites. Chain-level language requested as API-10 |

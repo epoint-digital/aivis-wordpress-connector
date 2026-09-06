@@ -193,6 +193,59 @@ final class Repository {
 		);
 	}
 
+	/**
+	 * §07a — a chain that is no longer assigned to a language stops serving at
+	 * once; its rows are deactivated (not retired: re-assigning brings them
+	 * back on the next sync) and their URLs returned for the cache purge.
+	 *
+	 * @param list<string> $assigned_chain_ids
+	 * @return list<string> source URLs deactivated
+	 */
+	public function deactivate_chains_not_in( array $assigned_chain_ids, string $code ): array {
+		global $wpdb;
+		$t   = $this->table();
+		$ids = array_values( array_filter( array_map( 'strval', $assigned_chain_ids ) ) );
+		$not = $ids ? 'AND chain_id NOT IN (' . implode( ',', array_fill( 0, count( $ids ), '%s' ) ) . ')' : '';
+		$sql = "SELECT source_url FROM {$t} WHERE active = 1 AND retired_at IS NULL {$not}";
+		$urls = (array) $wpdb->get_col( $ids ? $wpdb->prepare( $sql, ...$ids ) : $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+		if ( ! $urls ) {
+			return [];
+		}
+		$upd = "UPDATE {$t} SET active = 0, last_error_code = %s WHERE active = 1 AND retired_at IS NULL {$not}";
+		$wpdb->query( $wpdb->prepare( $upd, $code, ...$ids ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+		return array_values( array_map( 'strval', $urls ) );
+	}
+
+	/**
+	 * Per-chain counts for the languages table (§11).
+	 *
+	 * @return array<string,array{active:int,hold:int,suspended:int,inactive:int,total:int}> chain_id => counts
+	 */
+	public function counts_by_chain(): array {
+		global $wpdb;
+		$rows = (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			"SELECT chain_id,
+				SUM(active = 1 AND retired_at IS NULL AND suspended_at IS NULL AND last_error_code IS NULL) AS active,
+				SUM(active = 1 AND retired_at IS NULL AND suspended_at IS NULL AND last_error_code IS NOT NULL) AS hold,
+				SUM(suspended_at IS NOT NULL AND retired_at IS NULL) AS suspended,
+				SUM(active = 0 AND retired_at IS NULL) AS inactive,
+				COUNT(*) AS total
+			 FROM {$this->table()} GROUP BY chain_id", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			ARRAY_A
+		);
+		$out = [];
+		foreach ( $rows as $r ) {
+			$out[ (string) ( $r['chain_id'] ?? '' ) ] = [
+				'active'    => (int) ( $r['active'] ?? 0 ),
+				'hold'      => (int) ( $r['hold'] ?? 0 ),
+				'suspended' => (int) ( $r['suspended'] ?? 0 ),
+				'inactive'  => (int) ( $r['inactive'] ?? 0 ),
+				'total'     => (int) ( $r['total'] ?? 0 ),
+			];
+		}
+		return $out;
+	}
+
 	/** @return list<array<string,mixed>> */
 	public function all_for_admin( int $limit = 500 ): array {
 		global $wpdb;

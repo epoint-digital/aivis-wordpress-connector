@@ -92,7 +92,7 @@ final class Options {
 
 	/* ── business binding (§06, §07) ─────────────────────────────────── */
 
-	/** @return array{business_id:string, business_name:string, base_url:string, allowed_hosts:list<string>} */
+	/** @return array{business_id:string, business_name:string, base_url:string, allowed_hosts:list<string>, chains:array<string,string>} */
 	public function business(): array {
 		$d = (array) get_option( 'aivis_os_business', [] );
 		return [
@@ -100,10 +100,12 @@ final class Options {
 			'business_name' => (string) ( $d['business_name'] ?? '' ),
 			'base_url'      => (string) ( $d['base_url'] ?? '' ),
 			'allowed_hosts' => array_values( array_filter( array_map( 'strval', (array) ( $d['allowed_hosts'] ?? [] ) ) ) ),
+			'chains'        => self::clean_chain_map( (array) ( $d['chains'] ?? [] ) ),
 		];
 	}
 
 	public function set_business( string $id, string $name, string $base_url, array $allowed_hosts ): void {
+		$prev = $this->business();
 		update_option(
 			'aivis_os_business',
 			[
@@ -111,9 +113,63 @@ final class Options {
 				'business_name' => $name,
 				'base_url'      => $base_url,
 				'allowed_hosts' => array_values( array_unique( array_map( 'strtolower', array_map( 'strval', $allowed_hosts ) ) ) ),
+				// Chain assignments belong to a business; binding a different one starts over.
+				'chains'        => $prev['business_id'] === $id ? $prev['chains'] : [],
 			],
 			false
 		);
+	}
+
+	/* ── §07a chain → language assignment ───────────────────────────── */
+
+	/**
+	 * Each chain is one language in AIVIS. This is the admin's statement of
+	 * which WordPress language each chain's pages are in.
+	 *
+	 * @return array<string,string> chain_id => language code (normalised)
+	 */
+	public function chain_languages(): array {
+		return $this->business()['chains'];
+	}
+
+	/** @param array<string,string> $map chain_id => language code; '' unassigns. */
+	public function set_chain_languages( array $map ): void {
+		$d           = (array) get_option( 'aivis_os_business', [] );
+		$d['chains'] = self::clean_chain_map( $map );
+		update_option( 'aivis_os_business', $d, false );
+	}
+
+	/** @return list<string> chain ids assigned to any language — the only chains that sync. */
+	public function assigned_chain_ids(): array {
+		return array_keys( $this->chain_languages() );
+	}
+
+	/** @return list<string> chains assigned to this language (region-insensitive). */
+	public function chains_for_language( string $code ): array {
+		$out = [];
+		foreach ( $this->chain_languages() as $chain => $lang ) {
+			if ( \AivisOS\Delivery\Language::same( $lang, $code ) ) {
+				$out[] = $chain;
+			}
+		}
+		return $out;
+	}
+
+	public function language_for_chain( string $chain_id ): ?string {
+		return $this->chain_languages()[ $chain_id ] ?? null;
+	}
+
+	/** @param array<mixed,mixed> $map @return array<string,string> */
+	private static function clean_chain_map( array $map ): array {
+		$out = [];
+		foreach ( $map as $chain => $lang ) {
+			$chain = trim( (string) $chain );
+			$lang  = \AivisOS\Delivery\Language::normalize( (string) $lang );
+			if ( '' !== $chain && '' !== $lang ) {
+				$out[ $chain ] = $lang;
+			}
+		}
+		return $out;
 	}
 
 	public function clear_business(): void {
@@ -134,6 +190,11 @@ final class Options {
 				$hosts[] = $h;
 				$hosts[] = str_starts_with( $h, 'www.' ) ? substr( $h, 4 ) : 'www.' . $h;
 			}
+		}
+		// Language subdomains (de.example.com) are this site too (§07a). A
+		// separate domain per language is not: that needs its own business.
+		foreach ( \AivisOS\Delivery\Language::hosts() as $h ) {
+			$hosts[] = $h;
 		}
 		/**
 		 * Filter the hosts an artifact's URL may name.

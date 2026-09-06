@@ -100,6 +100,26 @@ withdrawn.
 Worst-case latency is the sync interval plus the cache purge; the Status
 screen shows the figure.
 
+## A language has no chain (or a chain has no language)
+
+**Symptom.** Site Health: "AIVIS OS: *Language* has no chain" (critical); Status shows the
+language in red; pages in that language carry no AIVIS block. Or: a sync reports *no chain
+assigned to a language*, or Status marks a chain "not assigned — not synced".
+
+**Cause.** AIVIS has one chain per language. The connector only syncs chains an administrator
+has assigned to a WordPress language; assignment is automatic only when there is nothing to
+decide (one site language, or a chain whose reported language matches exactly one site
+language).
+
+**Fix.** Settings → Languages & chains: pick the language for each chain, save. Or
+`wp aivis languages assign <chain> <lang>`. If the language genuinely has no chain, create one
+in AIVIS and sync. If AIVIS reports a chain's pages in a *different* language than assigned
+(`AIVIS_LANGUAGE_MISMATCH`), check which side is wrong before changing anything — the
+assignment is kept either way.
+
+**Unassigning** a chain deactivates its rows and purges their caches immediately; the rows
+retire after two authoritative syncs and are deleted 30 days later, unless re-assigned first.
+
 ## Rollback of a plugin release
 
 **Symptom.** A new release misbehaves.

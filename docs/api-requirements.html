@@ -510,6 +510,33 @@
     </div>
   </div>
 
+  <div class="req" id="API-10" data-requirement="API-10" data-priority="medium">
+    <div class="rail"><div class="rid">API-10</div><span class="chip medium">Medium</span></div>
+    <div class="body">
+      <h3>Language on the chain resource</h3>
+      <dl>
+        <div><dt>Current behaviour</dt><dd>A chain is one language in AIVIS — intents and forensic prompts are bound
+        per language — but the API exposes language only per <strong>URL</strong> row (<code>languageCode</code> on
+        <code>/chains/{id}/urls</code> and on the artifact envelope). <code>GET /businesses/{id}/chains</code> items carry
+        no language at all.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">WordPress has no multilingual core; WPML, Polylang, TranslatePress
+        or Weglot supply the languages. The connector assigns <strong>each chain to one WordPress language</strong> and syncs
+        only assigned chains. Without a chain-level language it must sample five inventory rows per chain to
+        <em>suggest</em> an assignment, cannot tell a genuinely mixed chain from a mislabelled one, and can only report a
+        disagreement between the admin's assignment and what the rows say.</dd></div>
+        <div><dt>Proposed contract</dt><dd><code>languageCode</code> (ISO 639-1, optional region — <code>de</code>,
+        <code>pt-BR</code>) on every item of <code>GET /businesses/{id}/chains</code>. Additive; the connector ignores
+        unknown fields, so no version bump.
+<pre>{ "items": [ { "id": "chain_de", "name": "Deutsch", "languageCode": "de", "state": "ready", … } ] }</pre></dd></div>
+        <div><dt>Unlocks</dt><dd>Exact automatic assignment (chain language == site language) instead of a sampled guess;
+        an authoritative Site Health warning when a chain's language and its assignment disagree; one request per site
+        instead of one per chain. <strong>Also to confirm:</strong> whether one business (one <code>baseUrl</code>) may hold
+        URLs on language subdomains such as <code>de.example.com</code> — the connector allows them; a separate domain
+        per language it treats as a separate business and a separate site.</dd></div>
+      </dl>
+    </div>
+  </div>
+
   <div class="req" id="API-8" data-requirement="API-8" data-priority="filed">
     <div class="rail"><div class="rid">API-8</div><span class="chip filed">Filed, not requested</span></div>
     <div class="body">
@@ -589,9 +616,9 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
   "@type": "TechArticle",
   "name": "AIVIS Public API Requirements",
   "headline": "What the WordPress connector needs from the Public API",
-  "abstract": "Eight requirements the AIVIS WordPress Connector places on the AIVIS Public API v1.0.0, with the call patterns that motivate them. API-1 (business-scoped tokens) is the only hard blocker.",
+  "abstract": "Ten requirements the AIVIS WordPress Connector places on the AIVIS Public API v1.0.0, with the call patterns that motivate them. API-1 (business-scoped tokens) is the only hard blocker.",
   "datePublished": "2026-09-05",
-  "dateModified": "2026-09-05",
+  "dateModified": "2026-09-06",
   "inLanguage": "en",
   "audience": { "@type": "Audience", "audienceType": "AIVIS platform engineering team" },
   "about": { "@type": "WebAPI", "name": "AIVIS Public API", "version": "1.0.0",
@@ -606,7 +633,8 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
     { "@type": "WebPageElement", "identifier": "API-6", "name": "A change feed" },
     { "@type": "WebPageElement", "identifier": "API-7", "name": "Documented rate limits" },
     { "@type": "WebPageElement", "identifier": "API-8", "name": "Host-level URL equivalence" },
-    { "@type": "WebPageElement", "identifier": "API-9", "name": "Connector status report" }
+    { "@type": "WebPageElement", "identifier": "API-9", "name": "Connector status report" },
+    { "@type": "WebPageElement", "identifier": "API-10", "name": "Language on the chain resource" }
   ]
 }
 </script>
@@ -615,7 +643,7 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
 {
   "document": "aivis-public-api-connector-requirements",
   "version": "1.0.0",
-  "date": "2026-09-05",
+  "date": "2026-09-06",
   "consumer": "aivis-wordpress-connector",
   "api": {
     "name": "AIVIS Public API",
@@ -669,6 +697,12 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
       "proposedContract": "POST /businesses/{businessId}/connector-status -> 202, after each authoritative sync and on conflict changes. Plugin version, site host, sync counts, cache state, structured-data conflicts. Nothing about people. Opt-out.",
       "unlocks": ["connected-sites view per business", "visibility of SEO plugins competing with AIVIS for the same nodes"],
       "blocking": false, "interim": "Report sent anyway; 404 backs off 24 h. Conflicts flagged in WordPress and emailed to the site admin." },
+    { "id": "API-10", "title": "Language on the chain resource", "priority": "medium",
+      "currentBehaviour": "A chain is one language, but languageCode is exposed only per URL row; chain items carry no language.",
+      "proposedContract": "languageCode (ISO 639-1, optional region) on every item of GET /businesses/{id}/chains. Additive.",
+      "unlocks": ["exact chain-to-language assignment in the connector", "authoritative language-mismatch warnings", "one request per site instead of one per chain"],
+      "openQuestion": "May one business hold URLs on language subdomains (de.example.com)?",
+      "blocking": false, "interim": "Five inventory rows sampled per chain as a hint (cached 15 min); automatic assignment only when unambiguous; disagreements reported, never acted on." },
     { "id": "API-8", "title": "Host-level URL equivalence", "priority": "filed",
       "currentBehaviour": "Matching is exact plus a trailing-slash variant, deliberately.",
       "position": "We agree with the current behaviour. Filed for the record, not requested as a change.",

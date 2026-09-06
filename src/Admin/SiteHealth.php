@@ -27,6 +27,7 @@ final class SiteHealth {
 		$tests['direct']['aivis_os_cache']  = [ 'label' => 'AIVIS OS: cache purge is confirmable', 'test' => [ $this, 'test_cache' ] ];
 		$tests['direct']['aivis_os_schema'] = [ 'label' => 'AIVIS OS: storage', 'test' => [ $this, 'test_schema' ] ];
 		$tests['direct']['aivis_os_conflicts'] = [ 'label' => 'AIVIS OS: single source of structured data', 'test' => [ $this, 'test_conflicts' ] ];
+		$tests['direct']['aivis_os_languages'] = [ 'label' => 'AIVIS OS: every language has a chain', 'test' => [ $this, 'test_languages' ] ];
 		return $tests;
 	}
 
@@ -92,6 +93,37 @@ final class SiteHealth {
 		return $o->conflicts_unacknowledged()
 			? $this->result( 'critical', 'Other plugins also emit structured data', $desc )
 			: $this->result( 'recommended', 'Other structured data present (overridden by an administrator)', $desc );
+	}
+
+	/** §07a — one chain per language; a language without one is silently empty, so say it loudly. */
+	public function test_languages(): array {
+		$o = $this->plugin->options();
+		if ( '' === $o->business()['business_id'] ) {
+			return $this->result( 'good', 'AIVIS OS: nothing to check until a business is bound', '' );
+		}
+		$summary  = $this->plugin->assignment()->summary( null );
+		$state    = $o->sync_state();
+		$known    = array_keys( (array) ( $state['chain_summaries'] ?? [] ) );
+		$map      = $o->chain_languages();
+		$orphans  = array_values( array_filter( $known, static fn( string $id ): bool => ! isset( $map[ $id ] ) ) );
+		$mismatch = (array) ( $state['language_mismatch'] ?? [] );
+		$provider = \AivisOS\Delivery\Language::provider_label( \AivisOS\Delivery\Language::provider() );
+		if ( $summary['missing'] ) {
+			$names = array_map( static fn( string $c ): string => $summary['languages'][ $c ]['name'], $summary['missing'] );
+			return $this->result( 'critical', sprintf( 'AIVIS OS: %s has no chain', implode( ', ', $names ) ), sprintf( 'Pages in %s get no structured data. Each chain is one language in AIVIS. Assign a chain under AIVIS OS → Settings → Languages & chains, or create a chain for that language in AIVIS. Languages come from %s.', implode( ', ', $names ), $provider ) );
+		}
+		if ( $mismatch ) {
+			$c = array_key_first( $mismatch );
+			return $this->result( 'recommended', 'AIVIS OS: a chain\'s pages are not in the language it is assigned to', sprintf( 'Chain %s is assigned to %s, but AIVIS reports %d of its pages as %s. Check the assignment under Settings, or the chain\'s language in AIVIS.', $c, (string) $mismatch[ $c ]['assigned'], (int) $mismatch[ $c ]['count'], (string) $mismatch[ $c ]['aivis'] ) );
+		}
+		if ( $orphans ) {
+			return $this->result( 'recommended', sprintf( 'AIVIS OS: %d chain(s) not assigned to a language', count( $orphans ) ), 'Unassigned chains are not synced. If their pages belong on this site, assign them under Settings → Languages & chains.' );
+		}
+		$parts = [];
+		foreach ( $summary['languages'] as $l ) {
+			$parts[] = sprintf( '%s → %d chain%s', $l['name'], count( $l['chains'] ), 1 === count( $l['chains'] ) ? '' : 's' );
+		}
+		return $this->result( 'good', 'AIVIS OS: every language has a chain', implode( '; ', $parts ) . ' (' . $provider . ').' );
 	}
 
 	public function test_schema(): array {

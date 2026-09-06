@@ -48,7 +48,10 @@ final class Client {
 		return $this->get( '/jsonld', [ 'url' => $absolute_url ] );
 	}
 
-	/** Diagnostics only. */
+	/**
+	 * The inventory path (§07a): fetching by urlId pins the chain, so one chain
+	 * per language holds even when two chains carry the same URL.
+	 */
 	public function jsonld_by_id( string $url_id ): Response {
 		return $this->get( '/urls/' . rawurlencode( $url_id ) . '/jsonld' );
 	}

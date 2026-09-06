@@ -19,6 +19,7 @@ AIVIS OS connects a WordPress site to an AIVIS business and delivers the JSON-LD
 * Every artifact is validated, bound to this site's business and domain, and re-serialized before it is stored, so nothing AIVIS sends can become markup.
 * When a page is unpublished in AIVIS, the block is withdrawn — and the plugin tells you honestly how long that takes.
 * Cache purges are confirmed before a page is reported as live. If your cache cannot confirm, the plugin says so instead of guessing.
+* Multilingual sites (WPML, Polylang, TranslatePress, Weglot): one AIVIS chain per language, assigned under Settings. A language without a chain is flagged, never silently empty.
 
 = Distribution note =
 
@@ -30,7 +31,8 @@ This version is intended for sites operated or controlled by AIVIS. An AIVIS API
 2. Add `define( 'AIVIS_API_TOKEN', 'aivis_…' );` to `wp-config.php`.
 3. Upload and activate the plugin, or: `wp plugin install <release zip url> --activate`.
 4. Under AIVIS OS → Settings, test the connection. The business whose domain matches this site is bound automatically.
-5. Run a sync from the Status screen, or wait for the next cron tick.
+5. On a multilingual site, assign each chain to the language it serves under Settings → Languages & chains. Single-language sites need nothing here.
+6. Run a sync from the Status screen, or wait for the next cron tick.
 
 See docs/INSTALL.md in the repository for the full guide, including system cron and cache plugins.
 
@@ -47,6 +49,10 @@ Pages keep serving their last known good structured data. Nothing is removed whi
 = How fast is a withdrawal? =
 
 Worst case: your sync interval plus the time your cache takes to drop the page. The Status screen shows the real figure.
+
+= Does it work on a multilingual site? =
+
+Yes, with WPML, Polylang, TranslatePress or Weglot. AIVIS has one chain per language, so you assign each chain to a WordPress language under Settings → Languages & chains; a single-language site is assigned automatically. Language subdirectories and subdomains are supported. A separate domain per language needs its own AIVIS business and its own WordPress site.
 
 == Changelog ==
 
