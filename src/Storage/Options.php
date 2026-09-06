@@ -14,7 +14,8 @@ namespace AivisOS\Storage;
 
 final class Options {
 
-	public const DEFAULT_API_BASE = 'https://aivis-new.dev.onepoint.ro';
+	/** Production. Dev/staging override via the AIVIS_API_BASE_URL constant (Q-01). */
+	public const DEFAULT_API_BASE = 'https://app.aivis-os.com';
 	public const DIAGNOSTICS_CAP  = 100;
 
 	/* ── token (§13) ──────────────────────────────────────────────────── */
@@ -121,11 +122,17 @@ final class Options {
 
 	/** Hosts this site answers to: home_url, site_url, plus configured aliases. */
 	public function allowed_hosts(): array {
-		$hosts = $this->business()['allowed_hosts'];
-		foreach ( [ home_url(), site_url() ] as $u ) {
-			$h = wp_parse_url( $u, PHP_URL_HOST );
+		$biz   = $this->business();
+		$hosts = $biz['allowed_hosts'];
+		// This site's own hosts, and the bound business's host as AIVIS knows it —
+		// with the www/non-www twin of each, the one variant that arises from
+		// ordinary WordPress configuration rather than from a different page.
+		foreach ( [ home_url(), site_url(), $biz['base_url'] ] as $u ) {
+			$h = is_string( $u ) && '' !== $u ? wp_parse_url( $u, PHP_URL_HOST ) : null;
 			if ( is_string( $h ) && '' !== $h ) {
-				$hosts[] = strtolower( $h );
+				$h       = strtolower( $h );
+				$hosts[] = $h;
+				$hosts[] = str_starts_with( $h, 'www.' ) ? substr( $h, 4 ) : 'www.' . $h;
 			}
 		}
 		/**
@@ -147,6 +154,18 @@ final class Options {
 	public function injection_enabled(): bool {
 		$d = (array) get_option( 'aivis_os_delivery', [] );
 		return (bool) ( $d['enabled'] ?? true );
+	}
+
+	/** §05 on-demand miss lookups. Off by default: on a large site every unknown URL would write a transient. */
+	public function on_demand_enabled(): bool {
+		$d = (array) get_option( 'aivis_os_delivery', [] );
+		return (bool) ( $d['on_demand'] ?? false );
+	}
+
+	public function set_on_demand_enabled( bool $on ): void {
+		$d              = (array) get_option( 'aivis_os_delivery', [] );
+		$d['on_demand'] = $on;
+		update_option( 'aivis_os_delivery', $d, false );
 	}
 
 	public function set_injection_enabled( bool $on ): void {

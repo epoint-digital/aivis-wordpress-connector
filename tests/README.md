@@ -55,8 +55,8 @@ responses. No network, no credentials.
 ## Against the live API
 
 ```bash
-export AIVIS_API_BASE=https://aivis-new.dev.onepoint.ro
-export AIVIS_API_TOKEN=aivis_…        # from your AIVIS profile → API tokens
+export AIVIS_API_BASE=https://app.aivis-os.com   # or the dev instance, aivis-new.dev.onepoint.ro
+export AIVIS_API_TOKEN=aivis_…                   # from your AIVIS profile → API tokens
 npm run test:live
 ```
 

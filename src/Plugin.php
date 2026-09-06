@@ -51,8 +51,8 @@ final class Plugin {
 	 * Activation: create the table, register schedules. Never fetch anything —
 	 * activation must succeed with no network and no token.
 	 */
-	public static function activate(): void {
-		if ( is_multisite() && ! empty( $_GET['networkwide'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	public static function activate( bool $network_wide = false ): void {
+		if ( $network_wide ) {
 			// Q-06: per-site only in 1.0. Network activation is refused rather
 			// than half-supported.
 			deactivate_plugins( AIVIS_OS_BASENAME, true, true );
@@ -89,6 +89,8 @@ final class Plugin {
 		add_action( 'aivis_os_sync', [ $this->synchronizer(), 'run' ] );
 		add_action( 'aivis_os_gc', [ $this->gc(), 'run' ] );
 		add_action( 'aivis_os_verify', [ $this->verifier(), 'run' ] );
+		// On-demand miss lookups (opt-in, §05): scheduled by the injector, run here.
+		add_action( 'aivis_os_lookup', [ $this->synchronizer(), 'refresh_url' ] );
 
 		// Update URI answers — never wordpress.org.
 		add_filter( 'update_plugins_github.com', [ $this->updater(), 'check' ], 10, 4 );

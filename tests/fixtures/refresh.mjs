@@ -4,6 +4,8 @@
 // had meanwhile shipped. This is the drift alarm: run it in CI, fail on diff.
 import { readFileSync, writeFileSync } from 'node:fs';
 
+// Defaults to the dev instance, which is where the OpenAPI document is served
+// today; switch to https://app.aivis-os.com once production publishes it.
 const BASE = process.env.AIVIS_API_BASE || 'https://aivis-new.dev.onepoint.ro';
 const PATH = new URL('./openapi-v1.json', import.meta.url);
 

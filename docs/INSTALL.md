@@ -42,6 +42,16 @@ define( 'AIVIS_API_TOKEN', 'aivis_…' );
 This keeps the token out of the database. The plugin will accept a token
 entered in Settings instead, but says so on every screen and in Site Health.
 
+The plugin talks to `https://app.aivis-os.com`. For a staging site that should
+use the AIVIS dev instance instead, add — and remove again before go-live:
+
+```php
+define( 'AIVIS_API_BASE_URL', 'https://aivis-new.dev.onepoint.ro' );
+```
+
+The base URL is deliberately not a setting in the admin: anything typed there
+would receive the bearer token.
+
 ## 3. Install the plugin
 
 **From a release ZIP** (Plugins → Add New → Upload):

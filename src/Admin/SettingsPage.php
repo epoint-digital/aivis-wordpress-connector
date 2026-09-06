@@ -104,6 +104,10 @@ final class SettingsPage {
 							<label><input type="checkbox" name="injection" value="1" <?php checked( $o->injection_enabled() ); ?>> <?php esc_html_e( 'Add AIVIS structured data to pages on this site', 'aivis-os' ); ?></label>
 							<p class="description"><?php echo wp_kses_post( __( 'One <code>&lt;script type="application/ld+json" data-aivis="1"&gt;</code> in the page head. Existing structured data from your theme or SEO plugin is never read or changed.', 'aivis-os' ) ); ?></p>
 						</td></tr>
+						<tr><th scope="row"><?php esc_html_e( 'Unknown pages', 'aivis-os' ); ?></th><td>
+							<label><input type="checkbox" name="on_demand" value="1" <?php checked( $o->on_demand_enabled() ); ?>> <?php esc_html_e( 'When a page is viewed that has no structured data yet, ask AIVIS about it in the background', 'aivis-os' ); ?></label>
+							<p class="description"><?php esc_html_e( 'Off by default. The regular sync already picks up every page AIVIS knows; this only shortens the wait for brand-new pages, at the cost of a small database write the first time each unknown page is viewed.', 'aivis-os' ); ?></p>
+						</td></tr>
 						<tr><th scope="row"><label for="aivis_interval"><?php esc_html_e( 'Check AIVIS for changes', 'aivis-os' ); ?></label></th><td>
 							<select id="aivis_interval" name="interval">
 								<option value="300" <?php selected( $interval, 300 ); ?>><?php esc_html_e( 'Every 5 minutes', 'aivis-os' ); ?></option>
@@ -165,6 +169,7 @@ final class SettingsPage {
 			}
 		}
 		$o->set_injection_enabled( ! empty( $post['injection'] ) );
+		$o->set_on_demand_enabled( ! empty( $post['on_demand'] ) );
 		$interval = (int) ( $post['interval'] ?? 900 );
 		if ( $interval !== $o->sync_interval() ) {
 			$o->set_sync_interval( $interval );
@@ -209,17 +214,23 @@ final class SettingsPage {
 		}
 		$all    = [];
 		$cursor = null;
+		$ok     = false;
 		do {
 			$r = $this->plugin->client()->businesses( $cursor );
 			if ( ! $r->ok() ) {
 				break;
 			}
+			$ok = true;
 			foreach ( (array) ( $r->body['items'] ?? [] ) as $b ) {
 				$all[] = $b;
 			}
 			$cursor = ( ! empty( $r->body['hasMore'] ) && is_string( $r->body['nextCursor'] ?? null ) ) ? $r->body['nextCursor'] : null;
 		} while ( null !== $cursor );
-		set_transient( 'aivis_os_businesses', $all, 5 * MINUTE_IN_SECONDS );
+		// Cache only a successful walk: a failed one must not hide the fixed
+		// token behind five minutes of an empty list.
+		if ( $ok ) {
+			set_transient( 'aivis_os_businesses', $all, 5 * MINUTE_IN_SECONDS );
+		}
 		return $all;
 	}
 

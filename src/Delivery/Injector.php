@@ -49,8 +49,10 @@ final class Injector {
 		if ( null === $url ) {
 			return null;
 		}
-		$row = $this->repository->find_active_for_render( UrlKey::of( $url ) );
+		$key = UrlKey::of( $url );
+		$row = $this->repository->find_active_for_render( $key );
 		if ( null === $row ) {
+			$this->maybe_schedule_lookup( $url, $key );
 			return null;
 		}
 		// Integrity: the stored bytes must still hash to what we recorded. A
@@ -66,6 +68,25 @@ final class Injector {
 			}
 		}
 		return Serializer::script_tag( (string) $row['json_ld'] );
+	}
+
+	/**
+	 * §05 on-demand miss path — opt-in, default off. When a page renders before
+	 * inventory has reached it, schedule one background lookup, deduplicated per
+	 * URL for 15 minutes and skipped entirely for URLs AIVIS already said it
+	 * does not know (the 6-hour miss cache). This is the ONLY write the public
+	 * path may make (WP-I2), and it is a transient plus a cron event, never a
+	 * network call.
+	 */
+	private function maybe_schedule_lookup( string $url, string $key ): void {
+		if ( ! $this->options->on_demand_enabled() ) {
+			return;
+		}
+		if ( false !== get_transient( 'aivis_os_miss_' . $key ) || false !== get_transient( 'aivis_os_sched_' . $key ) ) {
+			return;
+		}
+		set_transient( 'aivis_os_sched_' . $key, 1, 15 * MINUTE_IN_SECONDS );
+		wp_schedule_single_event( time(), 'aivis_os_lookup', [ $url ] );
 	}
 
 	/** Test seam. */

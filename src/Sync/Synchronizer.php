@@ -203,6 +203,9 @@ final class Synchronizer {
 			}
 			$this->api_reachable = true;
 			foreach ( (array) ( $r->body['items'] ?? [] ) as $item ) {
+				// Count every row the API returned BEFORE filtering: `seen` must
+				// reconcile with `total`, or the run can never be authoritative.
+				$state['totals'][ $chain_id ]['seen'] = ( $state['totals'][ $chain_id ]['seen'] ?? 0 ) + 1;
 				$url = (string) ( $item['url'] ?? '' );
 				if ( '' === $url ) {
 					continue;
@@ -232,7 +235,6 @@ final class Synchronizer {
 				if ( null === $prev || self::wins( $compact, $prev ) ) {
 					$state['inventory'][ $key ] = $compact;
 				}
-				$state['totals'][ $chain_id ]['seen'] = ( $state['totals'][ $chain_id ]['seen'] ?? 0 ) + 1;
 			}
 			$state['totals'][ $chain_id ]['total'] = (int) ( $r->body['total'] ?? 0 );
 			$next = $r->body['nextCursor'] ?? null;
@@ -322,7 +324,14 @@ final class Synchronizer {
 	private function fetch_artifacts( array &$state, array $biz, string $sync_id ): int {
 		$pending = (array) ( $state['pending'] ?? [] );
 		$done    = 0;
-		while ( $pending && $done < self::MAX_ARTIFACTS_PER_JOB && ! $this->over_budget() ) {
+		/**
+		 * Filter how many artifacts one sync tick may fetch. No real rate limit
+		 * exists upstream (API-7); raise this for an initial import.
+		 *
+		 * @param int $n Default 20.
+		 */
+		$cap = max( 1, (int) apply_filters( 'aivis_connector_artifacts_per_job', self::MAX_ARTIFACTS_PER_JOB ) );
+		while ( $pending && $done < $cap && ! $this->over_budget() ) {
 			$key = (string) array_shift( $pending );
 			$row = $state['inventory'][ $key ] ?? null;
 			if ( null === $row ) {
@@ -332,7 +341,8 @@ final class Synchronizer {
 			if ( 200 === $r->status ) {
 				$this->api_reachable = true;
 			}
-			$this->apply_lookup( (string) $row['url'], $r, $biz, $sync_id, array_values( (array) ( $state['chain_ids'] ?? [] ) ) );
+			// The chain list in state is the inventory context ZT-03 needs.
+			$this->apply_lookup( (string) $row['url'], $r, $biz, $sync_id, array_values( (array) ( $state['chains'] ?? [] ) ) );
 			$done++;
 			if ( 'throttled' === $r->kind() ) {
 				// Honour Retry-After by yielding; never sleep in-process.
@@ -356,7 +366,12 @@ final class Synchronizer {
 	 * @return array<string,mixed>
 	 */
 	private function apply_lookup( string $url, Response $r, array $biz, string $sync_id, ?array $known_chain_ids ): array {
-		$key      = UrlKey::of( $url );
+		$key = UrlKey::of( $url );
+		// R-01 needs confirmed reachability in the same run. If this 404 is the
+		// first thing we heard from the API, ask /me once rather than assume.
+		if ( 'url_gone' === $r->kind() && ! $this->api_reachable ) {
+			$this->api_reachable = $this->client->reachable();
+		}
 		$decision = Decision::from_lookup( $r, $this->api_reachable );
 		$local    = $this->repository->find_by_key( $key );
 
@@ -478,8 +493,16 @@ final class Synchronizer {
 
 	/** @param array<string,mixed> $state */
 	private function reconciles( array $state ): bool {
-		$totals = (array) ( $state['totals'] ?? [] );
-		$chains = (array) ( $state['chains'] ?? [] );
+		return self::is_reconciled( (array) ( $state['totals'] ?? [] ), (array) ( $state['chains'] ?? [] ) );
+	}
+
+	/**
+	 * Authoritative = every chain walked to completion and seen == total.
+	 *
+	 * @param array<string,array{seen?:int,total?:int,complete?:bool}> $totals
+	 * @param list<string> $chains
+	 */
+	public static function is_reconciled( array $totals, array $chains ): bool {
 		if ( ! $chains ) {
 			return false; // no chains at all is not vacuously authoritative
 		}

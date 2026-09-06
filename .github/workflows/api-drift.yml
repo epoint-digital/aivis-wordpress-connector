@@ -12,7 +12,7 @@ on:
       base:
         description: AIVIS base URL to check against
         required: false
-        default: https://aivis-new.dev.onepoint.ro
+        default: https://aivis-new.dev.onepoint.ro   # switch to https://app.aivis-os.com when it serves openapi.json
 
 permissions:
   contents: read

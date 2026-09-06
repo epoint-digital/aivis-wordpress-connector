@@ -18,8 +18,14 @@ final class UrlResolver {
 		if ( is_singular() ) {
 			$c   = wp_get_canonical_url();
 			$url = is_string( $c ) && '' !== $c ? $c : get_permalink();
-		} elseif ( is_front_page() || is_home() ) {
+		} elseif ( is_front_page() ) {
 			$url = home_url( '/' );
+		} elseif ( is_home() ) {
+			// The blog index may be a static page ("posts page"); its canonical is
+			// that page's permalink, not the site root.
+			$posts_page = (int) get_option( 'page_for_posts' );
+			$link       = $posts_page ? get_permalink( $posts_page ) : null;
+			$url        = is_string( $link ) && '' !== $link ? $link : home_url( '/' );
 		} elseif ( is_category() || is_tag() || is_tax() ) {
 			$term = get_queried_object();
 			$link = $term ? get_term_link( $term ) : null;

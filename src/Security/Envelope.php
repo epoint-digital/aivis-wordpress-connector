@@ -64,7 +64,10 @@ final class Envelope {
 			if ( $depth > self::MAX_DEPTH ) {
 				$errors[] = 'jsonLd nesting exceeds depth ' . self::MAX_DEPTH;
 			}
-			$bytes = strlen( (string) wp_json_encode( $body['jsonLd'] ) );
+			// Measure the document as it is, not unicode-escaped: wp_json_encode
+			// turns every non-ASCII character into six bytes and would reject a
+			// 700 KB CJK document as over the cap.
+			$bytes = strlen( (string) json_encode( $body['jsonLd'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode
 			if ( $bytes > self::MAX_BYTES ) {
 				$errors[] = 'jsonLd exceeds ' . self::MAX_BYTES . ' bytes';
 			}

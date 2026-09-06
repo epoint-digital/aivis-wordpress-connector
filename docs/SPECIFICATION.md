@@ -85,7 +85,7 @@ Each maps to at least one automated test (§16).
 
 ## §03 · API contract
 
-Base `https://{host}/api/public/v1`. Every request carries `Authorization: Bearer aivis_…` and
+Base `https://app.aivis-os.com/api/public/v1` in production; `AIVIS_API_BASE_URL` overrides it for dev/staging (`https://aivis-new.dev.onepoint.ro`). Every request carries `Authorization: Bearer aivis_…` and
 `Accept: application/json`. Errors are `{"error":{"message":"…"}}`.
 
 **Authentication** (`lib/public-api/auth.ts`). Token format is `aivis_` + 32 random bytes base64url.
@@ -599,7 +599,7 @@ is forward-only within a major version and data is kept.
 
 | ID | Decision | Resolution |
 |---|---|---|
-| Q-01 | Production API base URL | **Open** — must be confirmed before release; the dev hostname must never ship as the default |
+| Q-01 | Production API base URL | **Resolved (2026-09-06)**: `https://app.aivis-os.com` is the shipped default (`Options::DEFAULT_API_BASE`). Dev/staging via the `AIVIS_API_BASE_URL` constant only |
 | Q-02 | API token scope | **Resolved** (§00): account-scoped token, AIVIS-controlled installs only, until API-1 |
 | Q-03 | Bundled cache adapters | **Open** — chosen from actual pilot infrastructure; core stays provider-neutral, manual purge always supported |
 | Q-04 | Default freshness | **Resolved**: 15-minute polling default; 5 minutes for retraction-sensitive managed sites with reliable system cron |
