@@ -166,11 +166,14 @@ final class SettingsPage {
 					<p style="margin-top:10px"><?php echo Menu::action_form( 'scan_conflicts', __( 'Scan pages now', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 					<table class="form-table" role="presentation">
 						<tr><th scope="row"><?php esc_html_e( 'Notifications', 'aivis-os' ); ?></th><td>
-							<label class="check"><input type="checkbox" name="notify_email" value="1" <?php checked( $o->notify_email() ); ?>> <?php echo esc_html( sprintf( /* translators: %s: admin email */ __( 'Email %s when the set of conflicts changes', 'aivis-os' ), (string) get_option( 'admin_email' ) ) ); ?></label><br>
-							<label class="check"><input type="checkbox" name="report_to_aivis" value="1" <?php checked( $o->report_to_aivis() ); ?>> <?php esc_html_e( 'Report connector status to AIVIS after each complete sync and when conflicts change', 'aivis-os' ); ?></label>
-							<p class="description"><?php esc_html_e( 'The report carries the plugin version, this site’s host, sync counts, cache state and the conflicts found. Nothing about visitors, crawlers or users — ever.', 'aivis-os' ); ?></p>
+							<label class="check"><input type="checkbox" name="notify_email" value="1" <?php checked( $o->notify_email() ); ?>> <?php echo esc_html( sprintf( /* translators: %s: admin email */ __( 'Email %s when the set of conflicts changes', 'aivis-os' ), (string) get_option( 'admin_email' ) ) ); ?></label>
+							<p class="description"><?php esc_html_e( 'Nothing is sent to AIVIS. AIVIS can fetch this site’s publishing status itself — see Status for AIVIS below.', 'aivis-os' ); ?></p>
 						</td></tr>
 					</table>
+				</div></div>
+
+				<div class="postbox" id="aivis-status-key"><h2 class="hndle"><?php esc_html_e( 'Status for AIVIS', 'aivis-os' ); ?></h2><div class="inside">
+					<?php $this->status_box(); ?>
 				</div></div>
 
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Page cache', 'aivis-os' ); ?></h2><div class="inside">
@@ -215,7 +218,6 @@ final class SettingsPage {
 		$o->set_injection_enabled( ! empty( $post['injection'] ) );
 		$o->set_on_demand_enabled( ! empty( $post['on_demand'] ) );
 		$o->set_notify_email( ! empty( $post['notify_email'] ) );
-		$o->set_report_to_aivis( ! empty( $post['report_to_aivis'] ) );
 		$interval = (int) ( $post['interval'] ?? 900 );
 		if ( $interval !== $o->sync_interval() ) {
 			$o->set_sync_interval( $interval );
@@ -285,6 +287,31 @@ final class SettingsPage {
 			$this->plugin->synchronizer()->purge( $urls );
 		}
 		Scheduler::request_sync_now();
+	}
+
+	/** §11a — the read-only status document AIVIS fetches, and the key that gates it. */
+	private function status_box(): void {
+		$o   = $this->plugin->options();
+		$key = $o->ensure_status_key();
+		$url = rest_url( \AivisOS\Rest\StatusController::NS . '/status' );
+		?>
+		<p><?php esc_html_e( 'This plugin never sends anything to AIVIS. It keeps the status of publishing here — per page: what is published, with which content, since when, and when this site last saw it on the page — and AIVIS can fetch it from the endpoint below, presenting the key.', 'aivis-os' ); ?></p>
+		<table class="form-table" role="presentation">
+			<tr><th scope="row"><?php esc_html_e( 'Endpoint', 'aivis-os' ); ?></th><td><code><?php echo esc_html( $url ); ?></code><br><span class="description"><?php esc_html_e( 'Per-page detail at …/status/urls, paged by cursor. Read-only; GET only.', 'aivis-os' ); ?></span></td></tr>
+			<tr><th scope="row"><?php esc_html_e( 'Status key', 'aivis-os' ); ?></th><td>
+				<?php if ( '' === $key ) : ?>
+					<span class="aivis-chip"><?php esc_html_e( 'Disabled', 'aivis-os' ); ?></span> <span class="description"><?php esc_html_e( 'The endpoint answers 404 until a key is issued.', 'aivis-os' ); ?></span>
+					<p style="margin-top:8px"><?php echo Menu::action_form( 'status_key_regenerate', __( 'Issue a key', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+				<?php else : ?>
+					<code id="aivis-status-key-value"><?php echo esc_html( $key ); ?></code>
+					<p class="description"><?php esc_html_e( 'Enter this in AIVIS for this business. It is not the API token: it reaches nothing but the status document, which names this site’s pages and their publishing state and never the token.', 'aivis-os' ); ?></p>
+					<pre style="margin:8px 0;padding:8px;background:#f6f7f7;overflow:auto">curl -H "Authorization: Bearer <?php echo esc_html( $key ); ?>" <?php echo esc_html( $url ); ?></pre>
+					<p><?php echo Menu::action_form( 'status_key_regenerate', __( 'Regenerate', 'aivis-os' ), [], 'button', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<?php echo Menu::action_form( 'status_key_disable', __( 'Disable', 'aivis-os' ), [], 'button button-link-delete', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+				<?php endif; ?>
+			</td></tr>
+		</table>
+		<?php
 	}
 
 	/** @param array<string,mixed> $biz */

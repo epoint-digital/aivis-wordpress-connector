@@ -2,9 +2,10 @@
 /**
  * AIVIS Public API v1 client (§03, §04, ZT-01).
  *
- * Transport rules: wp_safe_remote_get, TLS verified, ZERO redirects (a redirect
- * would forward the bearer token), fixed host, 10 s timeout, 1 MiB cap,
- * versioned user agent. Never called on the public render path.
+ * Transport rules: wp_safe_remote_get only — the connector never writes to
+ * AIVIS — TLS verified, ZERO redirects (a redirect would forward the bearer
+ * token), fixed host, 10 s timeout, 1 MiB cap, versioned user agent. Never
+ * called on the public render path.
  *
  * @package AivisOS
  */
@@ -61,37 +62,16 @@ final class Client {
 		return 200 === $this->me()->status;
 	}
 
-	/**
-	 * API-9 (proposed) — connector status report. Until the platform ships
-	 * the endpoint this returns 404 and the Notifier backs off for a day.
-	 *
-	 * @param array<string,mixed> $report
-	 */
-	public function report_status( string $business_id, array $report ): Response {
-		return $this->post( '/businesses/' . rawurlencode( $business_id ) . '/connector-status', $report );
-	}
-
 	/* ── transport ───────────────────────────────────────────────────── */
 
 	/**
-	 * @param array<string,mixed> $json
-	 */
-	public function post( string $path, array $json ): Response {
-		return $this->request( 'POST', $path, [], $json );
-	}
-
-	/**
+	 * The connector only ever reads. There is no POST here on purpose (§11a):
+	 * nothing about this site is pushed to AIVIS — AIVIS fetches the status
+	 * document from the site when it wants it.
+	 *
 	 * @param array<string,string|int> $query
 	 */
 	public function get( string $path, array $query = [] ): Response {
-		return $this->request( 'GET', $path, $query, null );
-	}
-
-	/**
-	 * @param array<string,string|int> $query
-	 * @param array<string,mixed>|null $json
-	 */
-	private function request( string $method, string $path, array $query, ?array $json ): Response {
 		$token = $this->options->token();
 		if ( '' === $token ) {
 			return new Response( 401, [ 'error' => [ 'message' => 'Missing bearer token' ] ] );
@@ -119,13 +99,7 @@ final class Client {
 				'Accept'        => 'application/json',
 			],
 		];
-		if ( 'POST' === $method ) {
-			$args['headers']['Content-Type'] = 'application/json';
-			$args['body']                    = wp_json_encode( $json ?? [] );
-			$res                             = wp_safe_remote_post( $url, $args );
-		} else {
-			$res = wp_safe_remote_get( $url, $args );
-		}
+		$res = wp_safe_remote_get( $url, $args );
 
 		if ( is_wp_error( $res ) ) {
 			// Redact defensively: WP_Error messages can echo request details.

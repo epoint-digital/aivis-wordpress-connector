@@ -143,6 +143,22 @@ re-create it if AIVIS still serves the URL.
 the suspected leak for the old token prefix. The plugin never writes the token
 to any of those, but other software may have.
 
+## Suspected status-key leak
+
+The status key reaches nothing but the read-only status document (page URLs
+and their publishing state — never the API token). Still: Settings → Status
+for AIVIS → *Regenerate* (or `wp aivis status-key regenerate`), then enter the
+new key in AIVIS. The old key stops working immediately. *Disable* makes the
+endpoint answer 404 until a key is issued again.
+
+## AIVIS cannot fetch the status
+
+**401** — the key AIVIS holds is not this site's current key (regenerated, or a
+staging clone with its own key). Copy the key from Settings → Status for AIVIS.
+**404** — the endpoint is disabled, or the site's REST API is blocked by a
+security plugin or the host (`/wp-json/` must be reachable). **Empty
+`items`** — nothing synced yet.
+
 ## Disconnect a site
 
 Settings → *Disconnect and remove local data*: empties the table, purges every

@@ -187,6 +187,29 @@ What holds regardless of plugin:
   multisite, each with its own plugin activation).
 - If AIVIS reports pages of a chain in a language other than the one you assigned, the plugin
   keeps your assignment and flags the disagreement on Status and in Site Health.
+- AIVIS finds a chain's pages by following links or by manual entry; there is no link between a
+  page and its translation. Each page is matched by its exact URL.
+
+## Status for AIVIS
+
+The plugin **never sends anything to AIVIS**. It keeps the status of publishing
+here — per page: what is published, with which content, since when, and when
+this site last saw it on the page — and AIVIS can **fetch** it:
+
+```
+GET https://example.com/wp-json/aivis-os/v1/status
+GET https://example.com/wp-json/aivis-os/v1/status/urls?cursor=&limit=200
+Authorization: Bearer aivis_status_…
+```
+
+The key is issued by this site on activation and shown under AIVIS OS →
+**Settings → Status for AIVIS** (also `wp aivis status-key`). Enter it in AIVIS
+for this business. It is not the API token: it reaches nothing but the status
+document, which names this site's pages and their publishing state and never
+contains the token. *Regenerate* invalidates the old key at once; *Disable*
+makes the endpoint answer 404.
+
+`wp aivis status --format=json` prints the same document.
 
 ## Other SEO plugins
 
@@ -199,7 +222,7 @@ per plugin, where to switch that output off. The connector never changes another
 plugin itself. Publishing continues either way; *Override* on the warning keeps
 it quiet until the set of conflicts changes. Logged-in admins also see the
 warning in the admin bar on the front end, and the site admin is emailed when
-the set changes.
+the set changes. AIVIS sees it too when it fetches the status document.
 
 ## Upgrading
 
@@ -228,6 +251,7 @@ data on uninstall* is ticked — the token is removed either way.
 | "… has no chain" in Site Health | Assign a chain to that language under Settings → Languages & chains, or create one in AIVIS |
 | Sync says *no chain assigned to a language* | Same — nothing syncs until at least one chain is assigned |
 | A chain shows *AIVIS reports N pages as en* | The chain's pages are not in the language you assigned; check the assignment, or the chain in AIVIS |
+| AIVIS cannot fetch the status (401 / 404) | 401: the key in AIVIS is not this site's current key — copy it from Settings → Status for AIVIS. 404: the endpoint is disabled; issue a key |
 | Pages say *Holding last good* | AIVIS has not generated that page yet; nothing is wrong on this side |
 | A page shows *Suspended* | It was unpublished in AIVIS; injection stopped, cache purged, awaiting confirmation |
 | Marker missing in view-source | Cache not purged, or the theme does not call `wp_head()` |

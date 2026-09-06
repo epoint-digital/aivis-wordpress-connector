@@ -51,6 +51,8 @@ final class Notices {
 				'overridden'     => __( 'Override recorded. The warning stays silent until the set of conflicts changes.', 'aivis-os' ),
 				'scan_clean'     => __( 'Scan finished — no other structured data found on the sampled pages.', 'aivis-os' ),
 				'scan_conflicts' => __( 'Scan finished — other structured data found. See the warning below.', 'aivis-os' ),
+				'status_key_regenerated' => __( 'New status key issued. The old one stops working now — update it in AIVIS.', 'aivis-os' ),
+				'status_key_disabled'    => __( 'Status endpoint disabled. AIVIS can no longer fetch this site’s publishing status.', 'aivis-os' ),
 				default          => '',
 			};
 			if ( '' !== $text ) {

@@ -28,13 +28,19 @@ file, `readme.txt` and the git tag do not agree with it.
 - Reproducible release ZIP with `SHA-256SUMS`.
 - AIVIS as the primary source of structured data: other JSON-LD emitters are
   detected by a loopback scan and flagged red with guidance; the connector never
-  alters another plugin. Email and API-9 status report on change.
+  alters another plugin. Email to the site admin on change.
 - Multilingual sites — one AIVIS chain per language (§07a): language detection
   for WPML, Polylang, TranslatePress, Weglot and core; chain → language
   assignment under Settings (automatic when unambiguous); only assigned chains
   sync; inventory targets fetched by `urlId` so the chain is pinned; artifacts
   from a chain not assigned to the page's language are rejected; language
   subdomains allowed; Status, Site Health and `wp aivis languages`.
+- Status for AIVIS, fetched never pushed (§11a): `published_at`, `verified_at`
+  and `verified_hash` per page; read-only REST endpoint
+  `/wp-json/aivis-os/v1/status` (+ `/status/urls`, paged) gated by a
+  site-issued status key (Settings → Status for AIVIS, `wp aivis status-key`);
+  `wp aivis status --format=json` prints the same document. The connector
+  issues no request to AIVIS other than GET.
 
 ### Security
 - `Update URI` present from the first commit to prevent a wordpress.org slug

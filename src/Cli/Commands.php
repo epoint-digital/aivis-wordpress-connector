@@ -105,7 +105,9 @@ final class Commands {
 			) ),
 		] + $counts;
 		if ( ( $assoc['format'] ?? 'table' ) === 'json' ) {
-			\WP_CLI::line( (string) wp_json_encode( $data + [ 'recent' => array_slice( $o->diagnostics(), -10 ) ], JSON_PRETTY_PRINT ) );
+			// The same document AIVIS fetches from the status endpoint (§11a).
+			$doc = new \AivisOS\Rest\StatusDocument( $o, $this->plugin->repository(), $this->plugin->cache() );
+			\WP_CLI::line( (string) wp_json_encode( $doc->build() + [ 'recent' => array_slice( $o->diagnostics(), -10 ) ], JSON_PRETTY_PRINT ) );
 			return;
 		}
 		$rows = [];
@@ -190,6 +192,35 @@ final class Commands {
 		foreach ( $a->summary( $catalog )['missing'] as $code ) {
 			\WP_CLI::warning( sprintf( '%s has no chain — nothing is injected on its pages.', $langs[ $code ]['name'] ) );
 		}
+	}
+
+	/**
+	 * The read-only key AIVIS presents to fetch this site's publishing status.
+	 *
+	 * ## OPTIONS
+	 * [<action>]
+	 * : show (default) | regenerate | disable
+	 *
+	 * ## EXAMPLES
+	 *     wp aivis status-key
+	 *     wp aivis status-key regenerate
+	 *
+	 * @subcommand status-key
+	 */
+	public function status_key( array $args ): void {
+		$o   = $this->plugin->options();
+		$act = (string) ( $args[0] ?? 'show' );
+		if ( 'regenerate' === $act ) {
+			$o->regenerate_status_key();
+			\WP_CLI::success( 'New status key issued; the old one stops working now. Update it in AIVIS.' );
+		} elseif ( 'disable' === $act ) {
+			$o->disable_status_key();
+			\WP_CLI::success( 'Status endpoint disabled.' );
+			return;
+		}
+		$key = $o->status_key();
+		\WP_CLI::log( 'endpoint: ' . rest_url( \AivisOS\Rest\StatusController::NS . '/status' ) );
+		\WP_CLI::log( 'key:      ' . ( '' !== $key ? $key : '(disabled — run: wp aivis status-key regenerate)' ) );
 	}
 
 	/**

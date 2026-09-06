@@ -26,14 +26,15 @@ final class WPDBStub {
 	public string $prefix = 'wp_';
 	public array $rows = [];
 	public function prepare( string $sql, mixed ...$args ): string { return vsprintf( str_replace( [ '%s', '%d' ], [ "'%s'", '%d' ], $sql ), array_map( fn( $a ) => is_array( $a ) ? $a[0] : $a, $args ) ); }
-	public function get_row( string $sql, mixed $out = null ): ?array { return $this->rows[0] ?? null; }
-	public function get_results( string $sql, mixed $out = null ): array { return $this->rows; }
+	public function get_row( string $sql, mixed $out = null ): ?array { $this->queries[] = $sql; return $this->rows[0] ?? null; }
+	public function get_results( string $sql, mixed $out = null ): array { $this->queries[] = $sql; return $this->rows; }
 	public function get_var( string $sql ): ?string { return null; }
 	public function get_col( string $sql ): array { $this->queries[] = $sql; return array_values( array_map( fn( $r ) => (string) reset( $r ), $this->rows ) ); }
 	public array $queries = [];
 	public function query( string $sql ): int|bool { $this->queries[] = $sql; return 0; }
-	public function update( string $t, array $d, array $w, mixed $f = null, mixed $wf = null ): int|false { return 1; }
-	public function insert( string $t, array $d, mixed $f = null ): int|false { return 1; }
+	public array $writes = [];
+	public function update( string $t, array $d, array $w, mixed $f = null, mixed $wf = null ): int|false { $this->writes[] = [ 'update', $d, $w ]; return 1; }
+	public function insert( string $t, array $d, mixed $f = null ): int|false { $this->writes[] = [ 'insert', $d, [] ]; return 1; }
 	public function get_charset_collate(): string { return ''; }
 }
 $GLOBALS['wpdb'] = new WPDBStub();
@@ -54,14 +55,16 @@ final class WPStub {
 	public static array $filter_values = [];
 	/** url => post id, for url_to_postid(). */
 	public static array $post_ids = [];
+	public static array $rest_routes = [];
 
 	public static function reset(): void {
-		self::$options = self::$transients = self::$site_transients = self::$http_queue = self::$http_log = self::$scheduled = self::$flags = self::$filters = self::$mail = self::$filter_values = self::$post_ids = [];
+		self::$options = self::$transients = self::$site_transients = self::$http_queue = self::$http_log = self::$scheduled = self::$flags = self::$filters = self::$mail = self::$filter_values = self::$post_ids = self::$rest_routes = [];
 		self::$home   = 'https://example.com';
 		self::$locale = 'de_DE';
 		\AivisOS\Delivery\Language::$force_provider = null;
 		$GLOBALS['wpdb']->rows = [];
 		$GLOBALS['wpdb']->queries = [];
+		$GLOBALS['wpdb']->writes = [];
 	}
 	public static function queue( int $status, mixed $body, array $headers = [] ): void {
 		self::$http_queue[] = [
@@ -76,8 +79,28 @@ final class WPStub {
 }
 
 class WP_Error {
-	public function __construct( public string $code = '', public string $message = '' ) {}
+	public function __construct( public string $code = '', public string $message = '', public mixed $data = null ) {}
 	public function get_error_message(): string { return $this->message; }
+	public function get_error_data(): mixed { return $this->data; }
+}
+class WP_REST_Request {
+	public function __construct( private array $headers = [], private array $params = [] ) {}
+	public function get_header( string $k ): ?string { return $this->headers[ strtolower( $k ) ] ?? null; }
+	public function get_param( string $k ): mixed { return $this->params[ $k ] ?? null; }
+}
+class WP_REST_Response {
+	public array $headers = [];
+	public function __construct( public mixed $data = null, public int $status = 200 ) {}
+	public function header( string $k, string $v ): void { $this->headers[ $k ] = $v; }
+	public function get_data(): mixed { return $this->data; }
+}
+function register_rest_route( string $ns, string $route, array $args ): bool { WPStub::$rest_routes[ $ns . $route ] = $args; return true; }
+function rest_url( string $path = '' ): string { return WPStub::$home . '/wp-json/' . ltrim( $path, '/' ); }
+function wp_generate_password( int $len = 12, bool $special = true, bool $extra = false ): string {
+	$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+	$out = '';
+	for ( $i = 0; $i < $len; $i++ ) { $out .= $chars[ random_int( 0, strlen( $chars ) - 1 ) ]; }
+	return $out;
 }
 
 function get_option( string $k, mixed $d = false ): mixed { return WPStub::$options[ $k ] ?? $d; }

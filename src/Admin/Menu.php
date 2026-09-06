@@ -117,6 +117,14 @@ final class Menu {
 				$r   = $this->plugin->verifier()->scan_conflicts();
 				$msg = $r['conflicts'] > 0 ? 'scan_conflicts' : 'scan_clean';
 				break;
+			case 'status_key_regenerate':
+				$this->plugin->options()->regenerate_status_key();
+				$msg = 'status_key_regenerated';
+				break;
+			case 'status_key_disable':
+				$this->plugin->options()->disable_status_key();
+				$msg = 'status_key_disabled';
+				break;
 		}
 		wp_safe_redirect( add_query_arg( 'aivis_msg', $msg, $back ) );
 		exit;

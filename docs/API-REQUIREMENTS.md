@@ -29,7 +29,7 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | **API-6** | Change feed / push | Medium |
 | **API-7** | Documented rate limits + `Retry-After` | Low |
 | **API-8** | Server-side URL normalization | Low, and contested — see the note |
-| **API-9** | Connector status report (conflicts, sync health) | Medium — the only monitoring that respects WP-I9 |
+| **API-9** | Fetch the connector's publishing status (site-served, key-gated) | Medium — AIVIS-side fetcher; the connector pushes nothing |
 | **API-10** | `languageCode` on the chain resource | Medium — makes chain → language assignment exact instead of sampled |
 
 ---
@@ -258,49 +258,71 @@ genuinely different page. Scheme, case and query-string handling should stay str
 
 ---
 
-## API-9 — Connector status report
+## API-9 — Fetch the connector's publishing status
 
-**Priority: medium.**
+**Priority: medium.** *Rewritten 2026-09-06 — the connector never pushes.*
 
 AIVIS has no visibility into connected sites: whether they sync, which plugin
-version they run, whether their cache purges confirm, and — the one that matters
-for the product — whether **other plugins are also emitting structured data**
-on the same pages. The connector detects that (§09a: AIVIS is the primary
-source; Yoast, Rank Math and friends are flagged red — the connector never
-alters them, it warns the admin) and needs somewhere to send it.
+version they run, whether their cache purges confirm, what is actually
+published on which page, and whether **other plugins are also emitting
+structured data** on the same pages. The connector knows all of that and keeps
+it in the plugin. **AIVIS fetches it** — the connector sends nothing.
 
-**Proposed contract**
+**What the site serves** (WordPress REST, read-only, GET only, key-gated):
 
 ```
-POST /api/public/v1/businesses/{businessId}/connector-status
-Authorization: Bearer aivis_…
-Content-Type: application/json
+GET {baseUrl}/wp-json/aivis-os/v1/status
+GET {baseUrl}/wp-json/aivis-os/v1/status/urls?cursor=<id>&limit=<n≤500>
+Authorization: Bearer aivis_status_…
+```
 
-{ "connector": "aivis-os", "version": "1.0.0", "site": "example.com",
-  "businessId": "…", "trigger": "sync" | "conflicts", "reportedAt": "…",
-  "sync":  { "lastCompleteAt": "…", "authoritative": true, "intervalSec": 900,
+```json
+{ "connector": "aivis-os", "version": "1.0.0", "schema": 1,
+  "site": "example.com", "businessId": "…", "generatedAt": "…",
+  "sync":  { "lastCompleteAt": "…", "authoritative": true, "intervalSec": 900, "nextAt": "…",
              "counts": { "active": 312, "stale": 4, "hold": 2, "suspended": 0, "retired": 1, "total": 319 } },
-  "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed" },
-  "conflicts": { "fingerprint": "…", "acknowledged": false, "pagesScanned": 10,
+  "delivery": { "injection": true, "lastVerified": { "result": "live", "url": "…", "at": "…" } },
+  "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed", "purgedAt": "…" },
+  "languages": { "provider": "wpml", "site": ["de","en"], "chains": { "chain_de": "de", "chain_en": "en" }, "mismatch": {} },
+  "conflicts": { "fingerprint": "…", "acknowledged": false, "scannedAt": "…", "pagesScanned": 10,
                  "activePlugins": ["yoast"],
-                 "items": [ { "url": "https://example.com/", "sources": ["yoast"],
-                              "types": ["Organization","WebSite"], "blocks": 1 } ] } }
-
-202 Accepted
+                 "items": [ { "url": "https://example.com/", "sources": ["yoast"], "types": ["Organization","WebSite"], "blocks": 1 } ] },
+  "urls": "https://example.com/wp-json/aivis-os/v1/status/urls" }
 ```
 
-Sent after each authoritative sync and whenever the conflict set changes.
-**Nothing about people** — no visitor, crawler, IP, user-agent or WordPress
-user data; WP-I9 is amended to say exactly that, and the report is opt-out in
-the plugin settings.
+Per page (`/status/urls`, paged by row id):
 
-**Until it ships:** the connector already sends it; a 404/405 marks the endpoint
-unavailable for 24 hours and nothing else changes. The client is contract-tested
-against the mock.
+```json
+{ "items": [ { "url": "https://example.com/services/", "urlId": "u_services", "chainId": "chain_de",
+               "languageCode": "de", "state": "published", "contentHash": "sha256…",
+               "generatedAt": "…", "publishedAt": "…", "lastSyncedAt": "…",
+               "verifiedAt": "…", "verifiedHash": "sha256…", "errorCode": null } ],
+  "nextCursor": "412", "hasMore": true }
+```
 
-**Unlocks:** a "connected sites" view per business (last seen, version, sync
-health), and the product conversation with a customer whose Yoast is fighting
-AIVIS for the same `Organization` node.
+`state` ∈ `published | stale | holding | suspended | retired | inactive`. `publishedAt` is when
+what the page serves last changed; `verifiedAt` / `verifiedHash` is when the site last fetched
+the page over loopback and found those bytes in it. `contentHash` is the SHA-256 of the exact
+bytes injected, so AIVIS can compare it with its own artifact. **Nothing about people.**
+
+**What AIVIS needs to add**
+
+1. Per business, a field for the site's **status key** (the admin copies it from the plugin's
+   Settings screen). No discovery step: the endpoint path is fixed under the business's
+   `baseUrl`.
+2. A fetcher — on demand from the business screen, and/or on a schedule AIVIS chooses — that
+   reads `/status` and, when wanted, walks `/status/urls`, and stores the result.
+3. Optionally, compare `contentHash` per `urlId` with the current artifact to show "published /
+   behind / not yet" per page.
+
+**Why pull rather than push.** Nothing about the site is emitted on a schedule the site does not
+control; a switched-off site simply stops answering; AIVIS decides when to look; and the
+connector's outbound traffic is reads of the Public API and nothing else — which is what the
+WordPress spec's WP-I9 now says literally.
+
+**Unlocks:** a "connected sites" view per business (last seen, version, sync health, per-page
+publication), and the product conversation with a customer whose Yoast is fighting AIVIS for the
+same `Organization` node.
 
 ## API-10 — Language on the chain resource
 
@@ -335,11 +357,13 @@ GET /api/public/v1/businesses/{id}/chains
 `languageCode`: ISO 639-1, optionally with a region subtag (`pt-BR`). Additive — the connector
 ignores unknown fields today, so this ships without a version bump.
 
-### Also to confirm
+### Answered (2026-09-06)
 
-Whether one business (one `baseUrl`) may hold URLs on **language subdomains** (`de.example.com`).
-The connector allows them on its side; a separate domain per language needs a separate business
-and a separate site, which the connector documents as unsupported.
+AIVIS collects a chain's URLs by following links or by manual entry. There is no host or
+subdomain concept and **no correlation between the URLs of different languages**. The connector
+therefore matches every page by its exact URL; language subdomains are an allowed-hosts matter on
+the WordPress side only, and a separate domain per language is a separate business and a separate
+site.
 
 ---
 
@@ -361,4 +385,4 @@ For the record, so the platform team can see what is being worked around rather 
 | API-6 | Interval polling only |
 | API-7 | Self-imposed 20 artifact requests per job |
 | API-8 | Outbound lookups send the site permalink unmodified; normalization is applied only to the plugin's local index key |
-| API-9 | Report sent anyway; 404 backs off for a day. Conflicts still flagged inside WordPress and emailed to the site admin |
+| API-9 | The status document is already served (`/wp-json/aivis-os/v1/status`, key-gated). Until AIVIS fetches it, conflicts are flagged inside WordPress and emailed to the site admin |

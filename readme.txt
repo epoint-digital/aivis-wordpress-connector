@@ -20,6 +20,7 @@ AIVIS OS connects a WordPress site to an AIVIS business and delivers the JSON-LD
 * When a page is unpublished in AIVIS, the block is withdrawn — and the plugin tells you honestly how long that takes.
 * Cache purges are confirmed before a page is reported as live. If your cache cannot confirm, the plugin says so instead of guessing.
 * Multilingual sites (WPML, Polylang, TranslatePress, Weglot): one AIVIS chain per language, assigned under Settings. A language without a chain is flagged, never silently empty.
+* Nothing is sent to AIVIS. The plugin keeps the status of publishing per page and serves it read-only, gated by a key you issue here, for AIVIS to fetch.
 
 = Distribution note =
 
@@ -40,7 +41,7 @@ See docs/INSTALL.md in the repository for the full guide, including system cron 
 
 = Does this send visitor data anywhere? =
 
-No. Nothing about visitors, crawlers, page views or users is sent to AIVIS. The only outbound traffic is the background sync to the AIVIS API.
+No. Nothing is sent to AIVIS at all — the plugin only reads from the AIVIS API. AIVIS can fetch this site's publishing status (which pages carry which structured data, since when) from a read-only endpoint, with a key you issue under Settings. That document never contains visitor data or the API token.
 
 = What happens if AIVIS is down? =
 

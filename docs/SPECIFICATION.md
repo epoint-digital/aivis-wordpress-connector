@@ -78,7 +78,7 @@ Each maps to at least one automated test (§16).
 | **WP-I6** | **Secret containment.** The bearer token never appears in HTML, JS, REST responses, logs, exceptions, Site Health, or support bundles |
 | **WP-I7** | **Zero-trust artifact handling.** Size-limited, strictly decoded, schema-checked, business- and host-bound, re-serialized, escaped (§08) |
 | **WP-I8** | **Last-known-good, bounded by retraction.** A failed refresh never overwrites a valid artifact. An artifact is withdrawn only on admin disable, confirmed withdrawal (R-01), or inventory retirement (R-02) |
-| **WP-I9** | **No telemetry about people.** No visitor, crawler, page-view, IP, UA or WP-user data goes to AIVIS — permanent (§13). The **connector status report** (§09a, API-9) is the one deliberate exception and carries only the connector's own state: version, site host, sync counts, cache state, structured-data conflicts. Opt-out |
+| **WP-I9** | **Nothing leaves the site.** No visitor, crawler, page-view, IP, UA or WP-user data goes to AIVIS — permanent (§13) — and the connector **pushes nothing at all**: its only requests to AIVIS are reads. The status of publishing is stored in the plugin and **fetched** by AIVIS from a read-only, key-gated endpoint (§11a) |
 | **WP-I10** | **Honest cache status.** "Live on the site" is claimed only after adapter-confirmed invalidation or a public-page verification that finds the marker and the expected hash |
 | **WP-I11** | **One chain per language.** AIVIS has no multilingual model — a chain is one language. An artifact is stored only from a chain the administrator assigned to the page's WordPress language; a language with no assigned chain receives nothing, and says so (§07a) |
 
@@ -178,6 +178,8 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 | `source_url` | text | Absolute URL as returned by AIVIS (audit) |
 | `url_id`, `chain_id`, `business_id` | varchar(191) | AIVIS identities; winning chain |
 | `language_code` | varchar(16) | AIVIS language |
+| `published_at` | datetime | When what the page serves last changed: a new hash, or the row coming back into service (§11a) |
+| `verified_at`, `verified_hash` | datetime, char(64) | When a loopback fetch last found the stored bytes on the page, and which bytes (§11a) |
 | `json_ld` | longtext | Safely re-serialized document (ZT-05) |
 | `content_hash` | char(64) | SHA-256 of the exact stored serialization |
 | `source_generated_at` | datetime | AIVIS generation time, UTC |
@@ -205,6 +207,7 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 | `aivis_os_sync_state` | Cursors, current sync id, last authoritative completion, lock |
 | `aivis_os_diagnostics` | Capped recent errors (100 entries, ring buffer) |
 | `aivis_os_schema_version` | DB schema version |
+| `aivis_os_status_key` / `aivis_os_status_disabled` | The read-only key AIVIS presents to fetch the status document (§11a); the explicit "disabled" marker |
 | `aivis_os_uninstall_retention` | Whether uninstall drops data |
 
 Transients may vanish before expiry and are never the only artifact store.
@@ -377,15 +380,20 @@ else the default), and the hosts language home URLs use. Two filters cover anyth
 - AIVIS's per-URL `languageCode` disagreeing with the assignment is **reported, not acted on**
   (`AIVIS_LANGUAGE_MISMATCH`, per chain per run, shown on Status and in Site Health) — the
   assignment is the admin's decision, and API-10 would settle it authoritatively.
-- Language subdomains are allowed hosts. **A separate domain per language is out of scope:** one
-  business has one domain, so each domain needs its own business and its own WordPress site.
+- **How AIVIS finds a chain's pages:** by following links, or by URLs entered manually. There is no
+  host, subdomain or URL-scheme concept on the AIVIS side, and **no correlation between the URLs of
+  different languages** — a page and its translation are unrelated rows. The connector therefore
+  never derives one language's URL from another; it matches each page by its exact URL against
+  the chain assigned to that page's language. Language subdomains are only an allowed-hosts matter
+  here. **A separate domain per language is out of scope:** one business has one `baseUrl`, so each
+  domain needs its own business and its own WordPress site.
 
 ### Surfaces
 
 Settings → *Languages & chains* (chain table with what AIVIS reports, a language select per
 chain, a per-language summary); Status (languages table with counts, language column per page and
 per chain, mismatch chips); Site Health `aivis_os_languages` (critical when a language has no
-chain); `wp aivis languages [assign <chain> <lang>|auto]`; the API-9 report carries the
+chain); `wp aivis languages [assign <chain> <lang>|auto]`; the status document (§11a) carries the
 assignment.
 
 ---
@@ -465,8 +473,8 @@ notice on the plugin screens, a one-line pointer on the Dashboard and Plugins
 screens, a Conflicts tile and per-URL badge on Status, a Site Health test, an
 **admin-bar warning** visible to logged-in users with the manage capability on
 the front end as well, and an email to `admin_email` when the conflict set
-changes (opt-out). Toward AIVIS: the connector status report, API-9 (opt-out;
-see WP-I9).
+changes (opt-out). Toward AIVIS: **nothing is sent.** AIVIS fetches the status document (§11a),
+which includes the conflict set.
 
 ## §10 · Cache publication
 
@@ -520,8 +528,43 @@ per-URL disable.
 are present. *`verify at build`* — loopback is blocked on some hosts; fallbacks are an
 admin-browser check and `wp aivis verify`.
 
-**WP-CLI:** `wp aivis connection test`, `wp aivis sync --all`, `wp aivis status`,
-`wp aivis verify [--url=…]`, `wp aivis languages [assign <chain> <lang>|auto]`.
+**WP-CLI:** `wp aivis connection test`, `wp aivis sync --all`, `wp aivis status [--format=json]`,
+`wp aivis verify [--url=…]`, `wp aivis languages [assign <chain> <lang>|auto]`,
+`wp aivis status-key [show|regenerate|disable]`.
+
+---
+
+## §11a · Status for AIVIS — stored here, fetched by AIVIS
+
+**Decision (2026-09-06).** The connector does not push anything to AIVIS. It keeps the status of
+publishing in the plugin, and AIVIS fetches it when it wants to. This replaces the API-9 push.
+
+**What is stored.** Per URL, on top of the sync state the table already holds: `published_at` —
+when what the page serves last changed (a new content hash, or a row coming back into service) —
+and `verified_at` / `verified_hash` — when a loopback fetch last found the stored bytes on the
+page. The daily verification and the conflict scan both record it, so on an ordinary site up to
+ten pages a day carry a fresh `verified_at`; `wp aivis verify --url=…` records one on demand.
+
+**How it is served.** WordPress REST, read-only, GET only:
+
+| Route | Returns |
+|---|---|
+| `GET /wp-json/aivis-os/v1/status` | Connector, version, document `schema`, site host, `businessId`, sync (last complete, authoritative, interval, next, counts), delivery (injection switch, last verification), cache (adapter, last purge), languages (provider, site languages, chain assignment, mismatches), conflicts (fingerprint, acknowledged, scan, active plugins, items), and the URL of the per-page route |
+| `GET /wp-json/aivis-os/v1/status/urls?cursor=&limit=` | Per page: `url`, `urlId`, `chainId`, `languageCode`, `state` (`published` \| `stale` \| `holding` \| `suspended` \| `retired` \| `inactive`), `contentHash`, `generatedAt`, `publishedAt`, `lastSyncedAt`, `verifiedAt`, `verifiedHash`, `errorCode`. Paged by row id (`nextCursor`, `hasMore`), `limit` ≤ 500 |
+
+`wp aivis status --format=json` prints the same document, built by the same code.
+
+**How it is gated.** A **status key** issued by this site (`aivis_status_…`, generated on
+activation, shown under Settings → *Status for AIVIS*, regenerable and disableable there and via
+`wp aivis status-key`). AIVIS presents it as `Authorization: Bearer …`; it is compared in constant
+time, accepted from the header only — never a query parameter — and the responses are
+`Cache-Control: no-store`. The admin enters the key in AIVIS for the business (API-9). The key is
+**not** the API token and reaches nothing but this document; the document names the site's pages
+and their publishing state and never contains the token (AC-27).
+
+**Why pull.** Nothing about the site is emitted on a schedule the site does not control; a site
+that is switched off simply stops answering; AIVIS decides when and how often to look; and WP-I9
+becomes literal — the connector's outbound traffic is reads of the AIVIS API and nothing else.
 
 ---
 
@@ -620,6 +663,7 @@ Demonstrated on staging against the designated AIVIS environment.
 | **AC-24** | **Only chains assigned to a language are walked; nothing syncs while no chain is assigned, and the reason is recorded** |
 | **AC-25** | **An artifact whose `chainId` is not assigned to the page's WordPress language is rejected and never stored; inventory targets are fetched by `urlId`** |
 | **AC-26** | **A site language with no chain is flagged critical in Site Health and red on Settings and Status; unassigning a chain deactivates its rows and purges their caches at once** |
+| **AC-27** | **The connector issues no request to AIVIS other than GET; the status document is served only with the site-issued key from the Authorization header, and never contains the API token** |
 
 AC-17 is rewritten from rev 1, where it required immediate deactivation on any fetch-404 — which the
 API cannot support. AC-18 and AC-19 are new, and both guard failure modes that would otherwise be
@@ -722,3 +766,4 @@ is forward-only within a major version and data is kept.
 | Q-07 | Distribution beyond GitHub | **Resolved for v1** (§19): GitHub Releases only. WordPress.org cannot be considered until API-1, since public distribution implies customer-managed installs |
 | Q-08 | Public repo coordinates | **Open** — `aivis-wordpress-connector` under the org chosen in the shared edge decision |
 | Q-09 | Multilingual sites | **Resolved (2026-09-06)**: one chain per language, assigned by the admin (§07a). Separate domains per language are separate businesses and separate sites. Chain-level language requested as API-10 |
+| Q-10 | Direction of connector status | **Resolved (2026-09-06)**: pull. Stored in the plugin, fetched by AIVIS with a site-issued key (§11a). Nothing is pushed |

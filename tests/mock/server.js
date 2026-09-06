@@ -117,20 +117,6 @@ export function createServer() {
 
     if (route === '/me') return json(res, 200, { email: 'marketing@epoint.ro', name: 'Daniel', tokenName: 'wordpress-example.com' });
 
-    // API-9 (proposed, not in the vendored document): connector status report.
-    let ms = route.match(/^\/businesses\/([^/]+)\/connector-status$/);
-    if (ms) {
-      if (req.method !== 'POST') return fail(res, 405, 'Method not allowed');
-      let raw = '';
-      req.on('data', c => { raw += c; });
-      req.on('end', () => {
-        let body; try { body = JSON.parse(raw); } catch { return fail(res, 400, 'Body must be JSON'); }
-        if (body.connector !== 'aivis-os' || !body.version || !body.site) return fail(res, 400, 'connector, version and site are required');
-        json(res, 202, { accepted: true, receivedAt: new Date().toISOString() });
-      });
-      return;
-    }
-
     if (route === '/businesses') {
       const r = paginate(businesses, q);
       return r.error ? fail(res, 400, r.error) : json(res, 200, r);

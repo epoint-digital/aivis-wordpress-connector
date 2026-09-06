@@ -33,6 +33,8 @@ if ( ! $aivis_os_keep ) {
 	foreach ( [
 		'aivis_os_business',
 		'aivis_os_delivery',
+		'aivis_os_status_key',
+		'aivis_os_status_disabled',
 		'aivis_os_sync_state',
 		'aivis_os_diagnostics',
 		'aivis_os_schema_version',

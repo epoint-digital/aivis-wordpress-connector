@@ -66,6 +66,8 @@ final class Plugin {
 		}
 		( new Schema() )->install();
 		Scheduler::register_events();
+		// §11a — issue the read-only status key AIVIS will present.
+		self::instance()->options()->ensure_status_key();
 	}
 
 	/**
@@ -102,6 +104,9 @@ final class Plugin {
 
 		// Warnings reach a logged-in admin on the front end too (§09a).
 		( new AdminBar( $this ) )->register();
+
+		// §11a — the status document AIVIS fetches. Read-only, key-gated, never pushed.
+		( new \AivisOS\Rest\StatusController( $this ) )->register();
 
 		if ( is_admin() ) {
 			( new Menu( $this ) )->register();
@@ -164,7 +169,7 @@ final class Plugin {
 	}
 
 	public function notifier(): Notifier {
-		return $this->services['notifier'] ??= new Notifier( $this->options(), $this->client(), $this->repository(), $this->cache() );
+		return $this->services['notifier'] ??= new Notifier( $this->options() );
 	}
 
 	public function updater(): GitHubReleases {

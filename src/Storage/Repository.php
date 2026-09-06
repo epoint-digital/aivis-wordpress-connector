@@ -63,6 +63,12 @@ final class Repository {
 		$now  = current_time( 'mysql', true );
 		$prev = $this->find_by_key( (string) $fields['url_key'] );
 
+		$was_active = $prev && (int) $prev['active'] === 1 && empty( $prev['retired_at'] ) && empty( $prev['suspended_at'] );
+		$changed    = ! $prev || $prev['content_hash'] !== $hash;
+		// published_at (§11a): when what the page serves last changed — a new
+		// hash, or a row coming back into service. Unchanged content keeps it.
+		$published = ( $changed || ! $was_active || empty( $prev['published_at'] ) ) ? $now : (string) $prev['published_at'];
+
 		$data = [
 			'url_key'               => (string) $fields['url_key'],
 			'source_url'            => (string) $fields['source_url'],
@@ -82,8 +88,9 @@ final class Repository {
 			'suspended_at'          => null,
 			'retired_at'            => null,
 			'last_error_code'       => null,
+			'published_at'          => $published,
 		];
-		$format = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s' ];
+		$format = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s' ];
 
 		$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( $prev ) {
@@ -97,12 +104,36 @@ final class Repository {
 		}
 		$wpdb->query( 'COMMIT' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 
-		$was_active = $prev && (int) $prev['active'] === 1 && empty( $prev['retired_at'] ) && empty( $prev['suspended_at'] );
 		return [
-			'changed'   => ! $prev || $prev['content_hash'] !== $hash,
+			'changed'   => $changed,
 			'activated' => ! $was_active,
 			'hash'      => $hash,
 		];
+	}
+
+	/** §11a — a loopback fetch found this exact content on the page. */
+	public function mark_verified( string $url_key, string $hash ): void {
+		$this->patch( $url_key, [ 'verified_at' => current_time( 'mysql', true ), 'verified_hash' => $hash ] );
+	}
+
+	/**
+	 * §11a — the per-page publishing status AIVIS fetches, paged by id so a
+	 * consumer can walk the whole table without offsets drifting.
+	 *
+	 * @return list<array<string,mixed>>
+	 */
+	public function status_rows( int $after_id = 0, int $limit = 200 ): array {
+		global $wpdb;
+		return (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT id, source_url, url_id, chain_id, language_code, content_hash, source_generated_at, source_stale,
+				        active, suspended_at, retired_at, last_error_code, last_synced_at, published_at, verified_at, verified_hash
+				   FROM {$this->table()} WHERE id > %d ORDER BY id ASC LIMIT %d",
+				$after_id,
+				max( 1, min( 500, $limit ) )
+			),
+			ARRAY_A
+		);
 	}
 
 	/** R-01a / transport: keep serving, note why. */

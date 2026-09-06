@@ -302,7 +302,7 @@ final class Options {
 		delete_option( 'aivis_os_diagnostics' );
 	}
 
-	/** Bearer-shaped strings never reach the diagnostics (WP-I6). */
+	/** Bearer-shaped strings never reach the diagnostics (WP-I6). The status key matches too, by design. */
 	public function redact( string $s ): string {
 		return (string) preg_replace( '/aivis_[A-Za-z0-9_\-]{8,}/', 'aivis_[redacted]', $s );
 	}
@@ -349,16 +349,38 @@ final class Options {
 		update_option( 'aivis_os_delivery', $d, false );
 	}
 
-	/** API-9. Connector state only — never anything about people. */
-	public function report_to_aivis(): bool {
-		$d = (array) get_option( 'aivis_os_delivery', [] );
-		return (bool) ( $d['report_to_aivis'] ?? true );
+	/* ── status for AIVIS (§11a) — fetched, never pushed ─────────────── */
+
+	public const STATUS_KEY_PREFIX = 'aivis_status_';
+
+	/**
+	 * The read-only key AIVIS presents to fetch this site's publishing status.
+	 * Issued here, entered in AIVIS by the admin. Empty = endpoint disabled.
+	 * It is not the API token and reaches nothing but the status document.
+	 */
+	public function status_key(): string {
+		return (string) get_option( 'aivis_os_status_key', '' );
 	}
 
-	public function set_report_to_aivis( bool $on ): void {
-		$d                    = (array) get_option( 'aivis_os_delivery', [] );
-		$d['report_to_aivis'] = $on;
-		update_option( 'aivis_os_delivery', $d, false );
+	/** Generate one if none exists (activation, first Settings render). */
+	public function ensure_status_key(): string {
+		$k = $this->status_key();
+		if ( '' === $k && ! get_option( 'aivis_os_status_disabled', false ) ) {
+			$k = $this->regenerate_status_key();
+		}
+		return $k;
+	}
+
+	public function regenerate_status_key(): string {
+		$k = self::STATUS_KEY_PREFIX . wp_generate_password( 40, false, false );
+		update_option( 'aivis_os_status_key', $k, false );
+		delete_option( 'aivis_os_status_disabled' );
+		return $k;
+	}
+
+	public function disable_status_key(): void {
+		delete_option( 'aivis_os_status_key' );
+		update_option( 'aivis_os_status_disabled', true, false );
 	}
 
 	/* ── uninstall ───────────────────────────────────────────────────── */

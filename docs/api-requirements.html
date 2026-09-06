@@ -486,26 +486,37 @@
   <div class="req" id="API-9" data-requirement="API-9" data-priority="medium">
     <div class="rail"><div class="rid">API-9</div><span class="chip medium">Medium</span></div>
     <div class="body">
-      <h3>Connector status report</h3>
+      <h3>Fetch the connector's publishing status</h3>
       <dl>
         <div><dt>Current behaviour</dt><dd>AIVIS has no visibility into connected sites — whether they sync, which
-        version they run, whether purges confirm, and whether <strong>other plugins are also emitting structured
-        data</strong> on the same pages. <code>ApiToken.lastUsedAt</code> is the only signal.</dd></div>
-        <div><dt>Why it matters</dt><dd class="serif">AIVIS is meant to be the primary source of structured data. The
-        connector now detects Yoast, Rank Math and friends emitting their own <code>Organization</code> and
-        <code>WebSite</code> nodes next to ours and flags it red — never altering them — but that finding is only useful
-        if it reaches the people who own the customer relationship.</dd></div>
-        <div><dt>Proposed contract</dt><dd><code>POST /businesses/{businessId}/connector-status</code> → <strong>202</strong>,
-        sent after each authoritative sync and whenever the conflict set changes. Carries plugin version, site host,
-        sync counts, cache state and the conflicts found — <strong>nothing about people</strong>. Opt-out in the plugin.
-<pre>{ "connector": "aivis-os", "version": "1.0.0", "site": "example.com",
-  "sync": { "authoritative": true, "counts": { "active": 312, "suspended": 0, … } },
+        version they run, what is actually published on which page, whether purges confirm, and whether <strong>other
+        plugins are also emitting structured data</strong> on the same pages. <code>ApiToken.lastUsedAt</code> is the
+        only signal.</dd></div>
+        <div><dt>Why it matters</dt><dd class="serif">The connector knows all of it and keeps it in the plugin. It
+        <strong>never pushes</strong> — decided 2026-09-06, replacing the earlier POST design. AIVIS fetches the status
+        when it wants it: nothing about a site is emitted on a schedule the site does not control, a switched-off site
+        simply stops answering, and the connector's outbound traffic is reads of this API and nothing else.</dd></div>
+        <div><dt>What the site serves</dt><dd>WordPress REST, read-only, GET only, gated by a <em>status key</em> the
+        site issues and the admin enters in AIVIS. <code>GET {baseUrl}/wp-json/aivis-os/v1/status</code> and
+        <code>…/status/urls?cursor&amp;limit</code>, <code>Authorization: Bearer aivis_status_…</code>.
+<pre>{ "connector": "aivis-os", "version": "1.0.0", "schema": 1, "site": "example.com", "businessId": "…",
+  "sync": { "lastCompleteAt": "…", "authoritative": true, "counts": { "active": 312, "suspended": 0, … } },
+  "delivery": { "injection": true, "lastVerified": { "result": "live", "at": "…" } },
   "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed" },
-  "conflicts": { "activePlugins": ["yoast"],
-                 "items": [ { "url": "https://example.com/", "sources": ["yoast"],
-                              "types": ["Organization", "WebSite"] } ] } }</pre></dd></div>
-        <div><dt>Unlocks</dt><dd>A connected-sites view per business, and the conversation with a customer whose SEO plugin
-        is fighting AIVIS for the same node. The connector already sends it; a 404 backs off for a day.</dd></div>
+  "languages": { "provider": "wpml", "chains": { "chain_de": "de", "chain_en": "en" } },
+  "conflicts": { "activePlugins": ["yoast"], "items": [ { "url": "…", "sources": ["yoast"], "types": ["Organization"] } ] } }
+
+/status/urls → { "items": [ { "url": "…", "urlId": "u_services", "chainId": "chain_de", "state": "published",
+                               "contentHash": "sha256…", "publishedAt": "…", "verifiedAt": "…", "verifiedHash": "sha256…" } ],
+                 "nextCursor": "412", "hasMore": true }</pre>
+        <code>state</code> ∈ published · stale · holding · suspended · retired · inactive. <code>publishedAt</code> is when
+        what the page serves last changed; <code>verifiedAt</code> is when the site last fetched the page itself and found
+        those bytes in it. Nothing about people.</dd></div>
+        <div><dt>What AIVIS needs to add</dt><dd>A per-business field for the status key; a fetcher (on demand from the
+        business screen and/or on a schedule) that reads <code>/status</code> and walks <code>/status/urls</code>; optionally a
+        per-page comparison of <code>contentHash</code> with the current artifact.</dd></div>
+        <div><dt>Unlocks</dt><dd>A connected-sites view per business — last seen, version, sync health, per-page publication —
+        and the conversation with a customer whose SEO plugin is fighting AIVIS for the same node.</dd></div>
       </dl>
     </div>
   </div>
@@ -530,9 +541,9 @@
 <pre>{ "items": [ { "id": "chain_de", "name": "Deutsch", "languageCode": "de", "state": "ready", … } ] }</pre></dd></div>
         <div><dt>Unlocks</dt><dd>Exact automatic assignment (chain language == site language) instead of a sampled guess;
         an authoritative Site Health warning when a chain's language and its assignment disagree; one request per site
-        instead of one per chain. <strong>Also to confirm:</strong> whether one business (one <code>baseUrl</code>) may hold
-        URLs on language subdomains such as <code>de.example.com</code> — the connector allows them; a separate domain
-        per language it treats as a separate business and a separate site.</dd></div>
+        instead of one per chain. <strong>Answered 2026-09-06:</strong> AIVIS collects a chain's URLs by following links or by manual
+        entry — no host or subdomain concept, and no correlation between the URLs of different languages. The connector
+        matches every page by exact URL; a separate domain per language is a separate business and a separate site.</dd></div>
       </dl>
     </div>
   </div>
@@ -633,7 +644,7 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
     { "@type": "WebPageElement", "identifier": "API-6", "name": "A change feed" },
     { "@type": "WebPageElement", "identifier": "API-7", "name": "Documented rate limits" },
     { "@type": "WebPageElement", "identifier": "API-8", "name": "Host-level URL equivalence" },
-    { "@type": "WebPageElement", "identifier": "API-9", "name": "Connector status report" },
+    { "@type": "WebPageElement", "identifier": "API-9", "name": "Fetch the connector's publishing status" },
     { "@type": "WebPageElement", "identifier": "API-10", "name": "Language on the chain resource" }
   ]
 }
@@ -692,16 +703,17 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
       "proposedContract": "Document intended per-token limits; return 429 with Retry-After when introduced.",
       "unlocks": ["a real budget to throttle against"],
       "blocking": false, "interim": "Self-imposed cap of 20 artifact requests per job." },
-    { "id": "API-9", "title": "Connector status report", "priority": "medium",
-      "currentBehaviour": "AIVIS has no visibility into connected sites; ApiToken.lastUsedAt is the only signal.",
-      "proposedContract": "POST /businesses/{businessId}/connector-status -> 202, after each authoritative sync and on conflict changes. Plugin version, site host, sync counts, cache state, structured-data conflicts. Nothing about people. Opt-out.",
-      "unlocks": ["connected-sites view per business", "visibility of SEO plugins competing with AIVIS for the same nodes"],
-      "blocking": false, "interim": "Report sent anyway; 404 backs off 24 h. Conflicts flagged in WordPress and emailed to the site admin." },
+    { "id": "API-9", "title": "Fetch the connector's publishing status", "priority": "medium",
+      "direction": "pull",
+      "currentBehaviour": "AIVIS has no visibility into connected sites; ApiToken.lastUsedAt is the only signal. The connector never pushes.",
+      "proposedContract": "AIVIS-side: a per-business status key field and a fetcher for GET {baseUrl}/wp-json/aivis-os/v1/status and /status/urls?cursor&limit (Authorization: Bearer aivis_status_...). The site serves connector, version, schema, sync, delivery, cache, languages, conflicts, and per page url, urlId, chainId, state (published|stale|holding|suspended|retired|inactive), contentHash, publishedAt, lastSyncedAt, verifiedAt, verifiedHash, errorCode. Nothing about people.",
+      "unlocks": ["connected-sites view per business", "per-page publication status against the current artifact", "visibility of SEO plugins competing with AIVIS for the same nodes"],
+      "blocking": false, "interim": "The site already serves the document, key-gated. Conflicts are also flagged in WordPress and emailed to the site admin." },
     { "id": "API-10", "title": "Language on the chain resource", "priority": "medium",
       "currentBehaviour": "A chain is one language, but languageCode is exposed only per URL row; chain items carry no language.",
       "proposedContract": "languageCode (ISO 639-1, optional region) on every item of GET /businesses/{id}/chains. Additive.",
       "unlocks": ["exact chain-to-language assignment in the connector", "authoritative language-mismatch warnings", "one request per site instead of one per chain"],
-      "openQuestion": "May one business hold URLs on language subdomains (de.example.com)?",
+      "answered": "AIVIS collects URLs by following links or by manual entry; no host/subdomain concept; no correlation between the URLs of different languages.",
       "blocking": false, "interim": "Five inventory rows sampled per chain as a hint (cached 15 min); automatic assignment only when unambiguous; disagreements reported, never acted on." },
     { "id": "API-8", "title": "Host-level URL equivalence", "priority": "filed",
       "currentBehaviour": "Matching is exact plus a trailing-slash variant, deliberately.",

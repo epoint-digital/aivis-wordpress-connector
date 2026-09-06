@@ -59,7 +59,12 @@ final class Verifier {
 				continue;
 			}
 			$pages++;
-			$scan = Conflicts::scan_html( (string) wp_remote_retrieve_body( $res ) );
+			$html = (string) wp_remote_retrieve_body( $res );
+			if ( str_contains( $html, (string) $row['json_ld'] ) ) {
+				// Seen on the page with the stored bytes: that is what "published" means (§11a).
+				$this->repository->mark_verified( (string) $row['url_key'], (string) $row['content_hash'] );
+			}
+			$scan = Conflicts::scan_html( $html );
 			if ( $scan['blocks'] > 0 ) {
 				$items[ $url ] = $scan + [ 'seen_at' => time() ];
 			}
@@ -113,6 +118,7 @@ final class Verifier {
 		if ( ! str_contains( $html, (string) $row['json_ld'] ) ) {
 			return $this->done( 'stale-on-page', $target, 'marker present but content differs from the stored artifact — cache not yet purged' );
 		}
+		$this->repository->mark_verified( (string) $row['url_key'], (string) $row['content_hash'] );
 		return $this->done( 'live', $target, 'marker and current content present' );
 	}
 

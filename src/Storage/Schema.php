@@ -12,7 +12,7 @@ namespace AivisOS\Storage;
 final class Schema {
 
 	/** Bump when the table definition changes; dbDelta reconciles the rest. */
-	public const VERSION = '1';
+	public const VERSION = '2';
 
 	public static function table(): string {
 		global $wpdb;
@@ -28,7 +28,9 @@ final class Schema {
 		// Column list per SPECIFICATION §05, plus two the retraction rules in §06
 		// need but the data-model table omitted: `suspended_at` (R-01 suspends
 		// before it retires) and `last_error_code` (the status screen shows why
-		// a row is holding or suspended).
+		// a row is holding or suspended). v2 adds the publishing status AIVIS
+		// fetches (§11a): when the served content last changed, and when a
+		// loopback fetch last saw it on the page.
 		$sql = "CREATE TABLE {$table} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			url_key char(64) NOT NULL,
@@ -49,6 +51,9 @@ final class Schema {
 			suspended_at datetime NULL,
 			retired_at datetime NULL,
 			last_error_code varchar(32) NULL,
+			published_at datetime NULL,
+			verified_at datetime NULL,
+			verified_hash char(64) NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY url_key (url_key),
 			KEY business_active (business_id,active),

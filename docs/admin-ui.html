@@ -519,6 +519,22 @@ function settingsScreen(){
     </div>
   </div>
 
+  <div class="postbox" id="aivis-status-key">
+    <h2>Status for AIVIS</h2>
+    <div class="inside">
+      <p>This plugin never sends anything to AIVIS. It keeps the status of publishing here — per page: what is published, with which
+      content, since when, and when this site last saw it on the page — and AIVIS can fetch it from the endpoint below, presenting the key.</p>
+      <table class="form-table">
+        <tr><th scope="row">Endpoint</th><td><code>https://example.com/wp-json/aivis-os/v1/status</code><br>
+          <span class="muted">Per-page detail at …/status/urls, paged by cursor. Read-only; GET only.</span></td></tr>
+        <tr><th scope="row">Status key</th><td><code>aivis_status_k9Qw2…hT7</code>
+          <p class="description">Enter this in AIVIS for this business. It is not the API token: it reaches nothing but the status document,
+          which names this site&rsquo;s pages and their publishing state and never the token.</p>
+          <p><button class="button">Regenerate</button> <button class="button button-link-delete">Disable</button></p></td></tr>
+      </table>
+    </div>
+  </div>
+
   <div class="postbox">
     <h2>Delivery</h2>
     <div class="inside">

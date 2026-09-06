@@ -287,25 +287,6 @@ await test('two businesses share this domain, so selection cannot be automatic (
   return 'the admin must disambiguate';
 }, FIXTURE);
 
-/* ── API-9 (proposed): connector status report ───────────────────────── */
-heading('API-9 connector status (proposed — outside the vendored document)');
-await test('the mock accepts a well-formed status report with 202', async () => {
-  const res = await fetch(base + '/businesses/biz_live/connector-status', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ connector: 'aivis-os', version: '1.0.0', site: 'example.com', businessId: 'biz_live', conflicts: { items: [] } }),
-  });
-  eq(res.status, 202, 'status');
-  const body = await res.json();
-  eq(body.accepted, true, 'accepted');
-}, FIXTURE);
-await test('a report without the required fields is a 400', async () => {
-  const res = await fetch(base + '/businesses/biz_live/connector-status', {
-    method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ hello: 1 }),
-  });
-  eq(res.status, 400, 'status');
-}, FIXTURE);
-
 /* ── Conformance to the vendored OpenAPI document ─────────────────────── */
 heading('openapi conformance');
 
