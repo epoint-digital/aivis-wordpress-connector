@@ -186,7 +186,9 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 | `last_seen_sync_id` | char(36) | Last job that observed the URL |
 | `missing_complete_runs` | smallint unsigned | Consecutive authoritative absences (R-02) |
 | `last_synced_at` | datetime | Last successful validation |
+| `suspended_at` | datetime null | Set by R-01: injection stopped, row kept pending inventory confirmation |
 | `retired_at` | datetime null | Soft-retirement time |
+| `last_error_code` | varchar(32) null | Why a row is holding or suspended — the status screen shows it |
 
 **Indexes:** primary key; unique `url_key`; `(business_id, active)`; `url_id`; `last_seen_sync_id`;
 `retired_at`.
@@ -557,6 +559,42 @@ readme.txt  uninstall.php  CONTRIBUTING.md  SECURITY.md  CHANGELOG.md  LICENSE
 
 ---
 
+## §19 · Deployment, versioning and updates
+
+**Distribution.** GitHub Releases only for v1 (Q-07). Each tagged release
+carries `aivis-os.zip`, built reproducibly (fixed mtimes from the commit,
+sorted entries, `.distignore`) and a `SHA-256SUMS` file. The release workflow
+builds the ZIP twice and fails if the bytes differ (AC-16).
+
+**Install.** Operator-run in v1: ZIP upload, or
+`wp plugin install <release asset url> --activate`. Full steps in
+[INSTALL.md](INSTALL.md); operational drills in [RUNBOOK.md](RUNBOOK.md).
+
+**Versioning.** The `Version:` header in `aivis-os.php` is the single source of
+truth — it is the only version WordPress reads. `AIVIS_OS_VERSION`,
+`readme.txt` *Stable tag*, the top `CHANGELOG.md` heading and the git tag must
+all equal it; `scripts/version-check.mjs` enforces this in CI and in the
+release job. Semver. The API contract version (v1.0.0) is tracked separately —
+the plugin at 1.2.0 may still speak API v1.
+
+**Updates.** WordPress only auto-updates plugins from wordpress.org, so the
+plugin declares `Update URI: https://github.com/epoint-digital/aivis-wordpress-connector`.
+That header does two things:
+
+1. **Security.** WordPress matches installed plugins to the directory by folder
+   slug. Without the header, anyone who registered `aivis-os` on wordpress.org
+   could push their code to every site running this plugin. With it, WordPress
+   never consults the directory for this plugin.
+2. **Mechanism.** WordPress fires `update_plugins_github.com`, which
+   `src/Update/GitHubReleases.php` answers from the releases API: if the latest
+   tag is newer than the installed version, it offers the `aivis-os.zip` asset.
+   A release without that asset is not an update. Results are cached 12 h.
+
+**Rollback.** Install the previous release ZIP over the current one; the schema
+is forward-only within a major version and data is kept.
+
+---
+
 ## Appendix · Release decisions
 
 | ID | Decision | Resolution |
@@ -567,5 +605,5 @@ readme.txt  uninstall.php  CONTRIBUTING.md  SECURITY.md  CHANGELOG.md  LICENSE
 | Q-04 | Default freshness | **Resolved**: 15-minute polling default; 5 minutes for retraction-sensitive managed sites with reliable system cron |
 | Q-05 | Minimum platforms | **Resolved**: WordPress 6.5–7.1, PHP 8.1–8.5 |
 | Q-06 | Multisite | **Open** — per-site only if fully test-covered; otherwise block network activation in 1.0 |
-| Q-07 | Distribution beyond GitHub | **Resolved for v1**: GitHub Releases only. WordPress.org cannot be considered until API-1, since public distribution implies customer-managed installs |
+| Q-07 | Distribution beyond GitHub | **Resolved for v1** (§19): GitHub Releases only. WordPress.org cannot be considered until API-1, since public distribution implies customer-managed installs |
 | Q-08 | Public repo coordinates | **Open** — `aivis-wordpress-connector` under the org chosen in the shared edge decision |
