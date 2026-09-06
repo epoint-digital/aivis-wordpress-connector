@@ -13,13 +13,13 @@ declare( strict_types=1 );
 
 namespace AivisOS;
 
+use AivisOS\Admin\AdminBar;
 use AivisOS\Admin\Menu;
 use AivisOS\Admin\Notices;
 use AivisOS\Admin\SiteHealth;
 use AivisOS\Api\Client;
 use AivisOS\Cache\AdapterFactory;
 use AivisOS\Cli\Commands;
-use AivisOS\Delivery\Conflicts;
 use AivisOS\Delivery\Injector;
 use AivisOS\Storage\Options;
 use AivisOS\Storage\Repository;
@@ -83,11 +83,6 @@ final class Plugin {
 		// Keep the schema current on upgrade without a re-activation.
 		add_action( 'init', [ $this, 'maybe_upgrade' ], 1 );
 
-		// §09a — AIVIS is the primary source: register the off-switches for
-		// other emitters the admin chose to suppress, before anything renders.
-		add_action( 'init', static function (): void {
-			Conflicts::apply_suppressions( ( new Options() )->suppressed_sources() );
-		}, 0 );
 
 		// Delivery — the only thing that runs on a public request (WP-I2).
 		add_action( 'wp_head', [ $this->injector(), 'render' ], 100 );
@@ -104,6 +99,9 @@ final class Plugin {
 
 		// Update URI answers — never wordpress.org.
 		add_filter( 'update_plugins_github.com', [ $this->updater(), 'check' ], 10, 4 );
+
+		// Warnings reach a logged-in admin on the front end too (§09a).
+		( new AdminBar( $this ) )->register();
 
 		if ( is_admin() ) {
 			( new Menu( $this ) )->register();

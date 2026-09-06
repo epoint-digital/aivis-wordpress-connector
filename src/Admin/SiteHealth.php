@@ -88,7 +88,7 @@ final class SiteHealth {
 				$srcs[ $s ] = \AivisOS\Delivery\Conflicts::label( (string) $s );
 			}
 		}
-		$desc = sprintf( 'Other JSON-LD on %d of %d scanned pages, from %s. Two Organization or WebSite nodes on one page give search engines conflicting answers. Disable the other source, or suppress it under AIVIS OS → Settings.', count( $c['items'] ), $c['pages_scanned'], implode( ', ', $srcs ) );
+		$desc = sprintf( 'Other JSON-LD on %d of %d scanned pages, from %s. Two Organization or WebSite nodes on one page give search engines conflicting answers. Switch the other output off in that plugin — AIVIS OS → Settings says where.', count( $c['items'] ), $c['pages_scanned'], implode( ', ', $srcs ) );
 		return $o->conflicts_unacknowledged()
 			? $this->result( 'critical', 'Other plugins also emit structured data', $desc )
 			: $this->result( 'recommended', 'Other structured data present (overridden by an administrator)', $desc );

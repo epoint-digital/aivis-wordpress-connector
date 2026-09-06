@@ -130,7 +130,7 @@ final class SettingsPage {
 				</div></div>
 
 				<div class="postbox" id="aivis-sources"><h2 class="hndle"><?php esc_html_e( 'Structured data sources', 'aivis-os' ); ?></h2><div class="inside">
-					<p class="description"><?php esc_html_e( 'AIVIS is the primary source of structured data on this site. Anything else that emits JSON-LD is flagged. Where a plugin exposes an off-switch, the connector can apply it for you — publishing continues either way.', 'aivis-os' ); ?></p>
+					<p class="description"><?php esc_html_e( 'AIVIS is the primary source of structured data on this site. Anything else that emits JSON-LD is flagged here and in the admin bar. The connector never changes another plugin’s behaviour — it tells you where to switch that output off. Publishing continues either way.', 'aivis-os' ); ?></p>
 					<?php
 					$conf     = $o->conflicts();
 					$active   = $conf['plugins'] ?: \AivisOS\Delivery\Conflicts::active_plugins();
@@ -146,17 +146,13 @@ final class SettingsPage {
 						<p><span class="aivis-chip aivis-chip--ok"><?php esc_html_e( 'No other emitter detected', 'aivis-os' ); ?></span>
 						<?php if ( $conf['scanned_at'] ) : ?><span class="description"> <?php echo esc_html( sprintf( /* translators: 1: pages, 2: time ago */ __( '%1$d pages scanned %2$s ago', 'aivis-os' ), $conf['pages_scanned'], human_time_diff( $conf['scanned_at'] ) ) ); ?></span><?php endif; ?></p>
 					<?php else : ?>
-					<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'Source', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Found on', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Suppress', 'aivis-os' ); ?></th></tr></thead><tbody>
-					<?php foreach ( $rows as $key ) : $sup = in_array( $key, $o->suppressed_sources(), true ); ?>
+					<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'Source', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Found on', 'aivis-os' ); ?></th><th><?php esc_html_e( 'How to switch it off there', 'aivis-os' ); ?></th></tr></thead><tbody>
+					<?php foreach ( $rows as $key ) : ?>
 						<tr>
 							<td><strong><?php echo esc_html( \AivisOS\Delivery\Conflicts::label( $key ) ); ?></strong>
 								<?php if ( in_array( $key, $active, true ) ) : ?><span class="description"> · <?php esc_html_e( 'plugin active', 'aivis-os' ); ?></span><?php endif; ?></td>
 							<td><?php echo isset( $found[ $key ] ) ? '<span class="aivis-chip aivis-chip--bad">' . esc_html( sprintf( /* translators: %d: pages */ _n( '%d page', '%d pages', $found[ $key ], 'aivis-os' ), $found[ $key ] ) ) . '</span>' : '<span class="description">' . esc_html__( 'not seen in the last scan', 'aivis-os' ) . '</span>'; ?></td>
-							<td><?php if ( \AivisOS\Delivery\Conflicts::suppressible( $key ) ) : ?>
-								<label><input type="checkbox" name="suppress[]" value="<?php echo esc_attr( $key ); ?>" <?php checked( $sup ); ?>> <?php esc_html_e( 'Switch its structured data off (uses the plugin’s own filter)', 'aivis-os' ); ?></label>
-							<?php else : ?>
-								<span class="description"><?php echo esc_html( \AivisOS\Delivery\Conflicts::guidance( $key ) ); ?></span>
-							<?php endif; ?></td>
+							<td><span class="description"><?php echo esc_html( \AivisOS\Delivery\Conflicts::guidance( $key ) ); ?></span></td>
 						</tr>
 					<?php endforeach; ?>
 					</tbody></table>
@@ -212,7 +208,6 @@ final class SettingsPage {
 		}
 		$o->set_injection_enabled( ! empty( $post['injection'] ) );
 		$o->set_on_demand_enabled( ! empty( $post['on_demand'] ) );
-		$o->set_suppressed_sources( array_map( 'strval', (array) ( $post['suppress'] ?? [] ) ) );
 		$o->set_notify_email( ! empty( $post['notify_email'] ) );
 		$o->set_report_to_aivis( ! empty( $post['report_to_aivis'] ) );
 		$interval = (int) ( $post['interval'] ?? 900 );

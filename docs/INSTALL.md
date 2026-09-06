@@ -144,10 +144,12 @@ AIVIS is the primary source of structured data. If Yoast, Rank Math, All in One
 SEO, SEOPress or similar also emit JSON-LD, the plugin flags it in red — two
 `Organization` nodes on one page give search engines conflicting answers.
 
-AIVIS OS → **Settings → Structured data sources** lists what was found and, for
-plugins that expose an off-switch, lets you suppress their output with one
-checkbox. Publishing continues either way; *Override* on the warning keeps it
-quiet until the set of conflicts changes. The site admin is emailed when it does.
+AIVIS OS → **Settings → Structured data sources** lists what was found and says,
+per plugin, where to switch that output off. The connector never changes another
+plugin itself. Publishing continues either way; *Override* on the warning keeps
+it quiet until the set of conflicts changes. Logged-in admins also see the
+warning in the admin bar on the front end, and the site admin is emailed when
+the set changes.
 
 ## Upgrading
 

@@ -276,18 +276,6 @@ final class Options {
 		return '' !== $c['fingerprint'] && $c['acknowledged'] !== $c['fingerprint'];
 	}
 
-	/** @return list<string> registry keys whose output the admin chose to suppress */
-	public function suppressed_sources(): array {
-		$d = (array) get_option( 'aivis_os_delivery', [] );
-		return array_values( array_map( 'strval', (array) ( $d['suppress'] ?? [] ) ) );
-	}
-
-	/** @param list<string> $keys */
-	public function set_suppressed_sources( array $keys ): void {
-		$d             = (array) get_option( 'aivis_os_delivery', [] );
-		$d['suppress'] = array_values( array_unique( array_map( 'sanitize_key', $keys ) ) );
-		update_option( 'aivis_os_delivery', $d, false );
-	}
 
 	public function notify_email(): bool {
 		$d = (array) get_option( 'aivis_os_delivery', [] );

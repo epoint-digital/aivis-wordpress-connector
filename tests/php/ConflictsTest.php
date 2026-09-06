@@ -52,14 +52,15 @@ HTML;
 		self::assertSame( [ 'yoast' ], Conflicts::active_plugins() );
 	}
 
-	public function test_suppression_registers_the_plugins_own_filters_only(): void {
-		Conflicts::apply_suppressions( [ 'yoast', 'rank-math', 'seopress', 'nonsense' ] );
-		$hooks = array_column( WPStub::$filters, 0 );
-		self::assertContains( 'wpseo_json_ld_output', $hooks );
-		self::assertContains( 'rank_math/json_ld', $hooks );
-		self::assertCount( 2, $hooks, 'SEOPress has no filter and nonsense is not a source' );
-		self::assertFalse( Conflicts::suppressible( 'seopress' ) );
-		self::assertTrue( Conflicts::suppressible( 'yoast' ) );
+	public function test_the_connector_never_alters_another_plugin(): void {
+		// Decision 2026-09-06 (#38): warnings only. Every known source carries
+		// guidance for the admin, and touching the registry registers nothing.
+		foreach ( Conflicts::registry() as $key => $e ) {
+			self::assertNotEmpty( $e['how'], $key );
+			self::assertArrayNotHasKey( 'filter', $e, $key );
+		}
+		self::assertSame( [], WPStub::$filters, 'no filter may be registered on behalf of the admin' );
+		self::assertFalse( method_exists( Conflicts::class, 'apply_suppressions' ) );
 	}
 
 	public function test_override_silences_until_the_set_changes(): void {

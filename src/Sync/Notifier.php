@@ -89,7 +89,6 @@ final class Notifier {
 				'acknowledged' => ! empty( $conflicts['fingerprint'] ) && ( $conflicts['acknowledged'] ?? null ) === $conflicts['fingerprint'],
 				'pagesScanned' => (int) ( $conflicts['pages_scanned'] ?? 0 ),
 				'activePlugins' => array_values( (array) ( $conflicts['plugins'] ?? [] ) ),
-				'suppressed'   => $this->options->suppressed_sources(),
 				'items'        => $items,
 			],
 		];
@@ -138,10 +137,10 @@ final class Notifier {
 			__( 'AIVIS should be the only source of JSON-LD on this site. Sources found:', 'aivis-os' ),
 		];
 		foreach ( $srcs as $k => $label ) {
-			$lines[] = '  - ' . $label . ( Conflicts::suppressible( (string) $k ) ? ' — ' . __( 'can be suppressed under AIVIS OS → Settings', 'aivis-os' ) : '' );
+			$lines[] = '  - ' . $label . ' — ' . Conflicts::guidance( (string) $k );
 		}
 		$lines[] = '';
-		$lines[] = __( 'Publishing continues. Review under AIVIS OS → Status, and either disable the other source or use Override there.', 'aivis-os' );
+		$lines[] = __( 'Publishing continues. The connector never changes another plugin. Review under AIVIS OS → Status: switch the other output off where indicated, or use Override there.', 'aivis-os' );
 		$lines[] = admin_url( 'admin.php?page=aivis-os' );
 		wp_mail(
 			$to,

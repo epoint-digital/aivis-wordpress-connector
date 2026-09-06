@@ -4,9 +4,9 @@
  *
  * Any other JSON-LD on a page (SEO plugins, the theme, hand-written blocks)
  * is a conflict: it is identified, attributed to its source where a marker
- * allows, and flagged red in the admin. Publishing is never blocked. For
- * plugins whose output can be switched off through their own public filters,
- * the connector offers a suppression toggle — off by default, the admin's call.
+ * allows, and flagged red to the admin. Publishing is never blocked, and the
+ * connector never changes another plugin's behaviour — it tells the admin
+ * where to switch the other output off, and that is all.
  *
  * Detection runs on the background loopback scan (Verifier), never on the
  * render path.
@@ -24,10 +24,10 @@ final class Conflicts {
 
 	/**
 	 * Known emitters. `marker` is matched against the script tag's attributes
-	 * and the 200 characters before it; `filter` registers the plugin's own
-	 * off-switch; `how` is the manual alternative shown to the admin.
+	 * and the lead-in before it; `how` tells the admin where to switch that
+	 * plugin's structured data off themselves.
 	 *
-	 * @return array<string,array{label:string,plugin:string,marker:string,filter:?\Closure,how:string}>
+	 * @return array<string,array{label:string,plugin:string,marker:string,how:string}>
 	 */
 	public static function registry(): array {
 		return [
@@ -35,57 +35,42 @@ final class Conflicts {
 				'label'  => 'Yoast SEO',
 				'plugin' => 'wordpress-seo/wp-seo.php',
 				'marker' => 'yoast-schema-graph',
-				'filter' => static function (): void {
-					add_filter( 'wpseo_json_ld_output', '__return_false', 99 );
-				},
-				'how'    => __( 'Yoast has no setting for this; the connector can switch its schema output off through the wpseo_json_ld_output filter.', 'aivis-os' ),
+				'how'    => __( 'Yoast SEO has no setting for this. Add add_filter( \'wpseo_json_ld_output\', \'__return_false\' ); in a small snippet plugin or your theme.', 'aivis-os' ),
 			],
 			'rank-math'  => [
 				'label'  => 'Rank Math',
 				'plugin' => 'seo-by-rank-math/rank-math.php',
 				'marker' => 'rank-math-schema',
-				'filter' => static function (): void {
-					add_filter( 'rank_math/json_ld', static fn(): array => [], 99 );
-				},
-				'how'    => __( 'Rank Math → Titles & Meta → disable schema per post type, or let the connector suppress it through the rank_math/json_ld filter.', 'aivis-os' ),
+				'how'    => __( 'Rank Math → Titles & Meta: disable schema per post type, or Rank Math → Dashboard → deactivate the Schema module.', 'aivis-os' ),
 			],
 			'aioseo'     => [
 				'label'  => 'All in One SEO',
 				'plugin' => 'all-in-one-seo-pack/all_in_one_seo_pack.php',
 				'marker' => 'aioseo-schema',
-				'filter' => static function (): void {
-					add_filter( 'aioseo_schema_disable', '__return_true', 99 );
-				},
-				'how'    => __( 'All in One SEO → Search Appearance → disable schema markup, or let the connector suppress it through the aioseo_schema_disable filter.', 'aivis-os' ),
+				'how'    => __( 'All in One SEO → Search Appearance → Content Types: disable schema markup.', 'aivis-os' ),
 			],
 			'seopress'   => [
 				'label'  => 'SEOPress',
 				'plugin' => 'wp-seopress/seopress.php',
 				'marker' => 'seopress',
-				'filter' => null,
 				'how'    => __( 'SEOPress → PRO → Structured Data Types: disable the schemas, or deactivate the Schemas feature.', 'aivis-os' ),
 			],
 			'slim-seo'   => [
 				'label'  => 'Slim SEO',
 				'plugin' => 'slim-seo/slim-seo.php',
 				'marker' => 'slim-seo',
-				'filter' => static function (): void {
-					add_filter( 'slim_seo_schema_graph', static fn(): array => [], 99 );
-				},
-				'how'    => __( 'Slim SEO → Schema: turn it off, or let the connector suppress it through the slim_seo_schema_graph filter.', 'aivis-os' ),
+				'how'    => __( 'Slim SEO → Settings → Schema: turn it off.', 'aivis-os' ),
 			],
 			'schema-pro' => [
 				'label'  => 'Schema Pro',
 				'plugin' => 'wp-schema-pro/wp-schema-pro.php',
 				'marker' => 'schema-pro',
-				'filter' => null,
 				'how'    => __( 'Schema Pro → Configuration: disable the schema types you have set up.', 'aivis-os' ),
 			],
 			'wpsso'      => [
 				'label'  => 'WPSSO',
 				'plugin' => 'wpsso/wpsso.php',
 				'marker' => 'wpsso',
-				'filter' => null,
 				'how'    => __( 'WPSSO → Advanced Settings → disable Schema markup.', 'aivis-os' ),
 			],
 		];
@@ -103,15 +88,6 @@ final class Conflicts {
 		return $out;
 	}
 
-	/** Register the off-switches the admin turned on. Runs at init, before wp_head. */
-	public static function apply_suppressions( array $keys ): void {
-		$reg = self::registry();
-		foreach ( $keys as $k ) {
-			if ( isset( $reg[ $k ] ) && null !== $reg[ $k ]['filter'] ) {
-				( $reg[ $k ]['filter'] )();
-			}
-		}
-	}
 
 	/**
 	 * Find every JSON-LD block that is not ours.
@@ -220,7 +196,4 @@ final class Conflicts {
 		return self::registry()[ $key ]['how'] ?? __( 'Look for a JSON-LD block in the theme or a custom snippet and remove it.', 'aivis-os' );
 	}
 
-	public static function suppressible( string $key ): bool {
-		return null !== ( self::registry()[ $key ]['filter'] ?? null );
-	}
 }

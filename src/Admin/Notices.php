@@ -21,10 +21,22 @@ final class Notices {
 
 	public function render(): void {
 		$screen = get_current_screen();
+		$o      = $this->plugin->options();
+		if ( $screen && in_array( (string) $screen->id, [ 'dashboard', 'plugins' ], true ) ) {
+			// A one-line pointer where admins actually look; the full warning lives
+			// on the plugin screens and in the admin bar.
+			if ( $o->conflicts_unacknowledged() && current_user_can( Menu::capability() ) ) {
+				echo '<div class="notice notice-error"><p>' . wp_kses_post( sprintf(
+					/* translators: %s: link to the status screen */
+					__( '<strong>AIVIS OS:</strong> other plugins are also emitting structured data on this site. AIVIS should be the only source — %s.', 'aivis-os' ),
+					'<a href="' . esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_STATUS ) ) . '">' . esc_html__( 'review and decide', 'aivis-os' ) . '</a>'
+				) ) . '</p></div>';
+			}
+			return;
+		}
 		if ( ! $screen || ! str_contains( (string) $screen->id, 'aivis-os' ) ) {
 			return;
 		}
-		$o    = $this->plugin->options();
 		$host = $o->site_host();
 
 		if ( isset( $_GET['aivis_msg'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -100,7 +112,6 @@ final class Notices {
 					$labels[ (string) $s ] = \AivisOS\Delivery\Conflicts::label( (string) $s );
 				}
 			}
-			$suppressible = array_filter( array_keys( $labels ), [ \AivisOS\Delivery\Conflicts::class, 'suppressible' ] );
 			echo '<div class="notice notice-error"><p>';
 			echo wp_kses_post( sprintf(
 				/* translators: 1: pages with conflicts, 2: pages scanned, 3: comma-separated sources */
@@ -110,11 +121,7 @@ final class Notices {
 				esc_html( implode( ', ', $labels ) )
 			) );
 			echo '</p><p>';
-			if ( $suppressible ) {
-				echo wp_kses_post( __( 'The connector can switch the other plugin’s structured data off for you under <strong>Settings → Structured data sources</strong>. Publishing continues either way.', 'aivis-os' ) );
-			} else {
-				echo wp_kses_post( __( 'Disable the structured-data output in the other plugin or theme. Publishing continues either way.', 'aivis-os' ) );
-			}
+			echo wp_kses_post( __( 'Switch the structured-data output off in the other plugin or theme — <strong>Settings → Structured data sources</strong> says where for each one. The connector never changes another plugin itself. Publishing continues either way.', 'aivis-os' ) );
 			echo '</p><p>';
 			echo Menu::action_form( 'acknowledge_conflicts', __( 'Override — I know, keep publishing', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			echo ' ';
@@ -124,9 +131,8 @@ final class Notices {
 			return;
 		}
 		$plugins = $c['plugins'] ?: \AivisOS\Delivery\Conflicts::active_plugins();
-		$unsuppressed = array_diff( $plugins, $o->suppressed_sources() );
-		if ( $unsuppressed && 0 === (int) $c['scanned_at'] ) {
-			$names = array_map( [ \AivisOS\Delivery\Conflicts::class, 'label' ], $unsuppressed );
+		if ( $plugins && 0 === (int) $c['scanned_at'] ) {
+			$names = array_map( [ \AivisOS\Delivery\Conflicts::class, 'label' ], $plugins );
 			echo '<div class="notice notice-warning"><p>';
 			echo wp_kses_post( sprintf(
 				/* translators: %s: plugin names */

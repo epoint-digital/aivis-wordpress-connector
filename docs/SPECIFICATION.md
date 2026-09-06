@@ -384,17 +384,20 @@ know, keep publishing"). The red warning stays silent until the *set* changes
 (new page, new source, new types), then re-arms. Site Health reports an
 acknowledged set as *recommended*, an unacknowledged one as *critical*.
 
-**Suppression.** For emitters whose output can be switched off through their
-own public filter (`wpseo_json_ld_output`, `rank_math/json_ld`,
-`aioseo_schema_disable`, `slim_seo_schema_graph`) the connector offers a
-per-plugin toggle, **off by default** — the admin makes AIVIS the only source
-with one checkbox, and can undo it the same way. Emitters without a filter get
-manual guidance.
+**The connector never changes another plugin.** It does not register filters,
+disable modules or alter anyone else's output — decision of 2026-09-06 (#38).
+For each known source it shows the admin *where* to switch that output off
+(Yoast, Rank Math, All in One SEO, SEOPress, Slim SEO, Schema Pro, WPSSO) and
+generic guidance for unknown blocks. Making AIVIS the only source is the
+admin's action, taken in the other plugin.
 
-**Notifications.** Inside WordPress: the red notice on the plugin screens,
-a Conflicts tile and per-URL badge on Status, a Site Health test, and an email
-to the site admin when the conflict set changes (opt-out). Toward AIVIS: the
-connector status report, API-9 (opt-out; see WP-I9).
+**Notifications — to the admin, never to visitors.** Inside WordPress: the red
+notice on the plugin screens, a one-line pointer on the Dashboard and Plugins
+screens, a Conflicts tile and per-URL badge on Status, a Site Health test, an
+**admin-bar warning** visible to logged-in users with the manage capability on
+the front end as well, and an email to `admin_email` when the conflict set
+changes (opt-out). Toward AIVIS: the connector status report, API-9 (opt-out;
+see WP-I9).
 
 ## §10 · Cache publication
 
@@ -539,7 +542,7 @@ Demonstrated on staging against the designated AIVIS environment.
 | **AC-19** | **An artifact whose `businessId` differs from the selected business is rejected and never stored** |
 | **AC-20** | **A business whose `baseUrl` host differs from the site's host cannot be bound; two businesses sharing this site's domain force an explicit choice** |
 | **AC-21** | **A page carrying foreign JSON-LD is flagged with its source and `@type`s after one scan; the connector's own block is never counted** |
-| **AC-22** | **Enabling suppression for a supported plugin removes its JSON-LD from the page, confirmed by a rescan; injection of the AIVIS block is unaffected either way** |
+| **AC-22** | **The connector registers no filter and alters no other plugin's output; every flagged source shows guidance on where to switch it off** |
 | **AC-23** | **Overriding silences the warning for exactly the current conflict set and re-arms it when the set changes** |
 
 AC-17 is rewritten from rev 1, where it required immediate deactivation on any fetch-404 — which the

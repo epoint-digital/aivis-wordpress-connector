@@ -493,7 +493,7 @@
         data</strong> on the same pages. <code>ApiToken.lastUsedAt</code> is the only signal.</dd></div>
         <div><dt>Why it matters</dt><dd class="serif">AIVIS is meant to be the primary source of structured data. The
         connector now detects Yoast, Rank Math and friends emitting their own <code>Organization</code> and
-        <code>WebSite</code> nodes next to ours, flags it red, and can suppress it — but that finding is only useful
+        <code>WebSite</code> nodes next to ours and flags it red — never altering them — but that finding is only useful
         if it reaches the people who own the customer relationship.</dd></div>
         <div><dt>Proposed contract</dt><dd><code>POST /businesses/{businessId}/connector-status</code> → <strong>202</strong>,
         sent after each authoritative sync and whenever the conflict set changes. Carries plugin version, site host,
@@ -501,7 +501,7 @@
 <pre>{ "connector": "aivis-os", "version": "1.0.0", "site": "example.com",
   "sync": { "authoritative": true, "counts": { "active": 312, "suspended": 0, … } },
   "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed" },
-  "conflicts": { "activePlugins": ["yoast"], "suppressed": [],
+  "conflicts": { "activePlugins": ["yoast"],
                  "items": [ { "url": "https://example.com/", "sources": ["yoast"],
                               "types": ["Organization", "WebSite"] } ] } }</pre></dd></div>
         <div><dt>Unlocks</dt><dd>A connected-sites view per business, and the conversation with a customer whose SEO plugin

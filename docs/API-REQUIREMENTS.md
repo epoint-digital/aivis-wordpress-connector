@@ -265,8 +265,8 @@ AIVIS has no visibility into connected sites: whether they sync, which plugin
 version they run, whether their cache purges confirm, and — the one that matters
 for the product — whether **other plugins are also emitting structured data**
 on the same pages. The connector detects that (§09a: AIVIS is the primary
-source; Yoast, Rank Math and friends are flagged red) and needs somewhere to
-send it.
+source; Yoast, Rank Math and friends are flagged red — the connector never
+alters them, it warns the admin) and needs somewhere to send it.
 
 **Proposed contract**
 
@@ -281,7 +281,7 @@ Content-Type: application/json
              "counts": { "active": 312, "stale": 4, "hold": 2, "suspended": 0, "retired": 1, "total": 319 } },
   "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed" },
   "conflicts": { "fingerprint": "…", "acknowledged": false, "pagesScanned": 10,
-                 "activePlugins": ["yoast"], "suppressed": [],
+                 "activePlugins": ["yoast"],
                  "items": [ { "url": "https://example.com/", "sources": ["yoast"],
                               "types": ["Organization","WebSite"], "blocks": 1 } ] } }
 

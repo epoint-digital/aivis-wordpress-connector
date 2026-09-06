@@ -31,6 +31,7 @@ final class NotifierTest extends TestCase {
 			self::assertArrayHasKey( $k, $r['sync']['counts'] );
 		}
 		$flat = strtolower( json_encode( $r ) );
+		self::assertArrayNotHasKey( 'suppressed', $r['conflicts'], 'the connector alters nothing, so there is nothing to report' );
 		foreach ( [ 'ip', 'user_agent', 'useragent', 'visitor', 'email', 'wp_user', 'cookie' ] as $forbidden ) {
 			self::assertStringNotContainsString( '"' . $forbidden . '"', $flat, "report must not carry {$forbidden}" );
 		}
@@ -71,5 +72,6 @@ final class NotifierTest extends TestCase {
 		self::assertSame( 'owner@example.com', WPStub::$mail[0]['to'] );
 		self::assertStringContainsString( 'Yoast SEO', WPStub::$mail[0]['message'] );
 		self::assertStringContainsString( 'Publishing continues', WPStub::$mail[0]['message'] );
+		self::assertStringContainsString( 'never changes another plugin', WPStub::$mail[0]['message'] );
 	}
 }
