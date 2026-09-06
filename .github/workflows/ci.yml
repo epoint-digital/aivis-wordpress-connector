@@ -17,6 +17,17 @@ jobs:
       fail-fast: false
       matrix:
         node: ['20', '22', '24']
+        include:
+          # Node 20 and 22 round-trip JSON correctly; on them the serializer
+          # fidelity property MUST run and pass. Node 24+ carries the V8
+          # JSON.parse defect in docs/KNOWN-ISSUES.md, so there the canary
+          # warns and the property skips instead of blocking the PR.
+          - node: '20'
+            require_fidelity: '1'
+          - node: '22'
+            require_fidelity: '1'
+    env:
+      REQUIRE_FIDELITY: ${{ matrix.require_fidelity || '0' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

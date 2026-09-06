@@ -1,4 +1,6 @@
-// Self-contained reproducer: JSON.parse(JSON.stringify(x)) !== x on Node v26.0.0.
+// Self-contained reproducer: JSON.parse(JSON.stringify(x)) !== x on Node 24+.
+// Confirmed: v24.20.0 (linux x64, GitHub Actions) and v26.0.0 (darwin arm64).
+// Not reproducible on Node 20 or 22.
 //
 //   node tests/known-issues/node26-json-roundtrip.mjs
 //

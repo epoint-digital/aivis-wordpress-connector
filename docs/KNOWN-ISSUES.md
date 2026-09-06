@@ -1,10 +1,16 @@
 # Known issues
 
-## Node v26.0.0 — `JSON.parse(JSON.stringify(x))` can change an object key
+## Node 24+ (V8) — `JSON.parse(JSON.stringify(x))` can change an object key
 
-**Status:** environment defect, not a connector defect. Reproducer in the repo.
+**Status:** engine defect, not a connector defect. Reproducer in the repo.
+**Confirmed on:** Node **v24.20.0** (GitHub Actions, ubuntu, x64) and Node
+**v26.0.0** (macOS, arm64). **Not** on Node 20 or 22 on the same runners. That
+rules out this machine, this OS and this architecture — it is the V8 line that
+Node 24 and later ship.
 **Affects:** the ZT-05 serializer fidelity fuzz (`npm run test:serializer`), which
-skips itself when the defect is detected.
+detects the defect with a builtins-only canary and skips the property on affected
+engines. CI sets `REQUIRE_FIDELITY=1` on Node 20 and 22, where the property must
+run and pass, so it is always verified somewhere in the matrix.
 
 ### What happens
 
@@ -23,10 +29,12 @@ node tests/known-issues/node26-json-roundtrip.mjs
 ```
 
 ```
-node       : v26.0.0
-platform   : darwin arm64
-result     : DEFECT at case 1298
+node       : v26.0.0            node       : v24.20.0
+platform   : darwin arm64       platform   : linux x64   (GitHub Actions)
+result     : DEFECT at case 1298                 DEFECT at case 1298
 ```
+
+Same case index on both — the defect is deterministic given the workload.
 
 ### What we established
 
@@ -51,14 +59,17 @@ and `JSON.parse`. If the canary detects the defect, the fidelity fuzz **skips**
 with that reason rather than reporting a failure against our code — a
 round-trip property cannot be verified with a round trip that is itself broken.
 
-The canary is a failing test, deliberately. A green suite that silently stopped
-checking a security-adjacent property would be worse than a red one.
+The canary is fatal only where `REQUIRE_FIDELITY=1` (CI: Node 20 and 22).
+Elsewhere it reports loudly and the property skips. A suite that silently
+stopped checking a security-adjacent property would be worse than a red one —
+so the property is guaranteed to run on the sound engines, and the defective
+ones cannot hide it.
 
 ### What to do
 
-Run the test suite on a Node LTS release (20, 22 or 24). CI already does, on all
-three, so a version-specific defect shows up there as green while this machine
-reports red.
+Nothing on the connector side. Upstream: file against nodejs/node with
+`tests/known-issues/node26-json-roundtrip.mjs` — it is dependency-free and
+reproduces on 24.20.0 and 26.0.0 (tracked as #19).
 
 **Worth noting beyond the tests:** the local aivis dev server runs on this same
 Node v26.0.0. A JSON round-trip defect is a poor thing to have under an
