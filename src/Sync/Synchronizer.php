@@ -18,6 +18,7 @@ use AivisOS\Api\Client;
 use AivisOS\Api\Response;
 use AivisOS\Cache\AdapterFactory;
 use AivisOS\Delivery\Language;
+use AivisOS\Delivery\ObjectResolver;
 use AivisOS\Domain\Action;
 use AivisOS\Domain\ErrorCode;
 use AivisOS\Domain\UrlKey;
@@ -540,6 +541,8 @@ final class Synchronizer {
 						'source_generated_at' => gmdate( 'Y-m-d H:i:s', (int) strtotime( (string) $r->body['generatedAt'] ) ),
 						'source_stale'        => (bool) $r->body['stale'],
 						'local_post_id'       => $this->post_id_for( $url ),
+						'object_type'         => ( $ref = ObjectResolver::for_url( $url ) )['type'] ?? null,
+						'object_id'           => $ref['id'] ?? null,
 						'sync_id'             => $sync_id,
 					],
 					$serialized

@@ -344,17 +344,6 @@ final class Options {
 	}
 
 
-	public function notify_email(): bool {
-		$d = (array) get_option( 'aivis_os_delivery', [] );
-		return (bool) ( $d['notify_email'] ?? true );
-	}
-
-	public function set_notify_email( bool $on ): void {
-		$d                 = (array) get_option( 'aivis_os_delivery', [] );
-		$d['notify_email'] = $on;
-		update_option( 'aivis_os_delivery', $d, false );
-	}
-
 	/* ── status for AIVIS (§11a) — fetched, never pushed ─────────────── */
 
 	public const STATUS_KEY_PREFIX = 'aivis_status_';

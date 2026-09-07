@@ -71,6 +71,10 @@ account-scoped: one token grants read access to every business on the account, a
 database travels through backups, staging clones and migrations. Customer-managed distribution is
 blocked on business-scoped tokens (API-1). See §00 and §13 of the specification.
 
+## Scope
+
+The plugin is a delivery method. It holds facts only the site can know and performs actions only the site can perform; judgments, histories and policies live in AIVIS (specification WP-I12). If a change adds a decision to the plugin, it belongs in AIVIS instead.
+
 ## Install with an agent
 
 Claude Code and Codex users: the `install-aivis-os` skill in this repository installs, connects and verifies the plugin — headless with WP-CLI (`wp aivis bind`, `wp aivis languages`, `wp aivis sync --all`) or by driving wp-admin in a browser. See `.claude/skills/install-aivis-os/SKILL.md`.

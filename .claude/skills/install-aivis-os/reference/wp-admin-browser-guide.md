@@ -15,7 +15,7 @@ Conventions: `→` means click or navigate; *italics* are visible labels; `code`
 
 - PHP version ≥ 8.1, WordPress ≥ 6.5. Below either: stop and report.
 - Multisite: if *WordPress → Multisite* is *Yes*, install and activate **per site**, never network-wide (network activation is refused).
-- Note the page cache in use under *Active plugins* (WP Super Cache, W3 Total Cache, LiteSpeed Cache are supported; anything else means manual purges).
+- Note the page cache in use under *Active plugins* (WP Super Cache, W3 Total Cache, LiteSpeed Cache and WP Rocket are supported; anything else means manual purges; Cloudflare is detected but never purged).
 
 ## 2. Upload and activate
 
@@ -68,7 +68,7 @@ Text at the top says which languages the site publishes in and which plugin mana
 
 ### Structured data sources
 
-Read-only list. If another emitter is listed (Yoast, Rank Math, …), note it for the report with the *How to switch it off there* text. **Do not go and change that plugin.** Publishing continues either way.
+Read-only list. If another emitter is listed (Yoast, Rank Math, …), note it for the report with the *How to switch it off there* text. **Do not go and change that plugin.** Publishing continues either way. There is no email setting: who gets told is AIVIS's decision.
 
 ### Status for AIVIS
 
@@ -91,6 +91,7 @@ Select `#aivis_cache` (`cache_adapter`): leave on *Detect automatically (current
 3. Read the tiles: **Injected** should be > 0 after the first complete run on a small site. On a large site the first run takes several ticks (20 artifacts per tick, continuing every minute); wait and reload rather than clicking *Sync now* repeatedly.
 4. The **Languages** box: every language with chains and counts; a red *no chain* means step 3 is incomplete.
 5. The **Pipelines** box: each chain with its language; *not assigned — not synced* is a warning.
+5a. A **Moved pages** box appears only when pages changed address since AIVIS crawled them. Read it, put it in the report, change nothing — AIVIS re-crawls.
 6. ✱ Screenshot the Status page for the report.
 
 If *Sync now* results in *Last sync incomplete* or a notice about no chain assigned, go back to Languages & chains.
@@ -100,8 +101,10 @@ If *Sync now* results in *Last sync incomplete* or a notice about no chain assig
 Open a page that Status lists as *Active*, in a new tab, as `view-source:<url>` (or read the page HTML with your tool). Look for exactly one:
 
 ```html
-<script type="application/ld+json" data-aivis="1">{…}</script>
+<script type="application/ld+json" data-aivis="1" data-aivis-hash="…">{…}</script>
 ```
+
+Any post or term edit screen also shows a read-only **AIVIS OS** box with the same facts for that object.
 
 Also run the plugin's own check: `→ <site>/wp-admin/site-health.php` → *Status* tab → look for tests labelled **AIVIS OS:** — token custody, sync is running, cache purge is confirmable, storage, single source of structured data, every language has a chain. All should be green or *recommended*; any *critical* one is a finding.
 

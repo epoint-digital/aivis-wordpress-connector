@@ -117,6 +117,7 @@ final class Plugin {
 			( new Menu( $this ) )->register();
 			( new Notices( $this ) )->register();
 			( new SiteHealth( $this ) )->register();
+			( new \AivisOS\Admin\ObjectBox( $this ) )->register();
 		}
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
@@ -170,7 +171,7 @@ final class Plugin {
 	}
 
 	public function verifier(): Verifier {
-		return $this->services['verifier'] ??= new Verifier( $this->repository(), $this->options(), $this->notifier() );
+		return $this->services['verifier'] ??= new Verifier( $this->repository(), $this->options() );
 	}
 
 	public function notifier(): Notifier {

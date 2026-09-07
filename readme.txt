@@ -18,7 +18,7 @@ AIVIS OS connects a WordPress site to an AIVIS business and delivers the JSON-LD
 * Exactly one `<script type="application/ld+json" data-aivis="1">` is added. Existing structured data from your theme or SEO plugin is never read or changed.
 * Every artifact is validated, bound to this site's business and domain, and re-serialized before it is stored, so nothing AIVIS sends can become markup.
 * When a page is unpublished in AIVIS, the block is withdrawn — and the plugin tells you honestly how long that takes.
-* Cache purges are confirmed before a page is reported as live. If your cache cannot confirm, the plugin says so instead of guessing.
+* Cache purges are confirmed before a page is reported as live (WP Super Cache, W3 Total Cache, LiteSpeed Cache, WP Rocket). If your cache cannot confirm, the plugin says so instead of guessing.
 * Multilingual sites (WPML, Polylang, TranslatePress, Weglot): one AIVIS chain per language, assigned under Settings. A language without a chain is flagged, never silently empty.
 * Nothing is sent to AIVIS. The plugin keeps the status of publishing per page and serves it read-only, gated by a key you issue here, for AIVIS to fetch.
 

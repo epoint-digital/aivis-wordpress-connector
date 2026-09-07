@@ -14,23 +14,58 @@ namespace AivisOS\Sync;
 
 use AivisOS\Delivery\Conflicts;
 use AivisOS\Delivery\Markup;
+use AivisOS\Delivery\ObjectResolver;
+use AivisOS\Domain\ErrorCode;
 use AivisOS\Storage\Options;
 use AivisOS\Storage\Repository;
 
 final class Verifier {
 
-	public const SCAN_PAGES = 10;
+	public const SCAN_PAGES  = 10;
+	public const MOVED_LIMIT = 2000;
 
 	public function __construct(
 		private readonly Repository $repository,
-		private readonly Options $options,
-		private readonly ?Notifier $notifier = null
+		private readonly Options $options
 	) {}
 
-	/** The daily job: verify one page, then scan for conflicts. */
+	/** The daily job: verify one page, scan for conflicts, notice moved pages. */
 	public function daily(): void {
 		$this->run();
 		$this->scan_conflicts();
+		$this->check_moved();
+	}
+
+	/**
+	 * §11 — pages whose address changed since AIVIS crawled them. A fact for
+	 * the Status screen, Site Health and the status document; nothing is
+	 * decided here. The row stays keyed to the URL AIVIS has, and AIVIS
+	 * decides whether to re-crawl, redirect or retire.
+	 *
+	 * @return array{checked:int, moved:int}
+	 */
+	public function check_moved(): array {
+		$prev  = (array) ( $this->options->sync_state()['moved'] ?? [] );
+		$moved = [];
+		$rows  = $this->repository->rows_with_objects( self::MOVED_LIMIT );
+		foreach ( $rows as $row ) {
+			$now = ObjectResolver::url_of( (string) $row['object_type'], (string) $row['object_id'] );
+			if ( null === $now || ObjectResolver::same_url( $now, (string) $row['source_url'] ) ) {
+				continue;
+			}
+			$key           = (string) $row['url_key'];
+			$moved[ $key ] = [
+				'from'  => (string) $row['source_url'],
+				'to'    => $now,
+				'since' => (int) ( $prev[ $key ]['since'] ?? time() ),
+			];
+		}
+		$this->options->patch_sync_state( [ 'moved' => $moved, 'moved_checked_at' => time(), 'moved_checked' => count( $rows ) ] );
+		$new = array_diff_key( $moved, $prev );
+		if ( $new ) {
+			$this->options->record( ErrorCode::URL_MOVED, sprintf( '%d page(s) changed address since AIVIS crawled them; AIVIS still has the old URL', count( $new ) ), (string) reset( $new )['from'] );
+		}
+		return [ 'checked' => count( $rows ), 'moved' => count( $moved ) ];
 	}
 
 	/**
@@ -81,9 +116,6 @@ final class Verifier {
 				'plugins'       => Conflicts::active_plugins(),
 			]
 		);
-		if ( $changed && '' !== $fingerprint && $fingerprint !== $prev['acknowledged'] && null !== $this->notifier ) {
-			$this->notifier->conflicts_changed( $this->options->conflicts() );
-		}
 		return [ 'pages' => $pages, 'conflicts' => count( $items ), 'changed' => $changed, 'unreachable' => $down ];
 	}
 

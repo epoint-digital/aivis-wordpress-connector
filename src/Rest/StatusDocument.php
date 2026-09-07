@@ -47,6 +47,10 @@ final class StatusDocument {
 		}
 		$verify = (array) ( $state['verify'] ?? [] );
 		$next   = Scheduler::next_sync();
+		$moved  = [];
+		foreach ( (array) ( $state['moved'] ?? [] ) as $m ) {
+			$moved[] = [ 'url' => (string) $m['from'], 'currentUrl' => (string) $m['to'], 'since' => gmdate( 'c', (int) $m['since'] ) ];
+		}
 		return [
 			'connector'   => 'aivis-os',
 			'version'     => AIVIS_OS_VERSION,
@@ -68,6 +72,9 @@ final class StatusDocument {
 					'url'    => $verify['url'] ?? null,
 					'at'     => ! empty( $verify['at'] ) ? gmdate( 'c', (int) $verify['at'] ) : null,
 				] : null,
+				// Pages whose address changed since AIVIS crawled them (§11). A fact; AIVIS decides.
+				'moved'        => $moved,
+				'movedCheckedAt' => ! empty( $state['moved_checked_at'] ) ? gmdate( 'c', (int) $state['moved_checked_at'] ) : null,
 			],
 			'cache'       => [
 				'adapter'   => $this->cache->adapter()->id(),
@@ -102,7 +109,8 @@ final class StatusDocument {
 		$rows  = $this->repository->status_rows( $after_id, $limit + 1 );
 		$more  = count( $rows ) > $limit;
 		$rows  = array_slice( $rows, 0, $limit );
-		$items = array_map( [ self::class, 'item' ], $rows );
+		$moved = (array) ( $this->options->sync_state()['moved'] ?? [] );
+		$items = array_map( static fn( array $r ): array => self::item( $r, isset( $moved[ (string) ( $r['url_key'] ?? '' ) ] ) ? (string) $moved[ (string) $r['url_key'] ]['to'] : null ), $rows );
 		$last  = $rows ? (int) end( $rows )['id'] : null;
 		return [
 			'items'      => $items,
@@ -115,9 +123,12 @@ final class StatusDocument {
 	 * @param array<string,mixed> $r
 	 * @return array<string,mixed>
 	 */
-	public static function item( array $r ): array {
+	public static function item( array $r, ?string $current_url = null ): array {
 		return [
 			'url'          => (string) $r['source_url'],
+			'currentUrl'   => $current_url,
+			'objectType'   => isset( $r['object_type'] ) && '' !== (string) $r['object_type'] ? (string) $r['object_type'] : null,
+			'objectId'     => isset( $r['object_id'] ) && '' !== (string) $r['object_id'] ? (string) $r['object_id'] : null,
 			'urlId'        => (string) $r['url_id'],
 			'chainId'      => (string) $r['chain_id'],
 			'languageCode' => (string) ( $r['language_code'] ?? '' ),

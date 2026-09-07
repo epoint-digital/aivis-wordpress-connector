@@ -33,7 +33,8 @@ control.
 | Site type | single site | multisite network activation is refused in 1.0 |
 
 Strongly recommended: a real system cron (below) and one of the supported page
-caches (WP Super Cache, W3 Total Cache, LiteSpeed Cache).
+caches (WP Super Cache, W3 Total Cache, LiteSpeed Cache, WP Rocket). Cloudflare
+in front of the site is detected and named; the connector cannot purge it.
 
 ## 1. Create an API token in AIVIS
 
@@ -234,8 +235,30 @@ AIVIS OS → **Settings → Structured data sources** lists what was found and s
 per plugin, where to switch that output off. The connector never changes another
 plugin itself. Publishing continues either way; *Override* on the warning keeps
 it quiet until the set of conflicts changes. Logged-in admins also see the
-warning in the admin bar on the front end, and the site admin is emailed when
-the set changes. AIVIS sees it too when it fetches the status document.
+warning in the admin bar on the front end. Nobody is emailed: who gets told is
+AIVIS's decision, and AIVIS sees the conflicts when it fetches the status
+document.
+
+## Moved pages
+
+Once a day the plugin compares each page's current address with the URL AIVIS
+crawled. Pages that moved (a slug or parent changed, a post was trashed) are
+listed on Status under **Moved pages**, flagged in Site Health, and included in
+the status document AIVIS fetches. Nothing else happens: the structured data
+stays with the URL AIVIS has, and the new address receives nothing until AIVIS
+re-crawls. That is deliberate — the plugin delivers, AIVIS decides.
+
+Each post and term edit screen has a read-only **AIVIS OS** box with the same
+facts for that object.
+
+## Staging and live
+
+A staging copy of the site cannot bind to the live business: the domain rule
+refuses it. The supported workflow is: staging talks to the AIVIS dev instance
+(`AIVIS_API_BASE_URL`) and its own business; live syncs fresh from production.
+Nothing is migrated. When a staging database is pushed to live, run
+*Disconnect and remove local data* (or `wp aivis sync --all` after the first
+live sync retires the staging rows) — do not carry staging rows across.
 
 ## Upgrading
 

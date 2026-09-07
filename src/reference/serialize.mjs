@@ -81,8 +81,9 @@ export function serializeJsonLd(value) {
  * The exact element the plugin emits — one script, carrying the data-aivis
  * marker the edge worker's idempotency check depends on (§14).
  */
-export function renderScriptTag(value) {
-  return '<script type="application/ld+json" data-aivis="1">'
+export function renderScriptTag(value, hash = '') {
+  const h = hash ? ` data-aivis-hash="${String(hash).toLowerCase().replace(/[^a-f0-9]/g, '')}"` : '';
+  return '<script type="application/ld+json" data-aivis="1"' + h + '>'
     + serializeJsonLd(value)
     + '</' + 'script>';
 }

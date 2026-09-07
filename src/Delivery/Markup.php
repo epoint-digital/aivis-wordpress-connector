@@ -42,6 +42,15 @@ final class Markup {
 		return null;
 	}
 
+	/** The hash the page declares for its AIVIS block, if any (§11 data-aivis-hash). */
+	public static function aivis_hash( string $html ): ?string {
+		$clean = self::strip_comments( $html );
+		if ( preg_match( '#<script\b([^>]*\bdata-aivis\s*=\s*["\']?1["\']?[^>]*)>#i', $clean, $m ) && preg_match( '#\bdata-aivis-hash\s*=\s*["\']([a-f0-9]{64})["\']#i', $m[1], $h ) ) {
+			return strtolower( $h[1] );
+		}
+		return null;
+	}
+
 	/**
 	 * Does the page serve exactly these bytes as its AIVIS block?
 	 * `present` distinguishes "block missing" from "block differs".

@@ -118,6 +118,17 @@ final class StatusPage {
 				<?php if ( $unassigned_chains ) : ?><p class="description" style="padding:8px 12px"><?php echo esc_html( sprintf( /* translators: %s: chain names */ _n( 'Not synced — no language assigned: %s', 'Not synced — no language assigned: %s', count( $unassigned_chains ), 'aivis-os' ), implode( ', ', array_map( static fn( string $id ) => (string) ( $chains[ $id ]['name'] ?? $id ), $unassigned_chains ) ) ) ); ?> — <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_SETTINGS . '#aivis-languages' ) ); ?>"><?php esc_html_e( 'assign under Settings', 'aivis-os' ); ?></a></p><?php endif; ?>
 			</div>
 
+			<?php $moved = (array) ( $state['moved'] ?? [] ); if ( $moved ) : ?>
+			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Moved pages', 'aivis-os' ); ?> <span class="aivis-chip aivis-chip--warn"><?php echo (int) count( $moved ); ?></span></h2>
+				<div class="inside"><p class="description"><?php esc_html_e( 'These pages changed their address since AIVIS crawled them. The structured data stays with the URL AIVIS has, so the new address gets nothing until AIVIS re-crawls. Nothing is changed here — this is a fact for AIVIS, and it is in the status document.', 'aivis-os' ); ?></p></div>
+				<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'AIVIS has', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Page is now at', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Since', 'aivis-os' ); ?></th></tr></thead><tbody>
+				<?php foreach ( $moved as $m ) : ?>
+					<tr><td class="aivis-url"><?php echo esc_html( (string) $m['from'] ); ?></td><td class="aivis-url"><?php echo esc_html( (string) $m['to'] ); ?></td><td class="description"><?php echo esc_html( human_time_diff( (int) $m['since'] ) . ' ' . __( 'ago', 'aivis-os' ) ); ?></td></tr>
+				<?php endforeach; ?>
+				</tbody></table>
+			</div>
+			<?php endif; ?>
+
 			<?php if ( $chains ) : ?>
 			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Pipelines', 'aivis-os' ); ?></h2>
 				<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Language', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Pipeline state', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Knowledge graph', 'aivis-os' ); ?></th><th><?php esc_html_e( 'URLs', 'aivis-os' ); ?></th></tr></thead><tbody>

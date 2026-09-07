@@ -181,6 +181,7 @@ final class Commands {
 			'last_authoritative' => isset( $state['last_authoritative'] ) ? ( $state['last_authoritative'] ? 'yes' : 'no' ) : '-',
 			'cache_adapter'      => $this->plugin->cache()->adapter()->id(),
 			'last_purge'         => $state['last_purge']['state'] ?? '-',
+			'moved_pages'        => count( (array) ( $state['moved'] ?? [] ) ),
 			'language_provider'  => \AivisOS\Delivery\Language::provider(),
 			'languages'          => implode( ', ', array_map(
 				static fn( array $l ): string => $l['code'] . ':' . count( $l['chains'] ),

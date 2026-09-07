@@ -19,6 +19,7 @@ Fill every line with what you observed. "Expected" is not an observation.
 | Site Health AIVIS OS tests | all good / recommended: … / critical: … |
 | Page cache | adapter …, last purge confirmed / requested / manual |
 | Other structured-data emitters | none / … (guidance shown to human) |
+| Moved pages | none / N listed on Status (AIVIS to re-crawl) |
 | Status key | human copied it into AIVIS: yes / pending |
 | Cron | system cron every 5 min / WP-Cron only (accepted by human) |
 | Open items for the human | |

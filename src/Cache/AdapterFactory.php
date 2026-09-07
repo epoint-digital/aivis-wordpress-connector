@@ -12,6 +12,7 @@ namespace AivisOS\Cache;
 use AivisOS\Cache\Adapters\LiteSpeed;
 use AivisOS\Cache\Adapters\Manual;
 use AivisOS\Cache\Adapters\W3TotalCache;
+use AivisOS\Cache\Adapters\WpRocket;
 use AivisOS\Cache\Adapters\WpSuperCache;
 use AivisOS\Storage\Options;
 
@@ -21,7 +22,16 @@ final class AdapterFactory {
 
 	/** @return list<CacheAdapter> in detection order */
 	public function all(): array {
-		return [ new WpSuperCache(), new W3TotalCache(), new LiteSpeed(), new Manual() ];
+		return [ new WpSuperCache(), new W3TotalCache(), new LiteSpeed(), new WpRocket(), new Manual() ];
+	}
+
+	/**
+	 * Cloudflare in front of the site: detected, never purged. The official
+	 * plugin has no stable public per-URL purge API; site operators hook
+	 * `aivis_connector_purge_urls` for their own CDN purge.
+	 */
+	public static function cloudflare_detected(): bool {
+		return class_exists( '\CF\WordPress\Hooks' ) || defined( 'CLOUDFLARE_PLUGIN_DIR' ) || ! empty( $_SERVER['HTTP_CF_RAY'] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 	}
 
 	public function adapter(): CacheAdapter {

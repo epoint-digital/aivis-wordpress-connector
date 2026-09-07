@@ -28,6 +28,7 @@ final class SiteHealth {
 		$tests['direct']['aivis_os_schema'] = [ 'label' => 'AIVIS OS: storage', 'test' => [ $this, 'test_schema' ] ];
 		$tests['direct']['aivis_os_conflicts'] = [ 'label' => 'AIVIS OS: single source of structured data', 'test' => [ $this, 'test_conflicts' ] ];
 		$tests['direct']['aivis_os_languages'] = [ 'label' => 'AIVIS OS: every language has a chain', 'test' => [ $this, 'test_languages' ] ];
+		$tests['direct']['aivis_os_moved']     = [ 'label' => 'AIVIS OS: pages still at the address AIVIS crawled', 'test' => [ $this, 'test_moved' ] ];
 		return $tests;
 	}
 
@@ -74,7 +75,8 @@ final class SiteHealth {
 		if ( 'litespeed' === $a->id() ) {
 			return $this->result( 'good', 'AIVIS OS purges through LiteSpeed Cache', 'LiteSpeed accepts purge requests without confirming them, so pages are reported as “purge requested” rather than confirmed live.' );
 		}
-		return $this->result( 'good', 'AIVIS OS purges through ' . $a->label(), 'Purges are synchronous and confirmed.' );
+		$note = \AivisOS\Cache\AdapterFactory::cloudflare_detected() ? ' Cloudflare is in front of this site and is not purged by the connector — hook aivis_connector_purge_urls for a CDN purge, or purge there after changes.' : '';
+		return $this->result( 'good', 'AIVIS OS purges through ' . $a->label(), 'Purges are synchronous and confirmed.' . $note );
 	}
 
 	public function test_conflicts(): array {
@@ -124,6 +126,19 @@ final class SiteHealth {
 			$parts[] = sprintf( '%s → %d chain%s', $l['name'], count( $l['chains'] ), 1 === count( $l['chains'] ) ? '' : 's' );
 		}
 		return $this->result( 'good', 'AIVIS OS: every language has a chain', implode( '; ', $parts ) . ' (' . $provider . ').' );
+	}
+
+	/** §11 — moved pages are reported, never acted on. */
+	public function test_moved(): array {
+		$state = $this->plugin->options()->sync_state();
+		$moved = (array) ( $state['moved'] ?? [] );
+		if ( empty( $state['moved_checked_at'] ) ) {
+			return $this->result( 'good', 'AIVIS OS: no page has been checked for a changed address yet', 'The daily check compares each page’s current address with the URL AIVIS crawled.' );
+		}
+		if ( ! $moved ) {
+			return $this->result( 'good', 'AIVIS OS: every page is still at the address AIVIS crawled', sprintf( '%d pages checked.', (int) ( $state['moved_checked'] ?? 0 ) ) );
+		}
+		return $this->result( 'recommended', sprintf( 'AIVIS OS: %d page(s) moved since AIVIS crawled them', count( $moved ) ), 'The structured data stays with the old URL; the new address receives nothing until AIVIS re-crawls. The list is on the Status screen and in the status document AIVIS fetches. Nothing to change on this side.' );
 	}
 
 	public function test_schema(): array {

@@ -40,7 +40,15 @@ final class Serializer {
 	}
 
 	/** The exact element the plugin emits — one script, carrying the §14 marker. */
-	public static function script_tag( string $serialized ): string {
-		return '<script type="application/ld+json" data-aivis="1">' . $serialized . '</script>' . "\n";
+	/**
+	 * The one element the plugin prints. `data-aivis="1"` is the edge-worker
+	 * marker (§14); `data-aivis-hash` is the SHA-256 of the exact content, so
+	 * anyone fetching the public page — AIVIS included — can verify delivery
+	 * without the plugin's help (§11).
+	 */
+	public static function script_tag( string $serialized, string $hash = '' ): string {
+		$hash = strtolower( trim( $hash ) );
+		$h    = preg_match( '/^[a-f0-9]{64}$/', $hash ) ? ' data-aivis-hash="' . $hash . '"' : '';
+		return '<script type="application/ld+json" data-aivis="1"' . $h . '>' . $serialized . '</script>' . "\n";
 	}
 }

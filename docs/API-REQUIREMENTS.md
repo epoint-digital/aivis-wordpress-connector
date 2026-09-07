@@ -282,7 +282,8 @@ Authorization: Bearer aivis_status_…
   "site": "example.com", "businessId": "…", "generatedAt": "…",
   "sync":  { "lastCompleteAt": "…", "authoritative": true, "intervalSec": 900, "nextAt": "…",
              "counts": { "active": 312, "stale": 4, "hold": 2, "suspended": 0, "retired": 1, "total": 319 } },
-  "delivery": { "injection": true, "lastVerified": { "result": "live", "url": "…", "at": "…" } },
+  "delivery": { "injection": true, "lastVerified": { "result": "live", "url": "…", "at": "…" },
+                "moved": [ { "url": "https://example.com/old/", "currentUrl": "https://example.com/new/", "since": "…" } ] },
   "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed", "purgedAt": "…" },
   "languages": { "provider": "wpml", "site": ["de","en"], "chains": { "chain_de": "de", "chain_en": "en" }, "mismatch": {} },
   "conflicts": { "fingerprint": "…", "acknowledged": false, "scannedAt": "…", "pagesScanned": 10,
@@ -294,14 +295,17 @@ Authorization: Bearer aivis_status_…
 Per page (`/status/urls`, paged by row id):
 
 ```json
-{ "items": [ { "url": "https://example.com/services/", "urlId": "u_services", "chainId": "chain_de",
+{ "items": [ { "url": "https://example.com/services/", "currentUrl": null, "objectType": "post", "objectId": "42",
+               "urlId": "u_services", "chainId": "chain_de",
                "languageCode": "de", "state": "published", "contentHash": "sha256…",
                "generatedAt": "…", "publishedAt": "…", "lastSyncedAt": "…",
                "verifiedAt": "…", "verifiedHash": "sha256…", "errorCode": null } ],
   "nextCursor": "412", "hasMore": true }
 ```
 
-`state` ∈ `published | stale | holding | suspended | retired | inactive`. `publishedAt` is when
+`state` ∈ `published | stale | holding | suspended | retired | inactive`. `objectType`/`objectId`
+name the WordPress object the URL resolved to; `currentUrl` is set when that object's address
+differs from the URL AIVIS has (the page moved — AIVIS decides what to do). `publishedAt` is when
 what the page serves last changed; `verifiedAt` / `verifiedHash` is when the site last fetched
 the page over loopback and found those bytes in it. `contentHash` is the SHA-256 of the exact
 bytes injected, so AIVIS can compare it with its own artifact. **Nothing about people.**
@@ -437,5 +441,5 @@ For the record, so the platform team can see what is being worked around rather 
 | API-6 | Interval polling only |
 | API-7 | Self-imposed 20 artifact requests per job |
 | API-8 | Outbound lookups send the site permalink unmodified; normalization is applied only to the plugin's local index key |
-| API-9 | The status document is already served (`/wp-json/aivis-os/v1/status`, key-gated). Until AIVIS fetches it, conflicts are flagged inside WordPress and emailed to the site admin |
+| API-9 | The status document is already served (`/wp-json/aivis-os/v1/status`, key-gated). Until AIVIS fetches it, conflicts are flagged inside WordPress only |
 | API-11 | v1 pinned in the path; unknown fields tolerated; strict on required fields; last-known-good on validation failure; nightly OpenAPI drift job. No runtime version negotiation yet |

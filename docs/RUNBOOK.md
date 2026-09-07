@@ -143,6 +143,26 @@ re-create it if AIVIS still serves the URL.
 the suspected leak for the old token prefix. The plugin never writes the token
 to any of those, but other software may have.
 
+## Pages moved since AIVIS crawled them
+
+**Symptom.** Status → *Moved pages* lists rows; Site Health says N pages moved; the status
+document's `delivery.moved` is non-empty.
+
+**Cause.** A slug, parent or permalink structure changed, or a post was trashed, after AIVIS
+crawled the page. The structured data is keyed to the URL AIVIS has.
+
+**Fix.** Nothing on the WordPress side. Re-crawl the page (or the chain) in AIVIS so it learns the
+new URL; the old row retires on the following authoritative syncs. If the move was a mistake,
+restoring the old address makes the entry disappear on the next daily check.
+
+## Staging database pushed to live
+
+**Symptom.** Live shows the staging business as bound, or "domain mismatch" diagnostics.
+
+**Fix.** Settings → *Disconnect and remove local data*, then connect live to its own business and
+sync. Rows are keyed to exact URLs and a business is one domain; nothing from staging is meant to
+survive the push.
+
 ## Suspected status-key leak
 
 The status key reaches nothing but the read-only status document (page URLs

@@ -35,7 +35,9 @@ final class GatesInjectorTest extends TestCase {
 	}
 
 	public function test_emitted_element_is_exactly_one_marked_script(): void {
-		$tag = Serializer::script_tag( Serializer::serialize( [ '@type' => 'Thing', 'name' => '</script>' ] ) );
-		self::assertMatchesRegularExpression( '#^<script type="application/ld\+json" data-aivis="1">[^<]*</script>\n$#', $tag );
+		$json = Serializer::serialize( [ '@type' => 'Thing', 'name' => '</script>' ] );
+		$tag  = Serializer::script_tag( $json, hash( 'sha256', $json ) );
+		self::assertMatchesRegularExpression( '#^<script type="application/ld\+json" data-aivis="1" data-aivis-hash="[a-f0-9]{64}">[^<]*</script>\n$#', $tag );
+		self::assertMatchesRegularExpression( '#^<script type="application/ld\+json" data-aivis="1">[^<]*</script>\n$#', Serializer::script_tag( $json ), 'without a hash: marker only' );
 	}
 }

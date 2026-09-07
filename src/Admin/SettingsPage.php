@@ -164,12 +164,7 @@ final class SettingsPage {
 					</tbody></table>
 					<?php endif; ?>
 					<p style="margin-top:10px"><?php echo Menu::action_form( 'scan_conflicts', __( 'Scan pages now', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
-					<table class="form-table" role="presentation">
-						<tr><th scope="row"><?php esc_html_e( 'Notifications', 'aivis-os' ); ?></th><td>
-							<label class="check"><input type="checkbox" name="notify_email" value="1" <?php checked( $o->notify_email() ); ?>> <?php echo esc_html( sprintf( /* translators: %s: admin email */ __( 'Email %s when the set of conflicts changes', 'aivis-os' ), (string) get_option( 'admin_email' ) ) ); ?></label>
-							<p class="description"><?php esc_html_e( 'Nothing is sent to AIVIS. AIVIS can fetch this site’s publishing status itself — see Status for AIVIS below.', 'aivis-os' ); ?></p>
-						</td></tr>
-					</table>
+					<p class="description"><?php esc_html_e( 'Nothing is sent from here — not to AIVIS, not by email. AIVIS fetches this site’s publishing status, conflicts included, and decides who is told (see Status for AIVIS below).', 'aivis-os' ); ?></p>
 				</div></div>
 
 				<div class="postbox" id="aivis-status-key"><h2 class="hndle"><?php esc_html_e( 'Status for AIVIS', 'aivis-os' ); ?></h2><div class="inside">
@@ -223,7 +218,6 @@ final class SettingsPage {
 			$this->plugin->synchronizer()->purge( $this->plugin->repository()->active_urls() );
 		}
 		$o->set_on_demand_enabled( ! empty( $post['on_demand'] ) );
-		$o->set_notify_email( ! empty( $post['notify_email'] ) );
 		$interval = (int) ( $post['interval'] ?? 900 );
 		if ( $interval !== $o->sync_interval() ) {
 			$o->set_sync_interval( $interval );

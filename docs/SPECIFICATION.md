@@ -35,6 +35,22 @@ Rev 1 recorded business-scoped tokens as a prerequisite expected to land; they d
 appendix's Q-02 contradicted the body on whether v1 could ship without them. Resolved here: **v1
 ships without them, under the restriction above.**
 
+**Delivery-only principle (decision 2026-09-07, WP-I12).** The plugin is a delivery method and
+carries no more business logic than the API forces on it. Logic it holds today only because AIVIS
+cannot yet provide it, and what removes it:
+
+| Interim logic in the plugin | Why it exists | Removed when |
+|---|---|---|
+| Retraction inference R-01…R-02a (§06) | No withdrawal signal in the API | API-2/API-3 ship (aivis#266, #267): the plugin obeys a 410 |
+| Language hint sampling and automatic assignment (§07a) | Chains carry no language | API-10 ships (aivis#274): WordPress language code equals chain `languageCode`; the Settings table stays only for overrides |
+| Conflict scan of the site's own pages (§09a) | AIVIS does not yet verify delivery from the public page | AIVIS fetches pages itself and sees `data-aivis-hash`; the plugin keeps the "active plugins" fact and the switch-off guidance |
+| Loopback verification (§11) | A delivery diagnostic — is the cache purged? — which only the site can run | Stays; it is a fact about delivery, not a judgment |
+
+Already removed under the principle: email notifications about conflicts (notification policy is
+AIVIS's; the status document carries the conflicts). Moved to AIVIS without any API change, and
+therefore not filed as asks: conflict analysis and duplicate-type severity from the public page,
+cache-busting self-tests, coverage against the public sitemap, artifact versioning and restore.
+
 **Marked `verify at build`** — one item remains (rev 1 had three):
 
 - §11 live verification uses a loopback self-fetch, which some hosts block. Fallback: admin-browser
@@ -81,6 +97,7 @@ Each maps to at least one automated test (§16).
 | **WP-I9** | **Nothing leaves the site.** No visitor, crawler, page-view, IP, UA or WP-user data goes to AIVIS — permanent (§13) — and the connector **pushes nothing at all**: its only requests to AIVIS are reads. The status of publishing is stored in the plugin and **fetched** by AIVIS from a read-only, key-gated endpoint (§11a) |
 | **WP-I10** | **Honest cache status.** "Live on the site" is claimed only after adapter-confirmed invalidation or a public-page verification that finds the marker and the expected hash |
 | **WP-I11** | **One chain per language.** AIVIS has no multilingual model — a chain is one language. An artifact is stored only from a chain the administrator assigned to the page's WordPress language; a language with no assigned chain receives nothing, and says so (§07a) |
+| **WP-I12** | **Delivery, not judgment.** The plugin holds facts only the site can know (which object a URL is, the site's languages, what the page serves, which plugins are active, what the cache did) and performs actions only the site can perform (inject, purge, record). Judgments — whether a page is right, when to withdraw, what counts as a conflict, which version was correct, who to notify — are AIVIS's, reached from the status document and the public page. Where the plugin holds a judgment today it is interim, listed in §00 with the change that removes it |
 
 ---
 
@@ -179,6 +196,7 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 | `url_id`, `chain_id`, `business_id` | varchar(191) | AIVIS identities; winning chain |
 | `language_code` | varchar(16) | AIVIS language |
 | `published_at` | datetime | When what the page serves last changed: a new hash, or the row coming back into service (§11a) |
+| `object_type`, `object_id` | varchar(16), varchar(191) | The WordPress object the URL resolved to at sync time — `post`, `term` or `archive` — as a **fact**, never as identity (§11 moved pages, edit-screen box). Null when unresolved |
 | `verified_at`, `verified_hash` | datetime, char(64) | When a loopback fetch last found the stored bytes on the page, and which bytes (§11a) |
 | `json_ld` | longtext | Safely re-serialized document (ZT-05) |
 | `content_hash` | char(64) | SHA-256 of the exact stored serialization |
@@ -428,7 +446,7 @@ AIVIS output is untrusted input. The WordPress mirror of the edge connector's S-
 **Output**, exactly one element:
 
 ```html
-<script type="application/ld+json" data-aivis="1">…</script>
+<script type="application/ld+json" data-aivis="1" data-aivis-hash="<sha256 of the content>">…</script>
 ```
 
 **Gates:** site-wide switch on; a normal public front-end HTML GET; not admin, REST, AJAX, feed,
@@ -475,9 +493,10 @@ admin's action, taken in the other plugin.
 notice on the plugin screens, a one-line pointer on the Dashboard and Plugins
 screens, a Conflicts tile and per-URL badge on Status, a Site Health test, an
 **admin-bar warning** visible to logged-in users with the manage capability on
-the front end as well, and an email to `admin_email` when the conflict set
-changes (opt-out). Toward AIVIS: **nothing is sent.** AIVIS fetches the status document (§11a),
-which includes the conflict set.
+the front end as well. No email: who is told is notification policy, and policy is AIVIS's
+(WP-I12). Toward AIVIS: **nothing is sent.** AIVIS fetches the status document (§11a), which
+includes the conflict set, and can verify any page itself from the public HTML and its
+`data-aivis-hash`.
 
 ## §10 · Cache publication
 
@@ -534,6 +553,15 @@ data-aivis="1">` element; "live" means its content equals the stored bytes exact
 blocked loopback is *could not verify*, never *not live*. The conflict scan applies the same rule.
 *`verify at build`* — loopback is blocked on some hosts; fallbacks are an admin-browser check and
 `wp aivis verify`.
+
+**Moved pages.** The daily job compares each active row's object (post, term or post-type archive)
+with the URL AIVIS crawled. A page whose address changed is **reported** — Status box, Site Health
+(recommended), `delivery.moved` and per-page `currentUrl` in the status document — and nothing else
+happens: the row stays keyed to the URL AIVIS has, and AIVIS decides whether to re-crawl, redirect
+or retire (WP-I12). First-seen time is kept across checks.
+
+**Edit screens.** A read-only AIVIS OS box on post and term edit screens shows state, hash prefix,
+generated / published / last-seen times, a moved note, and a link to Status. Nothing to click.
 
 **WP-CLI:** `wp aivis connection test`, `wp aivis sync --all`, `wp aivis status [--format=json]`,
 `wp aivis verify [--url=…]`, `wp aivis languages [assign <chain> <lang>|auto]`,
@@ -671,6 +699,8 @@ Demonstrated on staging against the designated AIVIS environment.
 | **AC-25** | **An artifact whose `chainId` is not assigned to the page's WordPress language is rejected and never stored; inventory targets are fetched by `urlId`** |
 | **AC-26** | **A site language with no chain is flagged critical in Site Health and red on Settings and Status; unassigning a chain deactivates its rows and purges their caches at once** |
 | **AC-27** | **The connector issues no request to AIVIS other than GET; the status document is served only with the site-issued key from the Authorization header, and never contains the API token** |
+| **AC-28** | **The script element carries `data-aivis-hash` equal to the SHA-256 of its exact content, next to the `data-aivis="1"` marker** |
+| **AC-29** | **A page whose object's address changed since sync is listed as moved on Status, in Site Health and in the status document, with its first-seen time; no row is changed and nothing is served at the new address** |
 
 AC-17 is rewritten from rev 1, where it required immediate deactivation on any fetch-404 — which the
 API cannot support. AC-18 and AC-19 are new, and both guard failure modes that would otherwise be
@@ -792,3 +822,4 @@ clean (AC-14).
 | Q-08 | Public repo coordinates | **Open** — `aivis-wordpress-connector` under the org chosen in the shared edge decision |
 | Q-09 | Multilingual sites | **Resolved (2026-09-06)**: one chain per language, assigned by the admin (§07a). Separate domains per language are separate businesses and separate sites. Chain-level language requested as API-10 |
 | Q-10 | Direction of connector status | **Resolved (2026-09-06)**: pull. Stored in the plugin, fetched by AIVIS with a site-issued key (§11a). Nothing is pushed |
+| Q-11 | Plugin scope | **Resolved (2026-09-07)**: delivery only (WP-I12). Facts and mechanics in the plugin; judgments, histories and policies in AIVIS. Interim logic listed in §00 with its removal trigger |

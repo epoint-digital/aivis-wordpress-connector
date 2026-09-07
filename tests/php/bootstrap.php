@@ -63,9 +63,11 @@ final class WPStub {
 	/** url => post id, for url_to_postid(). */
 	public static array $post_ids = [];
 	public static array $rest_routes = [];
+	/** Object model for get_permalink / get_term_link / archives (see stubs below). */
+	public static array $objects = [];
 
 	public static function reset(): void {
-		self::$options = self::$transients = self::$site_transients = self::$http_queue = self::$http_log = self::$scheduled = self::$flags = self::$filters = self::$mail = self::$filter_values = self::$post_ids = self::$rest_routes = [];
+		self::$options = self::$transients = self::$site_transients = self::$http_queue = self::$http_log = self::$scheduled = self::$flags = self::$filters = self::$mail = self::$filter_values = self::$post_ids = self::$rest_routes = self::$objects = [];
 		self::$home   = 'https://example.com';
 		self::$locale = 'de_DE';
 		\AivisOS\Delivery\Language::$force_provider = null;
@@ -105,6 +107,20 @@ class WP_REST_Response {
 }
 function register_rest_route( string $ns, string $route, array $args ): bool { WPStub::$rest_routes[ $ns . $route ] = $args; return true; }
 function rest_url( string $path = '' ): string { return WPStub::$home . '/wp-json/' . ltrim( $path, '/' ); }
+if ( ! class_exists( 'WP_Post' ) ) { class WP_Post { public int $ID = 0; public string $post_type = 'post'; public function __construct( int $id = 0 ) { $this->ID = $id; } } }
+if ( ! class_exists( 'WP_Term' ) ) { class WP_Term { public int $term_id = 0; public string $taxonomy = 'category'; public string $slug = ''; public function __construct( int $id = 0, string $tax = 'category', string $slug = '' ) { $this->term_id = $id; $this->taxonomy = $tax; $this->slug = $slug; } } }
+/** Object model stubs: WPStub::$objects = [ 'posts' => [id => url], 'terms' => [id => [tax, slug, url]], 'archives' => [type => url], 'taxonomies' => [name => slug] ] */
+function get_permalink( mixed $post = 0 ): string|false { $id = is_object( $post ) ? (int) $post->ID : (int) $post; return WPStub::$objects['posts'][ $id ] ?? false; }
+function get_term_link( mixed $term, string $tax = '' ): mixed { $id = is_object( $term ) ? (int) $term->term_id : (int) $term; return WPStub::$objects['terms'][ $id ][2] ?? new WP_Error( 'invalid_term', 'no term' ); }
+function get_term_by( string $field, mixed $value, string $tax = '' ): mixed { foreach ( WPStub::$objects['terms'] ?? [] as $id => $t ) { if ( $t[0] === $tax && $t[1] === $value ) { return new WP_Term( (int) $id, $tax, (string) $value ); } } return false; }
+function get_post_type_archive_link( string $type ): string|false { return WPStub::$objects['archives'][ $type ] ?? false; }
+function get_post_types( array $args = [], string $output = 'names' ): array { $types = array_keys( WPStub::$objects['archives'] ?? [] ); $types = array_values( array_unique( array_merge( [ 'post', 'page' ], $types ) ) ); if ( 'objects' === $output ) { return array_map( fn( $t ) => (object) [ 'name' => $t, 'has_archive' => isset( WPStub::$objects['archives'][ $t ] ) ], $types ); } return $types; }
+function get_taxonomies( array $args = [], string $output = 'names' ): array { $taxes = WPStub::$objects['taxonomies'] ?? [ 'category' => 'category', 'post_tag' => 'tag' ]; if ( 'objects' === $output ) { return array_map( fn( $slug, $name ) => (object) [ 'name' => $name, 'rewrite' => [ 'slug' => $slug ] ], $taxes, array_keys( $taxes ) ); } return array_keys( $taxes ); }
+function add_meta_box( string $id, string $title, mixed $cb, mixed $screen = null, string $ctx = 'advanced', string $prio = 'default' ): void { WPStub::$flags['meta_boxes'][] = [ $id, $screen ]; }
+function esc_url( string $u ): string { return $u; }
+function esc_html_e( string $s, string $d = '' ): void { echo htmlspecialchars( $s, ENT_QUOTES ); }
+function esc_attr_e( string $s, string $d = '' ): void { echo htmlspecialchars( $s, ENT_QUOTES ); }
+function human_time_diff( int $from, int $to = 0 ): string { return '1 min'; }
 function wp_generate_password( int $len = 12, bool $special = true, bool $extra = false ): string {
 	$chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 	$out = '';

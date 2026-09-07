@@ -67,7 +67,7 @@ final class Injector {
 				return null;
 			}
 		}
-		return Serializer::script_tag( (string) $row['json_ld'] );
+		return Serializer::script_tag( (string) $row['json_ld'], (string) $row['content_hash'] );
 	}
 
 	/**

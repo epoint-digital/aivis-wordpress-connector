@@ -89,8 +89,10 @@ final class Repository {
 			'retired_at'            => null,
 			'last_error_code'       => null,
 			'published_at'          => $published,
+			'object_type'           => $fields['object_type'] ?? null,
+			'object_id'             => isset( $fields['object_id'] ) ? (string) $fields['object_id'] : null,
 		];
-		$format = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s' ];
+		$format = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ];
 
 		$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( $prev ) {
@@ -111,6 +113,34 @@ final class Repository {
 		];
 	}
 
+	/** The row delivered for a WordPress object, if any (§11 edit-screen box). */
+	public function find_by_object( string $type, string $id ): ?array {
+		global $wpdb;
+		$row = $wpdb->get_row( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare( "SELECT * FROM {$this->table()} WHERE object_type = %s AND object_id = %s ORDER BY id DESC LIMIT 1", $type, $id ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			ARRAY_A
+		);
+		return $row ?: null;
+	}
+
+	/**
+	 * Active rows with an object reference — the daily "moved" check compares
+	 * each object's current address with the URL AIVIS crawled (§11).
+	 *
+	 * @return list<array<string,mixed>>
+	 */
+	public function rows_with_objects( int $limit = 2000 ): array {
+		global $wpdb;
+		return (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT url_key, source_url, object_type, object_id FROM {$this->table()}
+				  WHERE active = 1 AND retired_at IS NULL AND object_type IS NOT NULL ORDER BY id ASC LIMIT %d",
+				max( 1, $limit )
+			),
+			ARRAY_A
+		);
+	}
+
 	/** §11a — a loopback fetch found this exact content on the page. */
 	public function mark_verified( string $url_key, string $hash ): void {
 		$this->patch( $url_key, [ 'verified_at' => current_time( 'mysql', true ), 'verified_hash' => $hash ] );
@@ -126,8 +156,9 @@ final class Repository {
 		global $wpdb;
 		return (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-				"SELECT id, source_url, url_id, chain_id, language_code, content_hash, source_generated_at, source_stale,
-				        active, suspended_at, retired_at, last_error_code, last_synced_at, published_at, verified_at, verified_hash
+				"SELECT id, url_key, source_url, url_id, chain_id, language_code, content_hash, source_generated_at, source_stale,
+				        active, suspended_at, retired_at, last_error_code, last_synced_at, published_at, verified_at, verified_hash,
+				        object_type, object_id
 				   FROM {$this->table()} WHERE id > %d ORDER BY id ASC LIMIT %d",
 				$after_id,
 				max( 1, min( 501, $limit ) ) // 500 is the API page cap; +1 is the lookahead row (#60)

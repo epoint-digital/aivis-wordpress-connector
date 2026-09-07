@@ -42,10 +42,11 @@ The plugin syncs the JSON-LD that AIVIS generates for a business's pages into th
 - [ ] Settings shows *Connected as …* and the business **matched automatically** (or the human's explicit choice on a duplicate domain).
 - [ ] Every site language has at least one chain under **Languages & chains**; unassigned chains are intentional.
 - [ ] Status shows a completed sync (*Syncing* chip) and a non-zero **Injected** count, or an explicit reason why not.
-- [ ] `view-source:` of a synced page contains `<script type="application/ld+json" data-aivis="1">`, or `wp aivis verify` says *live*.
+- [ ] `view-source:` of a synced page contains `<script type="application/ld+json" data-aivis="1" data-aivis-hash="…">`, or `wp aivis verify` says *live*.
 - [ ] Page cache: **Purge confirmed** or **Purge requested**; if **Manual purge required**, the human knows.
 - [ ] The human has copied the **status key** from Settings → *Status for AIVIS* into AIVIS for this business (you do not handle the key).
 - [ ] A real system cron hits `wp-cron.php`, or the human accepted traffic-driven WP-Cron.
+- [ ] Status shows no **Moved pages**, or the human knows which pages moved and that AIVIS must re-crawl them (nothing to do in WordPress).
 
 Report using `reference/checklist.md` — filled in, with what you saw, not what you expected.
 

@@ -40,12 +40,24 @@ file, `readme.txt` and the git tag do not agree with it.
 - Agent skill `install-aivis-os` for Claude Code and Codex (identical copies,
   checked in CI): headless WP-CLI install, a wp-admin browser guide with every
   field name, and a report checklist. `AGENTS.md` for repository rules.
+- Delivery-only principle (WP-I12, Q-11): the plugin holds facts and performs
+  delivery; judgments, histories and policies are AIVIS's. Taken from Norbert's
+  `aivis-os-jsonld` (#65/#66): WP Rocket purge adapter and Cloudflare detection;
+  `data-aivis-hash` on the script element so anyone can verify delivery from the
+  public page; object references (post / term / archive) stored per row as data
+  (schema v3); a daily **moved pages** report on Status, Site Health and in the
+  status document; a read-only AIVIS OS box on post and term edit screens.
 - Status for AIVIS, fetched never pushed (§11a): `published_at`, `verified_at`
   and `verified_hash` per page; read-only REST endpoint
   `/wp-json/aivis-os/v1/status` (+ `/status/urls`, paged) gated by a
   site-issued status key (Settings → Status for AIVIS, `wp aivis status-key`);
   `wp aivis status --format=json` prints the same document. The connector
   issues no request to AIVIS other than GET.
+
+### Removed
+- Email to the site admin when the set of structured-data conflicts changes.
+  Notification policy belongs to AIVIS, which fetches the conflicts in the
+  status document (WP-I12).
 
 ### Fixed
 - Independent review, 2026-09-07 (#55–#62): atomic sync lock in its own option

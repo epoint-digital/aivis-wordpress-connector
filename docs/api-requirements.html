@@ -501,7 +501,8 @@
         <code>…/status/urls?cursor&amp;limit</code>, <code>Authorization: Bearer aivis_status_…</code>.
 <pre>{ "connector": "aivis-os", "version": "1.0.0", "schema": 1, "site": "example.com", "businessId": "…",
   "sync": { "lastCompleteAt": "…", "authoritative": true, "counts": { "active": 312, "suspended": 0, … } },
-  "delivery": { "injection": true, "lastVerified": { "result": "live", "at": "…" } },
+  "delivery": { "injection": true, "lastVerified": { "result": "live", "at": "…" },
+                "moved": [ { "url": "…/old/", "currentUrl": "…/new/", "since": "…" } ] },
   "cache": { "adapter": "wp-super-cache", "lastPurge": "confirmed" },
   "languages": { "provider": "wpml", "chains": { "chain_de": "de", "chain_en": "en" } },
   "conflicts": { "activePlugins": ["yoast"], "items": [ { "url": "…", "sources": ["yoast"], "types": ["Organization"] } ] } }
@@ -744,7 +745,7 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
       "currentBehaviour": "AIVIS has no visibility into connected sites; ApiToken.lastUsedAt is the only signal. The connector never pushes.",
       "proposedContract": "AIVIS-side: a per-business status key field and a fetcher for GET {baseUrl}/wp-json/aivis-os/v1/status and /status/urls?cursor&limit (Authorization: Bearer aivis_status_...). The site serves connector, version, schema, sync, delivery, cache, languages, conflicts, and per page url, urlId, chainId, state (published|stale|holding|suspended|retired|inactive), contentHash, publishedAt, lastSyncedAt, verifiedAt, verifiedHash, errorCode. Nothing about people.",
       "unlocks": ["connected-sites view per business", "per-page publication status against the current artifact", "visibility of SEO plugins competing with AIVIS for the same nodes"],
-      "blocking": false, "interim": "The site already serves the document, key-gated. Conflicts are also flagged in WordPress and emailed to the site admin." },
+      "blocking": false, "interim": "The site already serves the document, key-gated. Conflicts are also flagged inside WordPress; the plugin sends no email (notification policy is AIVIS's)." },
     { "id": "API-10", "title": "Language on the chain resource", "priority": "medium",
       "currentBehaviour": "A chain is one language, but languageCode is exposed only per URL row; chain items carry no language.",
       "proposedContract": "languageCode (ISO 639-1, optional region) on every item of GET /businesses/{id}/chains. Additive.",
