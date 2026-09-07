@@ -98,6 +98,8 @@ final class Conflicts {
 		$blocks  = 0;
 		$sources = [];
 		$types   = [];
+		// Commented-out markup is not served markup (#59). Same rule as Markup::aivis_block().
+		$html = Markup::strip_comments( $html );
 		if ( ! preg_match_all( '#<script\b([^>]*)>(.*?)</script>#is', $html, $m, PREG_SET_ORDER | PREG_OFFSET_CAPTURE ) ) {
 			return [ 'blocks' => 0, 'sources' => [], 'types' => [] ];
 		}

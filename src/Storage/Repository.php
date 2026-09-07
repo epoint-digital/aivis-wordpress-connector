@@ -130,7 +130,7 @@ final class Repository {
 				        active, suspended_at, retired_at, last_error_code, last_synced_at, published_at, verified_at, verified_hash
 				   FROM {$this->table()} WHERE id > %d ORDER BY id ASC LIMIT %d",
 				$after_id,
-				max( 1, min( 500, $limit ) )
+				max( 1, min( 501, $limit ) ) // 500 is the API page cap; +1 is the lookahead row (#60)
 			),
 			ARRAY_A
 		);
@@ -245,6 +245,44 @@ final class Repository {
 		$upd = "UPDATE {$t} SET active = 0, last_error_code = %s WHERE active = 1 AND retired_at IS NULL {$not}";
 		$wpdb->query( $wpdb->prepare( $upd, $code, ...$ids ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
 		return array_values( array_map( 'strval', $urls ) );
+	}
+
+	/**
+	 * A chain that disappeared from AIVIS's own listing took its pages with it
+	 * (#56): retire every row of those chains now — kept 30 days for rollback,
+	 * never injected — and return the URLs for the cache purge.
+	 *
+	 * @param list<string> $chain_ids
+	 * @return list<string> source URLs retired
+	 */
+	public function retire_chains( array $chain_ids, string $code ): array {
+		global $wpdb;
+		$ids = array_values( array_filter( array_map( 'strval', $chain_ids ) ) );
+		if ( ! $ids ) {
+			return [];
+		}
+		$t    = $this->table();
+		$in   = implode( ',', array_fill( 0, count( $ids ), '%s' ) );
+		$urls = (array) $wpdb->get_col( $wpdb->prepare( "SELECT source_url FROM {$t} WHERE retired_at IS NULL AND chain_id IN ({$in})", ...$ids ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+		if ( ! $urls ) {
+			return [];
+		}
+		$now = current_time( 'mysql', true );
+		$wpdb->query( $wpdb->prepare( "UPDATE {$t} SET active = 0, retired_at = %s, last_error_code = %s WHERE retired_at IS NULL AND chain_id IN ({$in})", $now, $code, ...$ids ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+		return array_values( array_map( 'strval', $urls ) );
+	}
+
+	/**
+	 * Every URL currently injectable — what a cache purge has to cover when
+	 * injection is switched off or on (#61).
+	 *
+	 * @return list<string>
+	 */
+	public function active_urls(): array {
+		global $wpdb;
+		return array_values( array_map( 'strval', (array) $wpdb->get_col( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			"SELECT source_url FROM {$this->table()} WHERE active = 1 AND retired_at IS NULL AND suspended_at IS NULL" // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		) ) );
 	}
 
 	/**

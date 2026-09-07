@@ -42,6 +42,19 @@ file, `readme.txt` and the git tag do not agree with it.
   `wp aivis status --format=json` prints the same document. The connector
   issues no request to AIVIS other than GET.
 
+### Fixed
+- Independent review, 2026-09-07 (#55–#62): atomic sync lock in its own option
+  row (INSERT IGNORE claim, compare-and-swap takeover, owner-checked release);
+  an empty chain reconciles to zero and a chain that vanishes from AIVIS retires
+  its rows at once; a page whose language has no chain never accepts another
+  language's artifact; a row without an artifact can no longer displace a
+  servable duplicate; live verification parses the real script element after
+  stripping comments, requires HTTP 200 and verifies TLS; status pagination at
+  the 500 cap detects the next page; switching injection off/on and deactivating
+  purge through the cache adapter; a first authoritative absence suspends a
+  withdrawn page on an idle chain and a sync backlog drains with one-minute
+  continuation ticks, with the latency copy corrected accordingly.
+
 ### Security
 - `Update URI` present from the first commit to prevent a wordpress.org slug
   collision from pushing third-party code to installed sites.

@@ -42,10 +42,14 @@ final class Decision {
 	 * R-02 / R-02a — from an authoritative inventory pass. A partial traversal
 	 * never retires or deactivates anything.
 	 *
-	 * @param array<string,mixed>|null $row Inventory row (null = absent).
+	 * @param array<string,mixed>|null $row        Inventory row (null = absent).
+	 * @param bool                     $chain_idle The row's chain is `ready` or `empty` — not building or
+	 *        re-ingesting. On the first authoritative absence an idle chain's URL is suspended at once
+	 *        (injection stops, cache purged) and retired on the second; a rebuilding chain's URL is held
+	 *        through the first absence, because rows can be transiently missing while a pipeline runs.
 	 * @return array{action:string, rule:?string, missing_runs:int}
 	 */
-	public static function from_inventory( bool $authoritative, ?array $row, int $missing_runs ): array {
+	public static function from_inventory( bool $authoritative, ?array $row, int $missing_runs, bool $chain_idle = false ): array {
 		if ( ! $authoritative ) {
 			return [
 				'action'       => Action::HOLD,
@@ -56,7 +60,7 @@ final class Decision {
 		if ( null === $row ) {
 			$runs = $missing_runs + 1;
 			return [
-				'action'       => $runs >= 2 ? Action::RETIRE : Action::HOLD,
+				'action'       => $runs >= 2 ? Action::RETIRE : ( $chain_idle ? Action::SUSPEND : Action::HOLD ),
 				'rule'         => 'R-02',
 				'missing_runs' => $runs,
 			];

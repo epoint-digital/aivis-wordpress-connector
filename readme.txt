@@ -49,7 +49,7 @@ Pages keep serving their last known good structured data. Nothing is removed whi
 
 = How fast is a withdrawal? =
 
-Worst case: your sync interval plus the time your cache takes to drop the page. The Status screen shows the real figure.
+With an idle pipeline and no backlog: your sync interval plus the time your cache takes to drop the page. While a chain is rebuilding in AIVIS, up to two intervals. The Status screen shows the real figure and any backlog.
 
 = Does it work on a multilingual site? =
 

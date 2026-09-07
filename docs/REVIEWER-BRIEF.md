@@ -16,7 +16,7 @@ A WordPress plugin that connects one site to one **AIVIS business** and delivers
 
 - **Sync in the background** (WP-Cron, default every 15 minutes): list the business's chains, walk each assigned chain's URL inventory, fetch the artifacts that are new or changed, validate them through a zero-trust pipeline, store them in a local table.
 - **Deliver on render**: at `wp_head` priority 100, one indexed lookup by the page's canonical URL, then print exactly one `<script type="application/ld+json" data-aivis="1">…</script>` with the stored bytes. Rendering never calls AIVIS. An outage costs freshness, not availability.
-- **Retract**: when a page is withdrawn in AIVIS, stop printing the block and purge the page's cache — inferred today from two signals (see §3), worst case one sync interval plus purge.
+- **Retract**: when a page is withdrawn in AIVIS, stop printing the block and purge the page's cache — inferred today from two signals (see §3). With an idle pipeline and no backlog that takes one sync interval plus purge; two while a chain is rebuilding.
 - **Never push**: the connector's only requests to AIVIS are reads. Its own status is stored locally and fetched by AIVIS from a key-gated, read-only endpoint on the site.
 
 Audience for v1: sites AIVIS controls or operates. Customer-managed distribution is blocked on API-1 (account-scoped tokens).

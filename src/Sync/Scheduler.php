@@ -69,6 +69,17 @@ final class Scheduler {
 		return $t ? (int) $t : null;
 	}
 
+	/**
+	 * A run that still has work (an unfinished inventory walk, or artifacts left
+	 * under the per-tick cap) continues a minute later instead of waiting a whole
+	 * discovery interval per batch (#62). One continuation at a time.
+	 */
+	public static function request_continuation(): void {
+		if ( ! wp_next_scheduled( self::HOOK_SYNC, [ 'continue' ] ) ) {
+			wp_schedule_single_event( time() + MINUTE_IN_SECONDS, self::HOOK_SYNC, [ 'continue' ] );
+		}
+	}
+
 	/** Kick a sync as soon as cron runs, without waiting for the interval. */
 	public static function request_sync_now(): void {
 		if ( ! wp_next_scheduled( self::HOOK_SYNC, [ 'now' ] ) ) {

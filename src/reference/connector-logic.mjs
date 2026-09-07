@@ -68,14 +68,15 @@ export function decideFromLookup({ status, body, apiReachable }) {
  * R-02 / R-02a — decide from an authoritative inventory pass. A non-authoritative
  * pass never retires or deactivates anything.
  */
-export function decideFromInventory({ authoritative, row, missingCompleteRuns }) {
+export function decideFromInventory({ authoritative, row, missingCompleteRuns, chainIdle = false }) {
   if (!authoritative) return { action: Action.HOLD, rule: null, reason: 'partial traversal' };
 
   if (!row) {
     const runs = missingCompleteRuns + 1;
-    return runs >= 2
-      ? { action: Action.RETIRE, rule: 'R-02', missingCompleteRuns: runs }
-      : { action: Action.HOLD,   rule: 'R-02', missingCompleteRuns: runs };
+    // First authoritative absence: an idle chain's URL is suspended at once (injection
+    // stops, cache purged); a rebuilding chain's URL is held. Second absence retires.
+    if (runs >= 2) return { action: Action.RETIRE, rule: 'R-02', missingCompleteRuns: runs };
+    return { action: chainIdle ? Action.SUSPEND : Action.HOLD, rule: 'R-02', missingCompleteRuns: runs };
   }
   if (row.jsonLd && row.jsonLd.ready) return { action: Action.SERVE, rule: null, missingCompleteRuns: 0 };
   // ready:false — regeneration in flight is not a withdrawal.

@@ -119,6 +119,7 @@ final class Synchronizer {
 				$state = $this->walk_inventory( $state, $biz['business_id'] );
 				$this->options->patch_sync_state( $state );
 				if ( 'inventory' === $state['phase'] ) {
+					Scheduler::request_continuation();
 					return $summary + [
 						'ok'      => true,
 						'partial' => true,
@@ -130,6 +131,8 @@ final class Synchronizer {
 			if ( 'aborted' === $state['phase'] ) {
 				// Token rejected, account problem, or no assigned chain exists (§07a):
 				// nothing to fetch, nothing to retire, and not a "partial" run either.
+				// Purges queued on the way here (a chain that vanished, #56) still go out.
+				$this->flush_purges();
 				$this->options->patch_sync_state( [ 'in_progress' => '', 'inventory' => [], 'chains' => null, 'pending' => [] ] );
 				do_action( 'aivis_connector_sync_failed', 'AIVIS_SYNC_ABORTED' );
 				return $summary + [ 'skipped' => 'aborted', 'sync_id' => $sync_id ];
@@ -172,7 +175,12 @@ final class Synchronizer {
 			}
 
 			$this->flush_purges();
-			do_action( 'aivis_connector_sync_completed', [ 'sync_id' => $sync_id, 'authoritative' => $authoritative, 'fetched' => $fetched, 'retired' => $retired ] );
+			$left = count( (array) ( $this->options->sync_state()['pending'] ?? [] ) );
+			if ( $left > 0 ) {
+				// Backlog: keep draining at the per-tick cap, a minute apart (#62).
+				Scheduler::request_continuation();
+			}
+			do_action( 'aivis_connector_sync_completed', [ 'sync_id' => $sync_id, 'authoritative' => $authoritative, 'fetched' => $fetched, 'retired' => $retired, 'pending' => $left ] );
 
 			return [
 				'ok'            => true,
@@ -227,10 +235,9 @@ final class Synchronizer {
 	private function chains_for_url( string $url ): array {
 		$lang   = Language::of_url( $url );
 		$chains = $this->options->chains_for_language( $lang );
-		if ( ! $chains ) {
-			return [ $this->options->assigned_chain_ids(), "language {$lang} (no chain assigned; any assigned chain)" ];
-		}
-		return [ $chains, "language {$lang}" ];
+		// A known language with no chain receives nothing (#57): the empty list is
+		// preserved all the way down and rejects, it never widens to "any chain".
+		return [ $chains, '' === $lang || $chains ? "language {$lang}" : "language {$lang} (no chain assigned)" ];
 	}
 
 	/* ── phase 1: inventory ──────────────────────────────────────────── */
@@ -247,8 +254,15 @@ final class Synchronizer {
 			$map   = $this->options->chain_languages();
 			$stale = array_diff( array_keys( $map ), $all );
 			if ( $stale ) {
+				// The listing succeeded and these chains are not in it: AIVIS removed or
+				// archived them, and their pages with them. Retire the rows now (#56) —
+				// kept 30 days for rollback, never injected — and purge their caches.
 				$this->options->set_chain_languages( array_diff_key( $map, array_flip( $stale ) ) );
-				$this->options->record( ErrorCode::LANGUAGE_UNASSIGNED, 'chain(s) no longer exist in AIVIS, assignment dropped: ' . implode( ', ', $stale ) );
+				$gone = $this->repository->retire_chains( array_values( $stale ), ErrorCode::RETRACTED );
+				foreach ( $gone as $u ) {
+					$this->purge[] = $u;
+				}
+				$this->options->record( ErrorCode::LANGUAGE_UNASSIGNED, sprintf( 'chain(s) no longer exist in AIVIS, assignment dropped and %d page(s) retired: %s', count( $gone ), implode( ', ', $stale ) ) );
 			}
 			$chains = array_values( array_intersect( $all, $this->options->assigned_chain_ids() ) );
 			if ( ! $chains ) {
@@ -260,7 +274,8 @@ final class Synchronizer {
 			$state['chain_pos'] = 0;
 			$state['cursor']    = null;
 		}
-		$chains = (array) $state['chains'];
+		$chains     = (array) $state['chains'];
+		$page_langs = [];
 		while ( $state['chain_pos'] < count( $chains ) ) {
 			if ( $this->over_budget() ) {
 				return $state;
@@ -276,6 +291,8 @@ final class Synchronizer {
 				return $state;
 			}
 			$this->api_reachable = true;
+			// An empty chain reconciles to zero, not to "never counted" (#56).
+			$state['totals'][ $chain_id ]['seen'] = (int) ( $state['totals'][ $chain_id ]['seen'] ?? 0 );
 			foreach ( (array) ( $r->body['items'] ?? [] ) as $item ) {
 				// Count every row the API returned BEFORE filtering: `seen` must
 				// reconcile with `total`, or the run can never be authoritative.
@@ -311,11 +328,17 @@ final class Synchronizer {
 						'generatedAt' => $item['jsonLd']['generatedAt'] ?? null,
 					],
 				];
-				// Same URL in two chains: keep the one that would win the API's
-				// tie-break (non-stale first, then newest), so target selection
-				// agrees with what /jsonld will return.
+				// Same URL in two chains (#58): a row with an artifact always beats one
+				// without — the API's tie-break (non-stale first, then newest) only ever
+				// ranks candidates that have artifacts. Among servable rows, prefer the
+				// chain assigned to the page's own language, then apply the tie-break.
 				$prev = $state['inventory'][ $key ] ?? null;
-				if ( null === $prev || self::wins( $compact, $prev ) ) {
+				if ( null !== $prev ) {
+					$page_lang = $page_langs[ $key ] ??= Language::of_url( $url );
+					$a_match   = Language::same( (string) ( $this->options->language_for_chain( $chain_id ) ?? '' ), $page_lang );
+					$b_match   = Language::same( (string) ( $this->options->language_for_chain( (string) $prev['chainId'] ) ?? '' ), $page_lang );
+				}
+				if ( null === $prev || self::wins( $compact, $prev, $a_match, $b_match ) ) {
 					$state['inventory'][ $key ] = $compact;
 				}
 			}
@@ -364,14 +387,28 @@ final class Synchronizer {
 		return $ids;
 	}
 
-	/** @param array<string,mixed> $a @param array<string,mixed> $b */
-	private static function wins( array $a, array $b ): bool {
-		$as = $a['jsonLd']['stale'] ? 1 : 0;
-		$bs = $b['jsonLd']['stale'] ? 1 : 0;
+	/**
+	 * Does inventory row $a beat $b for the same URL? Servable (ready) first;
+	 * then the row whose chain is assigned to the page's language; then the
+	 * API's own tie-break: non-stale first, then newest.
+	 *
+	 * @param array<string,mixed> $a @param array<string,mixed> $b
+	 */
+	private static function wins( array $a, array $b, bool $a_lang_match = false, bool $b_lang_match = false ): bool {
+		$ar = ! empty( $a['jsonLd']['ready'] );
+		$br = ! empty( $b['jsonLd']['ready'] );
+		if ( $ar !== $br ) {
+			return $ar;
+		}
+		if ( $a_lang_match !== $b_lang_match ) {
+			return $a_lang_match;
+		}
+		$as = ! empty( $a['jsonLd']['stale'] ) ? 1 : 0;
+		$bs = ! empty( $b['jsonLd']['stale'] ) ? 1 : 0;
 		if ( $as !== $bs ) {
 			return $as < $bs;
 		}
-		return strtotime( (string) $a['jsonLd']['generatedAt'] ) > strtotime( (string) $b['jsonLd']['generatedAt'] );
+		return (int) strtotime( (string) ( $a['jsonLd']['generatedAt'] ?? '' ) ) > (int) strtotime( (string) ( $b['jsonLd']['generatedAt'] ?? '' ) );
 	}
 
 	/**
@@ -455,6 +492,14 @@ final class Synchronizer {
 	 */
 	private function apply_lookup( string $url, Response $r, array $biz, string $sync_id, ?array $known_chain_ids, ?string $chain_context = null ): array {
 		$key = UrlKey::of( $url );
+		if ( [] === $known_chain_ids ) {
+			// §07a: the page's language has no chain. Nothing may be stored for it,
+			// whatever the API returned (#57). Remember the miss so on-demand lookups
+			// do not retry every quarter hour.
+			$this->options->record( ErrorCode::LANGUAGE_UNASSIGNED, 'no chain is assigned to this page\'s language; nothing stored' . ( $chain_context ? " ({$chain_context})" : '' ), $url );
+			set_transient( 'aivis_os_miss_' . $key, 1, self::MISS_TTL );
+			return [ 'ok' => false, 'action' => 'reject', 'code' => ErrorCode::LANGUAGE_UNASSIGNED ];
+		}
 		// R-01 needs confirmed reachability in the same run. If this 404 is the
 		// first thing we heard from the API, ask /me once rather than assume.
 		if ( 'url_gone' === $r->kind() && ! $this->api_reachable ) {
@@ -473,7 +518,7 @@ final class Synchronizer {
 					}
 					return [ 'ok' => false, 'action' => 'hold', 'code' => ErrorCode::SCHEMA_INVALID ];
 				}
-				$b = Binding::check( $r->body, (string) $biz['business_id'], $this->options->allowed_hosts(), $known_chain_ids ?: null, $url, $chain_context );
+				$b = Binding::check( $r->body, (string) $biz['business_id'], $this->options->allowed_hosts(), $known_chain_ids, $url, $chain_context );
 				if ( ! $b['ok'] ) {
 					$this->options->record( ErrorCode::SCOPE_MISMATCH, implode( '; ', $b['errors'] ), $url );
 					return [ 'ok' => false, 'action' => 'reject', 'code' => ErrorCode::SCOPE_MISMATCH ];
@@ -567,12 +612,23 @@ final class Synchronizer {
 		// Rows the inventory did NOT see: two authoritative absences retire (R-02).
 		// A row whose chain is no longer assigned to a language is absent by the
 		// admin's decision, not AIVIS's — it retires under its own code (§07a).
-		$assigned = $this->options->assigned_chain_ids();
+		$assigned  = $this->options->assigned_chain_ids();
+		$summaries = (array) ( $this->options->sync_state()['chain_summaries'] ?? [] );
 		foreach ( $this->repository->unseen_in_sync( $business_id, $sync_id ) as $local ) {
-			$runs = $this->repository->increment_missing( (string) $local['url_key'] );
-			$d    = Decision::from_inventory( true, null, $runs - 1 );
+			$runs  = $this->repository->increment_missing( (string) $local['url_key'] );
+			$chain = (string) $local['chain_id'];
+			// Idle pipeline (ready/empty, or unknown): an absent URL is withdrawn, so
+			// stop serving on the first authoritative absence and retire on the
+			// second (#62). Building or re-ingesting: hold through the first.
+			$idle = in_array( (string) ( $summaries[ $chain ]['state'] ?? 'ready' ), [ 'ready', 'empty' ], true );
+			$d    = Decision::from_inventory( true, null, $runs - 1, $idle );
+			if ( Action::SUSPEND === $d['action'] && (int) $local['active'] === 1 && empty( $local['suspended_at'] ) ) {
+				$this->repository->suspend( (string) $local['url_key'], $sync_id );
+				$this->purge[] = (string) $local['source_url'];
+				$this->options->record( ErrorCode::RETRACTED, 'absent from a complete inventory; injection suspended, retires on the next absence', (string) $local['source_url'] );
+			}
 			if ( Action::RETIRE === $d['action'] ) {
-				$code = in_array( (string) $local['chain_id'], $assigned, true ) ? ErrorCode::RETRACTED : ErrorCode::LANGUAGE_UNASSIGNED;
+				$code = in_array( $chain, $assigned, true ) ? ErrorCode::RETRACTED : ErrorCode::LANGUAGE_UNASSIGNED;
 				$this->repository->retire( (string) $local['url_key'], $code );
 				$this->purge[] = (string) $local['source_url'];
 				$retired++;

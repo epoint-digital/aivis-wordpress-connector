@@ -76,7 +76,12 @@ final class Plugin {
 	 */
 	public static function deactivate(): void {
 		Scheduler::clear_events();
-		( new Sync\Lock( self::instance()->options() ) )->release();
+		Sync\Lock::force_release();
+		// Cached pages must stop carrying the block too (#61). The adapter says
+		// honestly whether it could; a manual cache is reported as such.
+		$plugin = self::instance();
+		$result = $plugin->cache()->adapter()->purge_all();
+		$plugin->options()->patch_sync_state( [ 'last_purge' => [ 'state' => $result->state, 'count' => -1, 'at' => time(), 'reason' => 'deactivation' ] ] );
 	}
 
 	private function register(): void {

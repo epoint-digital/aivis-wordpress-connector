@@ -125,7 +125,7 @@ final class SettingsPage {
 							if ( 0 === $interval ) {
 								esc_html_e( 'With manual syncing, a page unpublished in AIVIS keeps being served here until you sync. Only choose this if you sync from WP-CLI or a system cron.', 'aivis-os' );
 							} else {
-								echo wp_kses_post( sprintf( /* translators: %d: minutes */ __( 'A page unpublished in AIVIS stops being served here within <strong>%d minutes plus your cache purge</strong>.', 'aivis-os' ), (int) ( $interval / 60 ) ) );
+								echo wp_kses_post( sprintf( /* translators: 1: minutes, 2: twice the minutes */ __( 'A page unpublished in AIVIS stops being served here within <strong>%1$d minutes plus your cache purge</strong> while its pipeline is idle — up to %2$d minutes while a chain is rebuilding — plus any sync backlog shown on Status.', 'aivis-os' ), (int) ( $interval / 60 ), (int) ( $interval / 30 ) ) );
 								if ( 300 === $interval ) {
 									echo ' ' . esc_html__( 'Five minutes needs a real system cron — WordPress’s built-in cron only runs when someone visits the site.', 'aivis-os' );
 								}
@@ -215,7 +215,13 @@ final class SettingsPage {
 				$o->set_token_status( null );
 			}
 		}
-		$o->set_injection_enabled( ! empty( $post['injection'] ) );
+		$injection = ! empty( $post['injection'] );
+		if ( $injection !== $o->injection_enabled() ) {
+			// The switch changes what every cached page should carry (#61): purge the
+			// pages that had, or will have, the block. Honest result recorded either way.
+			$o->set_injection_enabled( $injection );
+			$this->plugin->synchronizer()->purge( $this->plugin->repository()->active_urls() );
+		}
 		$o->set_on_demand_enabled( ! empty( $post['on_demand'] ) );
 		$o->set_notify_email( ! empty( $post['notify_email'] ) );
 		$interval = (int) ( $post['interval'] ?? 900 );

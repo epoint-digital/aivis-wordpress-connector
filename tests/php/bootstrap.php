@@ -24,14 +24,20 @@ require dirname( __DIR__, 2 ) . '/src/autoload.php';
 /** Minimal $wpdb: enough for Repository to run its SQL without a database. */
 final class WPDBStub {
 	public string $prefix = 'wp_';
+	public string $options = 'wp_options';
 	public array $rows = [];
+	/** Scripted return values for query() (shifted in order); 0 when exhausted. */
+	public array $query_results = [];
+	/** Scripted return values for get_var() (shifted in order); null when exhausted. */
+	public array $vars = [];
 	public function prepare( string $sql, mixed ...$args ): string { return vsprintf( str_replace( [ '%s', '%d' ], [ "'%s'", '%d' ], $sql ), array_map( fn( $a ) => is_array( $a ) ? $a[0] : $a, $args ) ); }
 	public function get_row( string $sql, mixed $out = null ): ?array { $this->queries[] = $sql; return $this->rows[0] ?? null; }
 	public function get_results( string $sql, mixed $out = null ): array { $this->queries[] = $sql; return $this->rows; }
-	public function get_var( string $sql ): ?string { return null; }
+	public function get_var( string $sql ): ?string { $this->queries[] = $sql; return $this->vars ? array_shift( $this->vars ) : null; }
 	public function get_col( string $sql ): array { $this->queries[] = $sql; return array_values( array_map( fn( $r ) => (string) reset( $r ), $this->rows ) ); }
 	public array $queries = [];
-	public function query( string $sql ): int|bool { $this->queries[] = $sql; return 0; }
+	/** Unscripted: an INSERT IGNORE claim succeeds (the lock is free), everything else affects 0 rows. */
+	public function query( string $sql ): int|bool { $this->queries[] = $sql; if ( $this->query_results ) { return array_shift( $this->query_results ); } return str_starts_with( ltrim( $sql ), 'INSERT IGNORE' ) ? 1 : 0; }
 	public array $writes = [];
 	public function update( string $t, array $d, array $w, mixed $f = null, mixed $wf = null ): int|false { $this->writes[] = [ 'update', $d, $w ]; return 1; }
 	public function insert( string $t, array $d, mixed $f = null ): int|false { $this->writes[] = [ 'insert', $d, [] ]; return 1; }
@@ -65,6 +71,8 @@ final class WPStub {
 		$GLOBALS['wpdb']->rows = [];
 		$GLOBALS['wpdb']->queries = [];
 		$GLOBALS['wpdb']->writes = [];
+		$GLOBALS['wpdb']->query_results = [];
+		$GLOBALS['wpdb']->vars = [];
 	}
 	public static function queue( int $status, mixed $body, array $headers = [] ): void {
 		self::$http_queue[] = [
@@ -178,6 +186,7 @@ function wp_safe_remote_post( string $url, array $args = [] ): mixed {
 function wp_mail( string $to, string $subject, string $message ): bool { WPStub::$mail[] = compact( 'to', 'subject', 'message' ); return true; }
 function admin_url( string $path = '' ): string { return WPStub::$home . '/wp-admin/' . $path; }
 function __return_false(): bool { return false; }
+function wp_cache_delete( string $key, string $group = '' ): bool { return true; }
 function __return_true(): bool { return true; }
 function is_wp_error( mixed $x ): bool { return $x instanceof WP_Error; }
 function wp_remote_retrieve_response_code( mixed $r ): int { return (int) ( $r['response']['code'] ?? 0 ); }

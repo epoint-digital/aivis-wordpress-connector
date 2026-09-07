@@ -24,15 +24,24 @@ final class SchedulerLockTest extends TestCase {
 	}
 
 	public function test_lock_is_exclusive_then_recovers_when_stale(): void {
-		$o = new Options();
-		$l = new Lock( $o );
+		$o  = new Options();
+		$db = $GLOBALS['wpdb'];
+		$l  = new Lock( $o );
+		$db->query_results = [ 1 ];
 		self::assertTrue( $l->acquire( 'a' ) );
-		self::assertFalse( $l->acquire( 'b' ), 'second acquire must fail while held' );
-		$o->patch_sync_state( [ 'lock' => [ 'owner' => 'a', 'at' => time() - Lock::STALE_AFTER - 1 ] ] );
-		self::assertTrue( $l->acquire( 'b' ), 'stale lock must be recoverable' );
+		$db->query_results = [ 0 ];
+		$db->vars          = [ 'a|' . time() . '|x' ];
+		self::assertFalse( ( new Lock( $o ) )->acquire( 'b' ), 'second acquire must fail while held' );
+		$db->query_results = [ 0, 1 ];
+		$db->vars          = [ 'a|' . ( time() - Lock::STALE_AFTER - 1 ) . '|x' ];
+		$m = new Lock( $o );
+		self::assertTrue( $m->acquire( 'b' ), 'stale lock must be recoverable' );
 		self::assertContains( 'AIVIS_LOCK_RECOVERED', array_column( $o->diagnostics(), 'code' ), 'recovery must be recorded' );
-		$l->release();
-		self::assertFalse( $l->held() );
+		$db->vars = [ 'b|' . time() . '|y' ];
+		self::assertTrue( $m->held() );
+		$m->release();
+		$db->vars = [];
+		self::assertFalse( $m->held() );
 	}
 
 	public function test_token_never_reaches_diagnostics(): void {

@@ -225,10 +225,13 @@ bearer token).
 | `aivis_os_sync` | `aivis_os_interval` (default 15 min; options 5 min, hourly, manual) | Inventory and artifact sync |
 | `aivis_os_gc` | daily | Delete rows whose `retired_at` is older than 30 days |
 | `aivis_os_verify` | daily | Live verification of a sample (§11) |
+| `aivis_os_sync` (single event, arg `continue`) | +60 s, while work remains | Continuation of an unfinished inventory walk or artifact backlog (R-03) |
 
 Custom schedules registered as `aivis_os_5min`, `aivis_os_15min`. Interval filterable via
-`aivis_connector_sync_interval`. One per-site lock with expiry; abandoned locks recovered after
-15 minutes and the recovery recorded. WP-Cron is traffic-driven — the docs recommend system cron
+`aivis_connector_sync_interval`. **One per-site lock, claimed atomically** in its own option row
+(`aivis_os_sync_lock`, `INSERT IGNORE` — the mechanism core's own upgrader uses), taken over by
+compare-and-swap only when older than 15 minutes (recovery recorded), released only by its owner.
+The lock never lives inside the mutable sync state. WP-Cron is traffic-driven — the docs recommend system cron
 hitting `wp-cron.php`, or WP-CLI.
 
 **Two distinct negative caches, named separately** (rev 1 gave both the same name):
@@ -276,9 +279,9 @@ ordinary operation — regeneration, a covering intent leaving the `deployment` 
 |---|---|
 | **R-01** | **Confirmed withdrawal.** A stored URL returns 404 with body `"URL not found in your businesses"`, and API reachability is confirmed in the same run (another request succeeded, or a `/me` probe passes). The `Url` row is gone — and since the artifact cascades on delete, that is how a retraction looks today. **Suspend injection immediately and purge that URL's cache**, then confirm on the next authoritative inventory pass before setting `retired_at`. The delay before deletion exists because the same 404 appears when the token's account or the business selection changes, which is not a retraction |
 | **R-01a** | **Not a withdrawal.** 404 with body `"JSON-LD not generated yet for this URL"`, or any unrecognised 404 body: hold last-known-good, keep serving, re-check next run. Never deactivate |
-| **R-02** | **Inventory retirement.** A URL absent from two consecutive complete, authoritative syncs is retired: `active` → 0, then `retired_at` set. Inactive rows are kept 30 days for rollback, never injected, then deleted by `aivis_os_gc` |
+| **R-02** | **Inventory retirement, in two steps.** A URL absent from one complete, authoritative sync is **suspended** — injection stops and its cache is purged — when its chain's pipeline is idle (`ready` or `empty`); while the chain is `building` or `re_ingesting` it is held through the first absence, because rows can be transiently missing mid-pipeline. Absent from a second consecutive authoritative sync it is **retired**: `active` → 0, `retired_at` set. Inactive rows are kept 30 days for rollback, never injected, then deleted by `aivis_os_gc`. A chain that disappears from a successful chain listing retires its rows at once. An empty chain reconciles to zero |
 | **R-02a** | **Ready-flag withdrawal.** An authoritative inventory row reporting `jsonLd.ready = false` for a URL that was previously `true` deactivates it — unless `captureStatus` is `processing`, which means regeneration is in flight and last-known-good is held |
-| **R-03** | **Latency honesty.** Worst case is `sync interval + cache purge`. The R-01 fast path applies only to URLs the plugin re-fetches, so it is a bonus, not a guarantee. The status screen displays the real figure; 5-minute intervals are recommended for retraction-sensitive sites; "Refresh this URL now" forces an immediate check |
+| **R-03** | **Latency honesty.** With an idle pipeline and no backlog, a withdrawn page stops being served within `sync interval + cache purge` (R-02's first step); while its chain is rebuilding, within two intervals. A sync backlog adds to it: artifacts are fetched at most 20 per tick, but a tick with work left schedules a **continuation a minute later** rather than waiting a whole interval, and the Status screen shows the pending count. The R-01 fast path applies only to URLs the plugin re-fetches. All of this presumes a real system cron; WP-Cron only runs on traffic. 5-minute intervals are recommended for retraction-sensitive sites; "Refresh this URL now" forces an immediate check |
 
 Other retirement paths, unchanged: admin disconnect with explicit clear, business change, per-URL
 admin disable.
@@ -524,9 +527,13 @@ chain `state`, `knowledgeGraphReady` and assigned language per chain; real retra
 (R-03); recent errors by stable code; per-URL table (with language) with "Refresh this URL now" and
 per-URL disable.
 
-**Live verification.** Fetch a sample page over loopback and confirm the marker and expected hash
-are present. *`verify at build`* — loopback is blocked on some hosts; fallbacks are an
-admin-browser check and `wp aivis verify`.
+**Live verification.** Fetch a sample page over loopback (TLS verified; filter
+`aivis_connector_verify_sslverify` for hosts whose loopback certificate does not match), require
+HTTP 200, strip HTML comments, and locate the actual `<script type="application/ld+json"
+data-aivis="1">` element; "live" means its content equals the stored bytes exactly. A non-200 or a
+blocked loopback is *could not verify*, never *not live*. The conflict scan applies the same rule.
+*`verify at build`* — loopback is blocked on some hosts; fallbacks are an admin-browser check and
+`wp aivis verify`.
 
 **WP-CLI:** `wp aivis connection test`, `wp aivis sync --all`, `wp aivis status [--format=json]`,
 `wp aivis verify [--url=…]`, `wp aivis languages [assign <chain> <lang>|auto]`,
@@ -650,7 +657,7 @@ Demonstrated on staging against the designated AIVIS environment.
 | AC-11 | Changed artifacts invalidate affected caches without republishing content |
 | AC-12 | Unsupported cache infrastructure is reported as manual-purge-required, never as live |
 | AC-13 | Identical markup for a browser, Googlebot, GPTBot and arbitrary user agents |
-| AC-14 | Disable/deactivate plus purge restores pre-connector output |
+| AC-14 | Disabling injection or deactivating the plugin purges affected pages through the adapter and restores pre-connector output; an unsupported cache is reported as manual-purge-required |
 | AC-15 | No token, telemetry, IP or raw UA appears in public output or diagnostics |
 | AC-16 | The release ZIP is reproducibly built, checksummed, installable, matrix-green |
 | **AC-17** | **Withdrawal deactivates on the next authoritative inventory pass with a cache purge, and does not resurrect from last-known-good during a subsequent outage** |
@@ -763,6 +770,11 @@ That header does two things:
 
 **Rollback.** Install the previous release ZIP over the current one; the schema
 is forward-only within a major version and data is kept.
+
+**Switching off.** Turning injection off (or on) purges the affected pages through the cache
+adapter, and plugin deactivation purges everything and clears the lock — with the adapter's honest
+result recorded, so a manual cache is reported as needing a manual purge rather than assumed
+clean (AC-14).
 
 ---
 

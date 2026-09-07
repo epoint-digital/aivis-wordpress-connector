@@ -75,7 +75,10 @@ final class StatusPage {
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Withdrawal latency', 'aivis-os' ); ?></h2><div class="inside">
 					<p><?php esc_html_e( 'If a page is unpublished in AIVIS, it stops being served here within:', 'aivis-os' ); ?></p>
 					<div class="aivis-big"><?php echo $interval > 0 ? esc_html( (string) (int) ( $interval / 60 ) ) . ' min' : esc_html__( 'next manual sync', 'aivis-os' ); ?> <span class="description">+ <?php esc_html_e( 'cache purge', 'aivis-os' ); ?></span></div>
-					<p class="description"><?php esc_html_e( 'Worst case, not typical. It is the sync interval plus the time your cache takes to drop the page. Shorten the interval under Settings if this site publishes offers or prices that must be withdrawable quickly.', 'aivis-os' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Worst case with an idle pipeline and no backlog: the sync interval plus the time your cache takes to drop the page. While a chain is rebuilding in AIVIS it can take two intervals. Shorten the interval under Settings if this site publishes offers or prices that must be withdrawable quickly.', 'aivis-os' ); ?></p>
+					<?php $backlog = count( (array) ( $state['pending'] ?? [] ) ); if ( $backlog > 0 ) : ?>
+						<p><span class="aivis-chip aivis-chip--warn"><?php echo esc_html( sprintf( /* translators: %d: artifacts */ _n( 'Backlog: %d artifact pending', 'Backlog: %d artifacts pending', $backlog, 'aivis-os' ), $backlog ) ); ?></span> <span class="description"><?php esc_html_e( 'draining 20 per minute — withdrawals wait until it is done', 'aivis-os' ); ?></span></p>
+					<?php endif; ?>
 				</div></div>
 			</div>
 

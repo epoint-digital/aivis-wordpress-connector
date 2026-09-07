@@ -76,6 +76,12 @@ await test('no non-200 branch ever returns serve or retire', () => {
 
 /* ── decideFromInventory ──────────────────────────────────────────────── */
 heading('decideFromInventory');
+await test('first authoritative absence suspends on an idle chain, holds on a busy one, retires on the second (#62)', () => {
+  eq(decideFromInventory({ authoritative: true, row: null, missingCompleteRuns: 0, chainIdle: true }).action, Action.SUSPEND);
+  eq(decideFromInventory({ authoritative: true, row: null, missingCompleteRuns: 0, chainIdle: false }).action, Action.HOLD);
+  eq(decideFromInventory({ authoritative: true, row: null, missingCompleteRuns: 1, chainIdle: false }).action, Action.RETIRE);
+  eq(decideFromInventory({ authoritative: false, row: null, missingCompleteRuns: 0, chainIdle: true }).action, Action.HOLD);
+});
 const row = (over = {}) => ({ id: 'u1', url: 'https://example.com/p', captureStatus: 'processed', jsonLd: { ready: true, stale: false, generatedAt: '2026-09-01T10:00:00.000Z' }, ...over });
 await test('ready:true → serve and resets the miss counter', () => {
   const d = decideFromInventory({ authoritative: true, row: row(), missingCompleteRuns: 1 });
