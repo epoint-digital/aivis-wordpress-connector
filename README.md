@@ -70,3 +70,7 @@ v1 ships to **AIVIS-controlled or AIVIS-operated installs only**. AIVIS API toke
 account-scoped: one token grants read access to every business on the account, and a WordPress
 database travels through backups, staging clones and migrations. Customer-managed distribution is
 blocked on business-scoped tokens (API-1). See §00 and §13 of the specification.
+
+## Documentation index
+
+Every document, page, board, test suite and issue set for the connector is listed in [docs/INDEX.md](docs/INDEX.md).
