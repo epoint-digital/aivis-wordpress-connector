@@ -8,6 +8,7 @@ Plugin slug `aivis-os`. Production API base `https://app.aivis-os.com`.
 
 | Read | For |
 |---|---|
+| [`docs/REVIEWER-BRIEF.md`](REVIEWER-BRIEF.md) | Independent review: context, decisions, verified facts, code map, known gaps, review checklist — all with absolute links |
 | [`README.md`](../README.md) | What the plugin is, in one page |
 | [`docs/SPECIFICATION.md`](SPECIFICATION.md) | The full behaviour: invariants, API contract, retraction rules, URL handling, languages, zero-trust ingestion, delivery, cache, admin, status for AIVIS, security, deployment, acceptance criteria, release decisions Q-01…Q-10 |
 | [`docs/INSTALL.md`](INSTALL.md) | Operator guide: token, `wp-config.php`, install, bind, languages, first sync, verify, cron, caches, status for AIVIS, other SEO plugins, troubleshooting |
