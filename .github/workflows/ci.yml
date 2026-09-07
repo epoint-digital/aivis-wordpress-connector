@@ -43,6 +43,7 @@ jobs:
         run: npm run test:contract
       - name: Documentation is still machine-readable
         run: npm run check:docs
+      - name: Install skill copies (Claude Code, Codex) are identical
         run: npm run check:skills
 
   php:
