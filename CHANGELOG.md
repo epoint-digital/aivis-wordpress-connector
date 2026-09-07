@@ -35,6 +35,11 @@ file, `readme.txt` and the git tag do not agree with it.
   sync; inventory targets fetched by `urlId` so the chain is pinned; artifacts
   from a chain not assigned to the page's language are rejected; language
   subdomains allowed; Status, Site Health and `wp aivis languages`.
+- `wp aivis bind [--business=<id>]`: headless business binding on the same
+  domain rule as Settings, followed by automatic chain → language assignment.
+- Agent skill `install-aivis-os` for Claude Code and Codex (identical copies,
+  checked in CI): headless WP-CLI install, a wp-admin browser guide with every
+  field name, and a report checklist. `AGENTS.md` for repository rules.
 - Status for AIVIS, fetched never pushed (§11a): `published_at`, `verified_at`
   and `verified_hash` per page; read-only REST endpoint
   `/wp-json/aivis-os/v1/status` (+ `/status/urls`, paged) gated by a

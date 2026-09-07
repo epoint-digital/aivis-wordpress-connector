@@ -4,6 +4,15 @@ This guide is for the people who operate a site — in v1 that means AIVIS or a
 partner acting for AIVIS (see *Who may install this* below). Fifteen minutes,
 most of it waiting for the first sync.
 
+## Let an agent do it
+
+Claude Code and Codex can run this guide: the repository ships an agent skill,
+`install-aivis-os` (in `.claude/skills/` and `.codex/skills/`), that installs
+headless with WP-CLI or drives wp-admin in a browser, with the field names of
+every screen and a report checklist. The human still logs in and places the
+token; the agent never sees it. `wp aivis bind` does the business binding and
+language assignment without the Settings screen.
+
 ## Who may install this
 
 **v1 ships to AIVIS-controlled or AIVIS-operated sites only.** An AIVIS API
@@ -113,6 +122,10 @@ AIVIS OS → **Status** → *Sync now*, or wait for the next cron tick, or:
 ```bash
 wp aivis sync --all
 ```
+
+Headless installs bind first with `wp aivis bind` (the one business on this
+domain; `--business=<id>` when two share it) — it also assigns chains to
+languages where that is unambiguous.
 
 The Status screen shows every page: **Active**, **Stale but served**, **Holding
 last good**, **Suspended**, **Retired** — with a legend. The first run on a

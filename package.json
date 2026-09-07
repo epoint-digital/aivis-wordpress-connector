@@ -9,6 +9,7 @@
     "test:contract": "node tests/contract/run.mjs",
     "test:live": "node tests/contract/run.mjs --live",
     "check:docs": "node tests/docs/check-embedded-json.mjs",
+    "check:skills": "node tests/docs/check-skills-in-sync.mjs",
     "check:drift": "node tests/fixtures/refresh.mjs --check",
     "mock": "node tests/mock/server.js",
     "vendor:openapi": "node tests/fixtures/refresh.mjs",

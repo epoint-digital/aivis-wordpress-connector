@@ -43,6 +43,7 @@ jobs:
         run: npm run test:contract
       - name: Documentation is still machine-readable
         run: npm run check:docs
+        run: npm run check:skills
 
   php:
     name: php ${{ matrix.php }}

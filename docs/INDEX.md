@@ -28,6 +28,8 @@ Plugin slug `aivis-os`. Production API base `https://app.aivis-os.com`.
 | [`readme.txt`](../readme.txt) | WordPress plugin readme (description, install, FAQ) | Site operators |
 | [`SECURITY.md`](../SECURITY.md), [`CONTRIBUTING.md`](../CONTRIBUTING.md), [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Project hygiene | Contributors |
 | [`tests/README.md`](../tests/README.md) | How the suites fit together and how to run them | Engineers |
+| [`.claude/skills/install-aivis-os/`](../.claude/skills/install-aivis-os/SKILL.md) · [`.codex/skills/install-aivis-os/`](../.codex/skills/install-aivis-os/SKILL.md) | Agent skill (Claude Code and Codex, identical): install, connect and verify the plugin headless via WP-CLI or by driving wp-admin in a browser; `reference/wp-admin-browser-guide.md`, `reference/wp-cli-install.md`, `reference/checklist.md` | Agents, operators |
+| [`AGENTS.md`](../AGENTS.md) | Repository rules for any coding agent | Agents |
 
 ## Rendered pages and boards
 

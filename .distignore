@@ -10,6 +10,9 @@ tests
 src/reference
 docs
 scripts
+.claude
+.codex
+AGENTS.md
 build
 dist
 package.json

@@ -210,6 +210,12 @@ final class Options {
 		return is_string( $h ) ? strtolower( $h ) : '';
 	}
 
+	/** The domain rule (§06): equal hosts modulo a leading www. Empty never matches. */
+	public static function same_host( string $a, string $b ): bool {
+		$s = static fn( string $h ): string => (string) preg_replace( '/^www\./', '', strtolower( trim( $h ) ) );
+		return '' !== $s( $a ) && $s( $a ) === $s( $b );
+	}
+
 	/* ── delivery (§09) ──────────────────────────────────────────────── */
 
 	public function injection_enabled(): bool {

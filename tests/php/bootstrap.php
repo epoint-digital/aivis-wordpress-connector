@@ -20,6 +20,7 @@ define( 'ARRAY_N', 'ARRAY_N' );
 define( 'OBJECT', 'OBJECT' );
 
 require dirname( __DIR__, 2 ) . '/src/autoload.php';
+require __DIR__ . '/stubs/wp-cli.php';
 
 /** Minimal $wpdb: enough for Repository to run its SQL without a database. */
 final class WPDBStub {

@@ -10,6 +10,7 @@ declare( strict_types=1 );
 namespace AivisOS\Cli;
 
 use AivisOS\Plugin;
+use AivisOS\Storage\Options;
 
 final class Commands {
 
@@ -39,6 +40,88 @@ final class Commands {
 		}
 		$o->set_token_status( true, (string) ( $r->body['tokenName'] ?? '' ), (string) ( $r->body['email'] ?? '' ) );
 		\WP_CLI::success( sprintf( 'Connected as %s (token "%s", from %s). Account-scoped: this token reads every business on the account.', $r->body['email'] ?? '?', $r->body['tokenName'] ?? '?', $o->token_source() ) );
+	}
+
+	/**
+	 * Bind this site to the AIVIS business whose domain matches it, then
+	 * assign chains to languages where that is unambiguous. Headless
+	 * counterpart of Settings → Business (§06, §07a).
+	 *
+	 * ## OPTIONS
+	 * [--business=<id>]
+	 * : Required only when more than one business on the account uses this domain.
+	 *
+	 * [--hosts=<list>]
+	 * : Comma-separated additional allowed hosts (aliases of this site).
+	 *
+	 * ## EXAMPLES
+	 *     wp aivis bind
+	 *     wp aivis bind --business=biz_live
+	 */
+	public function bind( array $args, array $assoc ): void {
+		$o = $this->plugin->options();
+		if ( 'none' === $o->token_source() ) {
+			\WP_CLI::error( 'No token. Define AIVIS_API_TOKEN in wp-config.php first.' );
+		}
+		$me = $this->plugin->client()->me();
+		if ( ! $me->ok() ) {
+			$o->set_token_status( false );
+			\WP_CLI::error( sprintf( 'Token rejected: HTTP %d — %s', $me->status, $me->message() ?: $me->transport_error ) );
+		}
+		$o->set_token_status( true, (string) ( $me->body['tokenName'] ?? '' ), (string) ( $me->body['email'] ?? '' ) );
+
+		$host   = $o->site_host();
+		$all    = [];
+		$cursor = null;
+		do {
+			$r = $this->plugin->client()->businesses( $cursor );
+			if ( ! $r->ok() ) {
+				\WP_CLI::error( sprintf( 'Could not list businesses: HTTP %d — %s', $r->status, $r->message() ?: $r->transport_error ) );
+			}
+			foreach ( (array) ( $r->body['items'] ?? [] ) as $b ) {
+				$all[] = $b;
+			}
+			$cursor = ( ! empty( $r->body['hasMore'] ) && is_string( $r->body['nextCursor'] ?? null ) ) ? $r->body['nextCursor'] : null;
+		} while ( null !== $cursor );
+
+		$matching = array_values( array_filter( $all, static fn( array $b ): bool => Options::same_host( (string) wp_parse_url( (string) ( $b['baseUrl'] ?? '' ), PHP_URL_HOST ), $host ) ) );
+		if ( ! $matching ) {
+			\WP_CLI::error( sprintf( 'No business on this account uses %s (%d businesses on the account). A business has exactly one domain in AIVIS: create one for this site, or correct its base URL there. Businesses on other domains are never bound.', $host, count( $all ) ) );
+		}
+		$want = isset( $assoc['business'] ) ? (string) $assoc['business'] : '';
+		if ( '' === $want && count( $matching ) > 1 ) {
+			foreach ( $matching as $b ) {
+				\WP_CLI::log( sprintf( '  %s  %s  (created %s, %d chains)', $b['id'], $b['name'], substr( (string) ( $b['createdAt'] ?? '' ), 0, 10 ), (int) ( $b['chainCount'] ?? 0 ) ) );
+			}
+			\WP_CLI::error( sprintf( '%d businesses use %s. Pass --business=<id> for the live one; the plugin will not guess.', count( $matching ), $host ) );
+		}
+		$chosen = null;
+		foreach ( $matching as $b ) {
+			if ( '' === $want || (string) $b['id'] === $want ) {
+				$chosen = $b;
+				break;
+			}
+		}
+		if ( null === $chosen ) {
+			\WP_CLI::error( sprintf( 'Business %s does not use %s — refusing to bind a business on another domain.', $want, $host ) );
+		}
+		$hosts = array_values( array_filter( array_map( 'trim', explode( ',', (string) ( $assoc['hosts'] ?? '' ) ) ) ) );
+		$o->set_business( (string) $chosen['id'], (string) $chosen['name'], (string) $chosen['baseUrl'], $hosts );
+		\WP_CLI::log( sprintf( 'Bound to %s (%s) — domain %s.', $chosen['name'], $chosen['id'], $host ) );
+
+		$auto = $this->plugin->assignment()->auto_assign();
+		if ( ! $auto['catalog_ok'] ) {
+			\WP_CLI::warning( 'Could not list chains right now; run `wp aivis languages auto` later.' );
+		} else {
+			foreach ( $auto['map'] as $chain => $lang ) {
+				\WP_CLI::log( sprintf( '  chain %s → %s', $chain, $lang ) );
+			}
+			foreach ( $auto['unresolved'] as $chain ) {
+				\WP_CLI::warning( sprintf( 'chain %s is not assigned to a language — decide with `wp aivis languages assign %s <lang>`.', $chain, $chain ) );
+			}
+		}
+		\AivisOS\Sync\Scheduler::request_sync_now();
+		\WP_CLI::success( 'Bound. Sync requested — run `wp aivis sync --all` to do it now.' );
 	}
 
 	/**
