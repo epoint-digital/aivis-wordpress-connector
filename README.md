@@ -71,6 +71,12 @@ account-scoped: one token grants read access to every business on the account, a
 database travels through backups, staging clones and migrations. Customer-managed distribution is
 blocked on business-scoped tokens (API-1). See §00 and §13 of the specification.
 
+## The screens
+
+![Status: overview, counts, what needs attention](docs/screenshots/status.png)
+
+Status is an overview (is it healthy, what needs me), Pages is a paginated, searchable list (what about this page), Settings binds the site to its business, languages, cache and status key. Every screenshot in `docs/screenshots/` is rendered from `docs/admin-ui.html`, the prototype that mirrors `src/Admin`.
+
 ## Scope
 
 The plugin is a delivery method. It holds facts only the site can know and performs actions only the site can perform; judgments, histories and policies live in AIVIS (specification WP-I12). If a change adds a decision to the plugin, it belongs in AIVIS instead.

@@ -88,6 +88,8 @@ makes no network request and needs no token.
 AIVIS OS → **Settings** → *Test connection*. On success the business whose
 domain matches this site is bound automatically.
 
+![Settings screen](screenshots/settings.png)
+
 If **two** businesses on the account share this domain (a live one and a
 rebuild, typically), the plugin will not guess — pick the right one. If **none**
 matches, the plugin refuses to bind: create the business for this domain in
@@ -134,6 +136,10 @@ searchable by URL, filterable by state, language and chain — and it opens on
 *Needs attention* whenever something wants a decision. You are not expected to
 read it; you search it. The first run on a large site takes a few ticks (20
 artifacts per tick, continuing every minute).
+
+![Status screen after the first sync](screenshots/status.png)
+
+![Pages screen, opened on Needs attention](screenshots/pages.png)
 
 ## 6. Verify
 

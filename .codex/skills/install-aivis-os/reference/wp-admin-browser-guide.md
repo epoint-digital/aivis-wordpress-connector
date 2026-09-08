@@ -2,6 +2,8 @@
 
 For an agent with browser tools (a page reader, click, type, screenshot). Written against WordPress 6.5–7.1 and plugin 1.0.0. Element ids and names below come from the plugin's own templates; WordPress core screens are named by their visible labels, which are stable across these versions.
 
+Reference screenshots of the three screens (rendered from the prototype that mirrors the plugin): `docs/screenshots/status.png`, `docs/screenshots/pages.png`, `docs/screenshots/settings.png` in the connector repository. Compare what you see against them; a screen that looks different is a finding.
+
 Conventions: `→` means click or navigate; *italics* are visible labels; `code` is an element id, name or URL. After every step, read the page (accessibility tree or text) before deciding the next click — do not chain clicks blind. Take a screenshot at each ✱ for the report.
 
 ## 0. Preconditions the human handles

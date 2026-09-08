@@ -123,6 +123,33 @@
           border-top:1px solid var(--wp-line-2);background:#fbfbfc}
   .legend span{display:flex;gap:6px;align-items:center}
 
+  /* WordPress's widefat table, for the Languages & chains box */
+  table.widefat{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--wp-line-2);margin-top:12px;font-size:13px}
+  table.widefat th{text-align:left;font-weight:600;padding:8px 10px;border-bottom:1px solid var(--wp-line-2)}
+  table.widefat td{padding:9px 10px;border-bottom:1px solid #f0f0f1;vertical-align:top}
+  table.widefat.striped tbody tr:nth-child(odd) td{background:#f6f7f7}
+  table.widefat select{min-height:28px;font-size:13px}
+
+  /* ── list table chrome (Pages screen) ──────────────────── */
+  .subsubsub{list-style:none;margin:8px 0;padding:0;font-size:13px;color:var(--wp-text-3)}
+  .subsubsub li{display:inline}
+  .subsubsub a{padding:0 2px}.subsubsub a.current{color:var(--wp-text);font-weight:600}
+  .subsubsub .count{color:var(--wp-text-3);font-weight:400}
+  .search-box{float:right;margin:0 0 8px;display:flex;gap:6px}
+  .search-box input{width:220px;max-width:none}
+  .tablenav{clear:both;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:8px 0}
+  .tablenav .actions{display:flex;gap:6px;align-items:center}
+  .tablenav-pages{margin-left:auto;display:flex;gap:8px;align-items:center;font-size:13px;color:var(--wp-text-2)}
+  .tablenav-pages .pagination-links{display:flex;gap:4px;align-items:center}
+  .tablenav-pages .button{padding:0 8px;line-height:1.9;min-width:26px;text-align:center}
+  .tablenav-pages .button.disabled{opacity:.45;pointer-events:none}
+  .paging-input{padding:0 6px}
+  .pages-table th.check-column,.pages-table td.check-column{width:24px;padding:9px 6px}
+  .pages-table th a{color:var(--wp-text);text-decoration:none}.sort-ind{font-size:9px;color:var(--wp-text-3)}
+  .pages-table .col-page{width:38%}
+  .tiles a.tile{text-decoration:none;color:inherit}.tiles a.tile:hover{background:#f6f7f7}
+  .chip.ok{color:#0a6b22;border-color:#7ad03a;background:#edfaef}.chip.bad{color:#a02226;border-color:#e6a5a6;background:#fcf0f1}
+
   /* ── prototype-only control ────────────────────────────── */
   .proto{background:#1d2327;color:#c3c4c7;padding:8px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;
          font-size:12px}
@@ -165,6 +192,7 @@
     </ul>
     <ul class="submenu">
       <li class="current" data-nav="status"><a href="#"><span>Status</span></a></li>
+      <li data-nav="pages"><a href="#"><span>Pages</span></a></li>
       <li data-nav="settings"><a href="#"><span>Settings</span></a></li>
     </ul>
   </nav>
@@ -186,9 +214,9 @@ const BUSINESSES = [
 ];
 
 const CHAINS = [
-  { id:'chain_core', name:'Structural core', state:'ready',        kg:true,  urlCount:4, step:9, lang:'de', hint:'de' },
-  { id:'chain_edit', name:'Editorial',       state:'re_ingesting', kg:true,  urlCount:2, step:9, lang:'de', hint:'de' },
-  { id:'chain_en',   name:'English site',    state:'ready',        kg:true,  urlCount:2, step:9, lang:'',   hint:'en' },
+  { id:'chain_core', name:'Structural core', state:'ready',        kg:true,  urlCount:114, step:9, lang:'de', hint:'de' },
+  { id:'chain_edit', name:'Editorial',       state:'re_ingesting', kg:true,  urlCount:57, step:9, lang:'de', hint:'de' },
+  { id:'chain_en',   name:'English site',    state:'ready',        kg:true,  urlCount:43, step:9, lang:'en', hint:'en' },
 ];
 // §07a — one chain per language. Languages come from the active translation
 // plugin (WPML here); core alone has exactly one.
@@ -234,7 +262,10 @@ function reset(mode){
     authoritative: mode !== 'outage',
     testing: false,
     testResult: null,
+    pg: { state: '', lang: '', chain: '', search: '', page: 1, per: 20, orderby: 'url', order: 'asc' },
   };
+  // The real screen opens on "Needs attention" whenever that view is non-empty.
+  if (PAGES.filter(attentionOf).length > 0) S.pg.state = 'attention';
   if (mode === 'suspended') {
     const u = S.urls.find(u => u.url.includes('altes-angebot'));
     u.state = 'suspended';
@@ -246,7 +277,8 @@ function reset(mode){
 /* ── helpers ─────────────────────────────────────────────── */
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const host = u => { try { return new URL(u).host; } catch { return ''; } };
-const matching = () => BUSINESSES.filter(b => host(b.baseUrl) === SITE_HOST);
+// The rebuild business only competes in the 'ambiguous' scenario; otherwise exactly one matches.
+const matching = () => BUSINESSES.filter(b => host(b.baseUrl) === SITE_HOST && (S.mode === 'ambiguous' || b.id !== 'biz_rebuild'));
 const biz = () => BUSINESSES.find(b => b.id === S.business);
 const counts = () => ['active','stale','hold','suspended','retired']
   .reduce((a,k) => (a[k] = S.urls.filter(u => u.state === k).length, a), {});
@@ -263,7 +295,8 @@ const chip = s => `<span class="chip ${CHIP[s][0]}"><span class="dot"></span>${C
 const CACHES = {
   'wp-super-cache': { label:'WP Super Cache', purge:'confirmed' },
   'w3-total-cache': { label:'W3 Total Cache', purge:'confirmed' },
-  'litespeed':      { label:'LiteSpeed Cache</option><option>WP Rocket', purge:'requested' },
+  'litespeed':      { label:'LiteSpeed Cache', purge:'requested' },
+  'wp-rocket':      { label:'WP Rocket', purge:'confirmed' },
   'none':           { label:'No supported cache plugin detected', purge:'unsupported' },
 };
 
@@ -287,14 +320,74 @@ function notices(){
   return n.map(([k,h]) => `<div class="notice notice-${k}"><p>${h}</p></div>`).join('');
 }
 
-/* ── status screen ───────────────────────────────────────── */
+/* ── the site's pages: 214 of them, the smallest customer ──── */
+const SLUGS = ['leistungen','ueber-uns','kontakt','karriere','referenzen','blog','impressum','datenschutz','preise','faq','team','standorte','news','partner','downloads','support','shop','galerie','presse','agb'];
+const SUB   = ['', 'beratung','planung','umsetzung','wartung','schulung','audit','strategie','design','entwicklung','betrieb'];
+const MOVED = { 'https://example.com/ueber-uns/': 'https://example.com/ueber/', 'https://example.com/preise/': 'https://example.com/preise-2026/' };
+function allPages(){
+  const out = []; let i = 0;
+  for (const sl of SLUGS) for (const sub of SUB) {
+    i++;
+    const en  = i % 5 === 0;
+    const url = `https://example.com/${en ? 'en/' : ''}${sl}/${sub ? sub + '/' : ''}`;
+    const state = i % 41 === 0 ? 'suspended' : i % 19 === 0 ? 'hold' : i % 9 === 0 ? 'stale' : i % 61 === 0 ? 'retired' : 'active';
+    const day = 1 + (i % 6);
+    out.push({
+      url, lang: en ? 'en' : 'de', chain: en ? 'English site' : (i % 3 === 0 ? 'Editorial' : 'Structural core'),
+      state,
+      generated: state === 'hold' ? '—' : `${day} Sep 2026, ${String(8 + i % 10).padStart(2,'0')}:${String((i * 7) % 60).padStart(2,'0')}`,
+      published: state === 'hold' ? '—' : `${day} Sep 2026`,
+      seen: state === 'active' && i % 4 === 0 ? 'today' : state === 'active' ? 'yesterday' : '—',
+      note: state === 'hold' ? 'Not generated yet in AIVIS — nothing injected, nothing removed'
+          : state === 'stale' ? 'Source page changed after generation — still served'
+          : state === 'suspended' ? 'AIVIS returned "URL not found in your businesses" — injection stopped, cache purged, awaiting inventory confirmation'
+          : state === 'retired' ? 'Absent from two authoritative syncs — kept 30 days for rollback' : '',
+    });
+  }
+  return out.slice(0, 214);
+}
+const PAGES = allPages();
+const CONFLICTS = [];   // healthy: no other emitter on the sampled pages
+
+const attentionOf = p => p.state === 'suspended' || p.state === 'hold' || p.state === 'inactive' || !!MOVED[p.url] || CONFLICTS.includes(p.url);
+const VIEWS = [
+  ['',          'All',                  () => PAGES.length],
+  ['attention', 'Needs attention',      () => PAGES.filter(attentionOf).length],
+  ['active',    'Injected',             () => PAGES.filter(p => p.state === 'active').length],
+  ['stale',     'Stale but served',     () => PAGES.filter(p => p.state === 'stale').length],
+  ['hold',      'Holding last good',    () => PAGES.filter(p => p.state === 'hold').length],
+  ['suspended', 'Suspended',            () => PAGES.filter(p => p.state === 'suspended').length],
+  ['retired',   'Retired',              () => PAGES.filter(p => p.state === 'retired').length],
+  ['moved',     'Moved',                () => Object.keys(MOVED).length],
+  ['conflict',  'Other JSON-LD on page',() => CONFLICTS.length],
+];
+const viewCount = key => (VIEWS.find(v => v[0] === key) || VIEWS[0])[2]();
+const pageCounts = () => ({
+  active: viewCount('active'), stale: viewCount('stale'), hold: viewCount('hold'),
+  suspended: viewCount('suspended'), retired: viewCount('retired'), moved: viewCount('moved'), conflict: viewCount('conflict'),
+});
+const goPages = state => `data-act="gopages" data-state="${state}"`;
+
+/* ── status screen — an overview a human reads in ten seconds ─ */
 function statusScreen(){
-  const c = counts(), b = biz(), cache = CACHES[S.cache];
+  const c = pageCounts(), b = biz(), cache = CACHES[S.cache];
   const purgeChip = {
     confirmed:  '<span class="chip c-active"><span class="dot"></span>Purge confirmed</span>',
     requested:  '<span class="chip c-stale"><span class="dot"></span>Purge requested, not confirmed</span>',
     unsupported:'<span class="chip c-retired"><span class="dot"></span>Manual purge required</span>',
   }[cache.purge];
+  const missingLangs = LANGS.filter(l => !CHAINS.some(ch => ch.lang === l.code));
+  const unassigned   = CHAINS.filter(ch => !ch.lang);
+  const items = [
+    [c.suspended, 'pages suspended — withdrawn in AIVIS, awaiting confirmation', 'suspended', 'c-susp'],
+    [c.hold,      'pages holding last good — AIVIS has not generated them yet, or was unreachable', 'hold', 'c-hold'],
+    [c.moved,     'pages moved since AIVIS crawled them — AIVIS needs to re-crawl', 'moved', 'c-stale'],
+    [c.conflict,  'pages carry other JSON-LD — switch it off in that plugin', 'conflict', 'c-susp'],
+    [missingLangs.length, 'languages without a chain — assign under Settings', 'settings', 'c-susp'],
+    [unassigned.length,   'chains not assigned to a language — not synced', 'settings', 'c-stale'],
+  ].filter(i => i[0] > 0);
+  const tile = (state, n, label, cls = '') =>
+    `<a class="tile ${cls}" href="#" ${goPages(state)}><div class="n">${n}</div><div class="l">${label}</div></a>`;
 
   return `
   <div class="cols">
@@ -306,6 +399,9 @@ function statusScreen(){
         <dl class="kv">
           <dt>Business</dt><dd>${b ? esc(b.name) : '<span class="muted">not bound</span>'}</dd>
           <dt>Domain</dt><dd><code>${SITE_HOST}</code> matched to <code>${b ? esc(host(b.baseUrl)) : '—'}</code></dd>
+          <dt>Languages</dt><dd>${LANGS.map(l => { const ch = CHAINS.filter(x => x.lang === l.code).map(x => x.name);
+              return ch.length ? `${l.name} → ${ch.join(', ')}` : `<span class="chip c-susp"><span class="dot"></span>${l.name} — no chain</span>`; }).join(' · ')}
+              <span class="muted">(${PROVIDER})</span></dd>
           <dt>Token</dt><dd>From <code>wp-config.php</code> &middot; <code>aivis_&hellip;x7Kq</code></dd>
           <dt>Last complete sync</dt><dd>${S.lastSync} ${S.authoritative ? '' : '<span class="muted">(incomplete — nothing retired)</span>'}</dd>
           <dt>Next sync</dt><dd>in ${S.interval > 5 ? '11 minutes' : '3 minutes'}</dd>
@@ -318,9 +414,9 @@ function statusScreen(){
       <div class="inside">
         <p style="margin:0 0 8px">If a page is unpublished in AIVIS, it stops being served here within:</p>
         <div style="font-size:24px;font-variant-numeric:tabular-nums">${S.interval} min <span class="muted" style="font-size:14px">+ cache purge</span></div>
-        <p class="description">Worst case, not typical. It is the sync interval plus the time your cache takes to
-        drop the page. Shorten the interval below if this site publishes offers or prices that must be
-        withdrawable quickly.</p>
+        <p class="description">Worst case with an idle pipeline and no backlog: the sync interval plus the time your cache
+        takes to drop the page. While a chain is rebuilding in AIVIS it can take two intervals. Shorten the interval under
+        Settings if this site publishes offers or prices that must be withdrawable quickly.</p>
       </div>
     </div>
   </div>
@@ -328,11 +424,12 @@ function statusScreen(){
   <div class="postbox">
     <h2>Structured data on this site</h2>
     <div class="tiles">
-      <div class="tile ok"><div class="n">${c.active}</div><div class="l">Injected</div></div>
-      <div class="tile warn"><div class="n">${c.stale}</div><div class="l">Stale but served</div></div>
-      <div class="tile"><div class="n">${c.hold}</div><div class="l">Awaiting AIVIS</div></div>
-      <div class="tile bad"><div class="n">${c.suspended}</div><div class="l">Suspended</div></div>
-      <div class="tile"><div class="n">${c.retired}</div><div class="l">Retired</div></div>
+      ${tile('active', c.active, 'Injected', 'ok')}
+      ${tile('stale', c.stale, 'Stale but served', 'warn')}
+      ${tile('hold', c.hold, 'Awaiting AIVIS')}
+      ${tile('suspended', c.suspended, 'Suspended', 'bad')}
+      ${tile('retired', c.retired, 'Retired')}
+      ${tile('conflict', c.conflict, 'Other JSON-LD found')}
     </div>
     <div class="legend">
       <span><span class="chip c-active"><span class="dot"></span>Active</span> injected on the page</span>
@@ -344,51 +441,65 @@ function statusScreen(){
   </div>
 
   <div class="postbox">
-    <h2>Pipelines <span class="muted" style="font-weight:400">${CHAINS.length} chains</span></h2>
-    <div class="inside scrollx" style="padding:0">
-      <table class="wp-list" style="border:none;margin:0">
-        <thead><tr><th>Chain</th><th>Pipeline state</th><th>Knowledge graph</th><th class="num">URLs</th></tr></thead>
-        <tbody>${CHAINS.map(ch => `
-          <tr>
-            <td><strong>${esc(ch.name)}</strong></td>
-            <td>${ch.state === 'ready'
-                  ? '<span class="chip c-active"><span class="dot"></span>Ready</span>'
-                  : '<span class="chip c-hold"><span class="dot"></span>Refreshing</span>'}
-                <span class="muted"> step ${ch.step} of 9</span></td>
-            <td>${ch.kg ? 'Built' : '<span class="muted">Not built</span>'}</td>
-            <td class="num">${ch.urlCount}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="postbox">
-    <h2>Pages
+    <h2>Needs attention
       <span style="display:flex;gap:6px;align-items:center;font-weight:400">
         ${purgeChip}
         <button class="button button-small" data-act="sync">Sync now</button>
       </span>
     </h2>
+    <div class="inside">
+      ${items.length === 0
+        ? `<p style="margin:0"><span class="chip c-active"><span class="dot"></span>Nothing needs you</span>
+           <span class="muted"> ${c.active + c.stale} pages are delivered as AIVIS generated them. <a href="#" ${goPages('')}>Find a page</a></span></p>`
+        : `<ul style="margin:0;padding-left:0;list-style:none;display:grid;gap:6px">${items.map(([n, text, state, cls]) =>
+            `<li><span class="chip ${cls}"><span class="dot"></span>${n}</span> ${text} — <a href="#" ${state === 'settings' ? 'data-tab="settings"' : goPages(state)}>show</a></li>`).join('')}</ul>`}
+      <p class="description" style="margin-top:8px">The full list — paginated, searchable, filterable by state, language and chain — is under
+      <a href="#" data-tab="pages">Pages</a>. You do not have to read it.</p>
+    </div>
+  </div>
+
+  <div class="postbox">
+    <h2>Languages <span class="muted" style="font-weight:400">one chain per language</span></h2>
     <div class="scrollx">
       <table class="wp-list" style="border:none;margin:0">
-        <thead><tr><th style="width:44%">Page</th><th>State</th><th>Chain</th><th>Generated</th></tr></thead>
-        <tbody>${S.urls.map((u,i) => `
+        <thead><tr><th>Language</th><th>Chains</th><th class="num">Injected</th><th class="num">Holding</th><th class="num">Suspended</th></tr></thead>
+        <tbody>${LANGS.map(l => {
+          const ch = CHAINS.filter(x => x.lang === l.code);
+          const ps = PAGES.filter(p => p.lang === l.code);
+          return `<tr>
+            <td><strong>${l.name}</strong> <code>${l.code}</code>${l.def ? ' <span class="muted">default</span>' : ''}</td>
+            <td>${ch.length ? ch.map(x => esc(x.name)).join(', ') : '<span class="chip c-susp"><span class="dot"></span>no chain — nothing is injected on these pages</span>'}</td>
+            <td class="num">${ps.filter(p => p.state === 'active' || p.state === 'stale').length}</td>
+            <td class="num">${ps.filter(p => p.state === 'hold').length}</td>
+            <td class="num">${ps.filter(p => p.state === 'suspended').length}</td></tr>`; }).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  ${c.moved ? `
+  <div class="postbox">
+    <h2>Moved pages <span class="chip c-stale"><span class="dot"></span>${c.moved}</span></h2>
+    <div class="inside"><p class="description" style="margin:0">These pages changed their address since AIVIS crawled them. The structured
+    data stays with the URL AIVIS has, so the new address gets nothing until AIVIS re-crawls. Nothing is changed here — this is a fact
+    for AIVIS, and it is in the status document. <a href="#" ${goPages('moved')}>List them</a></p></div>
+  </div>` : ''}
+
+  <div class="postbox">
+    <h2>Pipelines <span class="muted" style="font-weight:400">${CHAINS.length} chains</span></h2>
+    <div class="scrollx">
+      <table class="wp-list" style="border:none;margin:0">
+        <thead><tr><th>Chain</th><th>Language</th><th>Pipeline state</th><th>Knowledge graph</th><th class="num">URLs</th></tr></thead>
+        <tbody>${CHAINS.map(ch => `
           <tr>
-            <td>
-              <div class="url">${esc(u.url.replace('https://'+SITE_HOST,'') || '/')}</div>
-              ${u.note ? `<div class="muted" style="margin-top:3px;max-width:52ch">${esc(u.note)}</div>` : ''}
-              <div class="row-actions">
-                <button data-act="refresh" data-i="${i}">Refresh now</button>
-                <span class="sepr">|</span>
-                <button data-act="toggle" data-i="${i}">${u.state === 'retired' ? 'Restore' : 'Disable here'}</button>
-                <span class="sepr">|</span>
-                <button data-act="view" data-i="${i}">View JSON-LD</button>
-              </div>
-            </td>
-            <td>${chip(u.state)}</td>
-            <td>${esc(u.chain)}<div class="muted">${u.layer === 'editorial' ? 'editorial' : 'structural core'}</div></td>
-            <td class="muted">${esc(u.generated)}</td>
+            <td><strong>${esc(ch.name)}</strong></td>
+            <td>${ch.lang ? `${(LANGS.find(l => l.code === ch.lang) || {}).name || ch.lang} <code>${ch.lang}</code>` : '<span class="chip c-stale"><span class="dot"></span>not assigned — not synced</span>'}</td>
+            <td>${ch.state === 'ready'
+                  ? '<span class="chip c-active"><span class="dot"></span>Ready</span>'
+                  : '<span class="chip c-hold"><span class="dot"></span>Re-ingesting</span>'}
+                <span class="muted"> step ${ch.step} of 9</span></td>
+            <td>${ch.kg ? 'Built' : '<span class="muted">Not built</span>'}</td>
+            <td class="num">${ch.urlCount}</td>
           </tr>`).join('')}
         </tbody>
       </table>
@@ -406,9 +517,96 @@ function statusScreen(){
         <dl class="kv">
           <dt><code>AIVIS_RETRACTED</code></dt><dd><code>/altes-angebot/</code> withdrawn upstream at 11:20 — injection stopped, cache purged</dd>
         </dl>`
-      : '<p class="muted" style="margin:0">Nothing in the last 7 days.</p>'}
+      : `<dl class="kv">
+          <dt><code>AIVIS_URL_MOVED</code></dt><dd>2 min ago — 2 page(s) changed address since AIVIS crawled them; AIVIS still has the old URL (https://example.com/ueber-uns/)</dd>
+        </dl>`}
     </div>
   </div>`;
+}
+
+/* ── pages screen — WordPress's own list table ───────────────── */
+function pagesScreen(){
+  const q = S.pg;
+  let rows = PAGES.filter(p => {
+    if (q.state === 'attention') return attentionOf(p);
+    if (q.state === 'moved') return !!MOVED[p.url];
+    if (q.state === 'conflict') return CONFLICTS.includes(p.url);
+    if (q.state) return p.state === q.state;
+    return true;
+  });
+  if (q.lang)   rows = rows.filter(p => p.lang === q.lang);
+  if (q.chain)  rows = rows.filter(p => p.chain === q.chain);
+  if (q.search) rows = rows.filter(p => p.url.toLowerCase().includes(q.search.toLowerCase()));
+  rows.sort((a, b) => (q.orderby === 'url' ? a.url.localeCompare(b.url) : a.generated.localeCompare(b.generated)) * (q.order === 'desc' ? -1 : 1));
+  const total = rows.length, pages = Math.max(1, Math.ceil(total / q.per));
+  q.page = Math.min(Math.max(1, q.page), pages);
+  const slice = rows.slice((q.page - 1) * q.per, q.page * q.per);
+  const pager = pos => `
+    <div class="tablenav-pages ${pos}">
+      <span class="displaying-num">${total} item${total === 1 ? '' : 's'}</span>
+      <span class="pagination-links">
+        <a class="button ${q.page === 1 ? 'disabled' : ''}" href="#" data-act="page" data-page="1">«</a>
+        <a class="button ${q.page === 1 ? 'disabled' : ''}" href="#" data-act="page" data-page="${q.page - 1}">‹</a>
+        <span class="paging-input">${q.page} of <span class="total-pages">${pages}</span></span>
+        <a class="button ${q.page === pages ? 'disabled' : ''}" href="#" data-act="page" data-page="${q.page + 1}">›</a>
+        <a class="button ${q.page === pages ? 'disabled' : ''}" href="#" data-act="page" data-page="${pages}">»</a>
+      </span>
+    </div>`;
+  const sortLink = (key, label) => `<a href="#" data-act="sort" data-key="${key}">${label} <span class="sort-ind">${q.orderby === key ? (q.order === 'asc' ? '▲' : '▼') : ''}</span></a>`;
+
+  return `
+  <ul class="subsubsub">${VIEWS.filter(v => v[2]() > 0 || v[0] === '' || v[0] === 'attention').map(([key, label, count]) =>
+    `<li><a href="#" class="${q.state === key ? 'current' : ''}" data-act="view" data-state="${key}">${label} <span class="count">(${count()})</span></a></li>`).join(' | ')}
+  </ul>
+  <p class="search-box">
+    <input type="search" placeholder="Search pages…" value="${esc(q.search)}" data-act="search" aria-label="Search pages">
+    <button class="button" data-act="searchgo">Search pages</button>
+  </p>
+  <div class="tablenav top">
+    <div class="alignleft actions bulkactions">
+      <select aria-label="Bulk action"><option>Bulk actions</option><option>Refresh from AIVIS now</option><option>Disable here</option><option>Restore</option></select>
+      <button class="button action">Apply</button>
+    </div>
+    <div class="alignleft actions">
+      <select data-act="flang" aria-label="Language"><option value="">All languages</option>${['de','en'].map(l => `<option value="${l}" ${q.lang === l ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select data-act="fchain" aria-label="Chain"><option value="">All chains</option>${CHAINS.map(c => `<option value="${esc(c.name)}" ${q.chain === c.name ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+      <button class="button" data-act="filter">Filter</button>
+    </div>
+    ${pager('top')}
+  </div>
+  <div class="scrollx">
+  <table class="wp-list pages-table">
+    <thead><tr>
+      <th class="check-column"><input type="checkbox" aria-label="Select all"></th>
+      <th class="col-page">${sortLink('url', 'Page')}</th><th>State</th><th>Language</th><th>Chain</th>
+      <th>${sortLink('generated', 'Generated')}</th><th>Published</th><th>Seen on page</th>
+    </tr></thead>
+    <tbody>${slice.length === 0 ? `<tr><td colspan="8" class="muted">${q.state === 'attention'
+        ? 'Nothing needs you. Every page is either injected as AIVIS generated it, or retired on purpose.' : 'No pages match.'}</td></tr>`
+      : slice.map(p => `
+      <tr>
+        <td class="check-column"><input type="checkbox"></td>
+        <td>
+          <div class="url">${esc(p.url.replace('https://' + SITE_HOST, '') || '/')}</div>
+          ${MOVED[p.url] ? `<div class="muted">now at <span class="url">${esc(MOVED[p.url].replace('https://' + SITE_HOST, ''))}</span></div>` : ''}
+          ${p.note ? `<div class="muted" style="max-width:52ch">${esc(p.note)}</div>` : ''}
+          <div class="row-actions">
+            <button>Refresh now</button><span class="sepr">|</span>
+            <button>${p.state === 'retired' ? 'Restore' : 'Disable here'}</button><span class="sepr">|</span>
+            <button>Open page</button>
+          </div>
+        </td>
+        <td>${chip(p.state)}</td>
+        <td><code>${p.lang}</code></td>
+        <td>${esc(p.chain)}</td>
+        <td class="muted">${esc(p.generated)}</td>
+        <td class="muted">${esc(p.published)}</td>
+        <td class="muted">${esc(p.seen)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  </div>
+  <div class="tablenav bottom">${pager('bottom')}</div>`;
 }
 
 /* ── settings screen ─────────────────────────────────────── */
@@ -519,6 +717,19 @@ function settingsScreen(){
     </div>
   </div>
 
+  <div class="postbox" id="aivis-sources">
+    <h2>Structured data sources</h2>
+    <div class="inside">
+      <p class="description" style="margin-top:0">AIVIS is the primary source of structured data on this site. Anything else that emits JSON-LD is
+      flagged here and in the admin bar. The connector never changes another plugin&rsquo;s behaviour — it tells you where to switch that
+      output off. Publishing continues either way.</p>
+      <p style="margin:0"><span class="chip c-active"><span class="dot"></span>No other emitter detected</span> <span class="muted">10 pages scanned 3 hours ago</span></p>
+      <p style="margin-top:10px"><button class="button">Scan pages now</button></p>
+      <p class="description">Nothing is sent from here — not to AIVIS, not by email. AIVIS fetches this site&rsquo;s publishing status, conflicts
+      included, and decides who is told (see Status for AIVIS below).</p>
+    </div>
+  </div>
+
   <div class="postbox" id="aivis-status-key">
     <h2>Status for AIVIS</h2>
     <div class="inside">
@@ -563,7 +774,8 @@ function settingsScreen(){
             <p class="description">
               ${S.interval == 0
                 ? 'With manual syncing, a page unpublished in AIVIS keeps being served here until you sync. Only choose this if you sync from WP-CLI or a system cron.'
-                : `A page unpublished in AIVIS stops being served here within <strong>${S.interval} minutes plus your cache purge</strong>.
+                : `A page unpublished in AIVIS stops being served here within <strong>${S.interval} minutes plus your cache purge</strong>
+                   while its pipeline is idle — up to ${S.interval * 2} minutes while a chain is rebuilding — plus any sync backlog shown on Status.
                    ${S.interval == 5 ? 'Five minutes needs a real system cron — WordPress&rsquo;s built-in cron only runs when someone visits the site.' : ''}`}
             </p>
           </td>
@@ -603,14 +815,17 @@ function settingsScreen(){
 function render(){
   const app = document.getElementById('app');
   app.innerHTML = `
-    <h1 class="wp-heading">AIVIS OS</h1>
-    <p class="subtitle">Delivers the structured data AIVIS generates for this site into its pages.</p>
+    <h1 class="wp-heading">${S.tab === 'pages' ? 'AIVIS OS — Pages' : 'AIVIS OS'}</h1>
+    <p class="subtitle">${S.tab === 'pages'
+      ? 'You do not have to read this list. "Needs attention" shows the pages that want a decision; search finds one page. Everything else is AIVIS delivering as generated.'
+      : 'Delivers the structured data AIVIS generates for this site into its pages.'}</p>
     <nav class="nav-tab-wrapper">
       <button class="nav-tab ${S.tab === 'status' ? 'nav-tab-active' : ''}" data-tab="status">Status</button>
+      <button class="nav-tab ${S.tab === 'pages' ? 'nav-tab-active' : ''}" data-tab="pages">Pages</button>
       <button class="nav-tab ${S.tab === 'settings' ? 'nav-tab-active' : ''}" data-tab="settings">Settings</button>
     </nav>
-    ${notices()}
-    ${S.tab === 'status' ? statusScreen() : settingsScreen()}`;
+    ${S.tab === 'pages' ? '' : notices()}
+    ${S.tab === 'status' ? statusScreen() : S.tab === 'pages' ? pagesScreen() : settingsScreen()}`;
   document.querySelectorAll('.submenu li').forEach(li =>
     li.classList.toggle('current', li.dataset.nav === S.tab));
   document.getElementById('stateHint').textContent = STATE_HINTS[S.mode] || '';
@@ -618,7 +833,16 @@ function render(){
 
 document.addEventListener('click', e => {
   const tab = e.target.closest('[data-tab]');
-  if (tab) { S.tab = tab.dataset.tab; return render(); }
+  if (tab) { e.preventDefault(); S.tab = tab.dataset.tab; return render(); }
+  const gp = e.target.closest('[data-act="gopages"]');
+  if (gp) { e.preventDefault(); S.tab = 'pages'; S.pg.state = gp.dataset.state; S.pg.page = 1; return render(); }
+  const vw = e.target.closest('[data-act="view"]');
+  if (vw) { e.preventDefault(); S.pg.state = vw.dataset.state; S.pg.page = 1; return render(); }
+  const pg = e.target.closest('[data-act="page"]');
+  if (pg) { e.preventDefault(); S.pg.page = Number(pg.dataset.page) || 1; return render(); }
+  const so = e.target.closest('[data-act="sort"]');
+  if (so) { e.preventDefault(); if (S.pg.orderby === so.dataset.key) S.pg.order = S.pg.order === 'asc' ? 'desc' : 'asc'; else { S.pg.orderby = so.dataset.key; S.pg.order = 'asc'; } return render(); }
+  if (e.target.closest('[data-act="filter"], [data-act="searchgo"]')) { S.pg.page = 1; return render(); }
   const nav = e.target.closest('.submenu li');
   if (nav) { e.preventDefault(); S.tab = nav.dataset.nav; return render(); }
   const el = e.target.closest('[data-act]');
@@ -650,6 +874,9 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
+  if (el.dataset.act === 'flang')  { S.pg.lang = el.value; S.pg.page = 1; }
+  if (el.dataset.act === 'fchain') { S.pg.chain = el.value; S.pg.page = 1; }
+  if (el.dataset.act === 'search') { S.pg.search = el.value; S.pg.page = 1; render(); }
   if (el.dataset.act === 'interval') { S.interval = Number(el.value); render(); }
   if (el.dataset.act === 'cache')    { S.cache = el.value; render(); }
   if (el.dataset.act === 'inject')   { S.injection = el.checked; render(); }
@@ -657,6 +884,11 @@ document.addEventListener('change', e => {
 
 document.getElementById('stateSelect').addEventListener('change', e => { reset(e.target.value); render(); });
 
-reset('healthy');
+const Q = new URLSearchParams(location.search);
+reset(Q.get('state') || 'healthy');
+document.getElementById('stateSelect').value = S.mode;
+if (Q.get('screen')) S.tab = Q.get('screen');
+if (Q.has('view')) { S.pg.state = Q.get('view'); }
+if (Q.get('proto') === '0') document.querySelector('.proto').style.display = 'none';
 render();
 </script>
