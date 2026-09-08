@@ -540,11 +540,21 @@ sync interval, cache adapter selection.
 | More than one (same domain onboarded twice) | The admin must disambiguate. The list shows `name`, `createdAt`, `chainCount` and `industry` so the live business is distinguishable from a rebuild |
 | None | Hard error: "No AIVIS business matches this site's domain." Non-matching businesses are **not** offered — binding to one would ship another site's structured data |
 
-**Status.** Sync state and last authoritative completion; counts of active, stale, suspended and
-retired artifacts; **languages with their chains and counts, a language without a chain in red**;
-chain `state`, `knowledgeGraphReady` and assigned language per chain; real retraction latency
-(R-03); recent errors by stable code; per-URL table (with language) with "Refresh this URL now" and
-per-URL disable.
+**Status.** An overview a human can read in ten seconds: sync state and last authoritative
+completion; clickable counts of active, stale, holding, suspended, retired and conflicting pages;
+a **Needs attention** list (suspended, holding, moved, conflicts, languages without a chain,
+unassigned chains — each a link to the filtered Pages view, or "Nothing needs you"); languages with
+their chains; chain state and assigned language per chain; real retraction latency (R-03); recent
+errors by stable code. **No page list on this screen.**
+
+**Pages.** WordPress's own list table (`WP_List_Table`): paginated (per-page in Screen Options,
+default 50, max 200), sortable, searchable by URL, filterable by state, language and chain, with
+views *All · Needs attention · Injected · Stale · Holding · Suspended · Retired · Moved · Other
+JSON-LD*. Opens on *Needs attention* when that view is non-empty. Row actions: refresh now, disable
+here / restore, open page. Bulk actions on at most 200 selected rows: refresh (schedules lookups),
+disable, restore — processed on the screen's load hook with a nonce. The smallest customer has
+hundreds of pages; nobody reads the list, they search it or act on the attention view.
+`wp aivis pages` offers the same views, filters and search.
 
 **Live verification.** Fetch a sample page over loopback (TLS verified; filter
 `aivis_connector_verify_sslverify` for hosts whose loopback certificate does not match), require

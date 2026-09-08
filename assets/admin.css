@@ -23,3 +23,10 @@
 .aivis-pages .row-actions form{display:inline}
 .aivis-pages .button-link{padding:0;font-size:12px;color:#2271b1;background:none;border:none;cursor:pointer;text-decoration:none}
 .aivis-pages .button-link:hover{color:#135e96;text-decoration:underline}
+
+/* Pages screen */
+.aivis-os a.aivis-tile{text-decoration:none;color:inherit;display:block}
+.aivis-os a.aivis-tile:hover{background:#f6f7f7}
+.aivis-os .wp-list-table .column-state{width:16%}.aivis-os .wp-list-table .column-language,.aivis-os .wp-list-table .column-chain{width:10%}
+.aivis-os .wp-list-table .column-generated,.aivis-os .wp-list-table .column-published,.aivis-os .wp-list-table .column-verified{width:11%;color:#50575e}
+.aivis-os .subsubsub{margin:8px 0}

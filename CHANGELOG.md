@@ -40,6 +40,10 @@ file, `readme.txt` and the git tag do not agree with it.
 - Agent skill `install-aivis-os` for Claude Code and Codex (identical copies,
   checked in CI): headless WP-CLI install, a wp-admin browser guide with every
   field name, and a report checklist. `AGENTS.md` for repository rules.
+- Pages screen: WordPress list table with pagination (Screen Options), sorting,
+  URL search, state/language/chain filters, views (Needs attention first when
+  non-empty), row actions and bulk refresh/disable/restore. Status is an
+  overview only — counts, a Needs-attention list, no page list. `wp aivis pages`.
 - Delivery-only principle (WP-I12, Q-11): the plugin holds facts and performs
   delivery; judgments, histories and policies are AIVIS's. Taken from Norbert's
   `aivis-os-jsonld` (#65/#66): WP Rocket purge adapter and Cloudflare detection;

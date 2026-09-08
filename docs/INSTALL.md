@@ -128,9 +128,12 @@ Headless installs bind first with `wp aivis bind` (the one business on this
 domain; `--business=<id>` when two share it) — it also assigns chains to
 languages where that is unambiguous.
 
-The Status screen shows every page: **Active**, **Stale but served**, **Holding
-last good**, **Suspended**, **Retired** — with a legend. The first run on a
-large site takes a few ticks (20 artifacts per tick, by design).
+The Status screen is the overview: counts, a **Needs attention** list, and
+nothing to read. The **Pages** screen is the list — paginated, sortable,
+searchable by URL, filterable by state, language and chain — and it opens on
+*Needs attention* whenever something wants a decision. You are not expected to
+read it; you search it. The first run on a large site takes a few ticks (20
+artifacts per tick, continuing every minute).
 
 ## 6. Verify
 
@@ -292,6 +295,7 @@ data on uninstall* is ticked — the token is removed either way.
 | A page shows *Suspended* | It was unpublished in AIVIS; injection stopped, cache purged, awaiting confirmation |
 | Marker missing in view-source | Cache not purged, or the theme does not call `wp_head()` |
 | Sync overdue in Site Health | Set up the system cron above |
+| "Is page X delivered?" | Pages → search the URL; the row shows state, chain, language, when it was generated, published and last seen on the page |
 
 `wp aivis status` prints all of this in one screen, and the runbook
 ([RUNBOOK.md](RUNBOOK.md)) has the drills for each failure.

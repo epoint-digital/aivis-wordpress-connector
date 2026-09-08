@@ -53,6 +53,12 @@ final class Notices {
 				'scan_conflicts' => __( 'Scan finished — other structured data found. See the warning below.', 'aivis-os' ),
 				'status_key_regenerated' => __( 'New status key issued. The old one stops working now — update it in AIVIS.', 'aivis-os' ),
 				'status_key_disabled'    => __( 'Status endpoint disabled. AIVIS can no longer fetch this site’s publishing status.', 'aivis-os' ),
+				'bulk_refresh'     => __( 'Refresh scheduled for the selected pages — they are re-checked against AIVIS on the next cron tick.', 'aivis-os' ),
+				'bulk_disabled'    => __( 'Selected pages disabled here and their caches purged.', 'aivis-os' ),
+				'bulk_restored'    => __( 'Selected pages restored and their caches purged.', 'aivis-os' ),
+				'nothing_selected' => __( 'Nothing selected.', 'aivis-os' ),
+				'refreshed'        => __( 'Page re-checked against AIVIS.', 'aivis-os' ),
+				'updated'          => __( 'Page updated.', 'aivis-os' ),
 				default          => '',
 			};
 			if ( '' !== $text ) {

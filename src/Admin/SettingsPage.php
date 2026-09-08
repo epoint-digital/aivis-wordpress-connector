@@ -33,10 +33,7 @@ final class SettingsPage {
 		<div class="wrap aivis-os">
 			<h1>AIVIS OS</h1>
 			<p class="description"><?php esc_html_e( 'Delivers the structured data AIVIS generates for this site into its pages.', 'aivis-os' ); ?></p>
-			<nav class="nav-tab-wrapper">
-				<a class="nav-tab" href="<?php echo esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_STATUS ) ); ?>"><?php esc_html_e( 'Status', 'aivis-os' ); ?></a>
-				<a class="nav-tab nav-tab-active" href="#"><?php esc_html_e( 'Settings', 'aivis-os' ); ?></a>
-			</nav>
+			<?php echo Menu::tabs( Menu::SLUG_SETTINGS ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'aivis_os_action' ); ?>

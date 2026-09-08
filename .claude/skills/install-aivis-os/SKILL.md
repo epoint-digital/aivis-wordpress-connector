@@ -41,7 +41,7 @@ The plugin syncs the JSON-LD that AIVIS generates for a business's pages into th
 - [ ] Plugins screen shows **AIVIS OS** active; Site Health has no critical **AIVIS OS:** test.
 - [ ] Settings shows *Connected as …* and the business **matched automatically** (or the human's explicit choice on a duplicate domain).
 - [ ] Every site language has at least one chain under **Languages & chains**; unassigned chains are intentional.
-- [ ] Status shows a completed sync (*Syncing* chip) and a non-zero **Injected** count, or an explicit reason why not.
+- [ ] Status shows a completed sync (*Syncing* chip), a non-zero **Injected** count, and *Nothing needs you* — or the attention items are in the report with counts, not worked through.
 - [ ] `view-source:` of a synced page contains `<script type="application/ld+json" data-aivis="1" data-aivis-hash="…">`, or `wp aivis verify` says *live*.
 - [ ] Page cache: **Purge confirmed** or **Purge requested**; if **Manual purge required**, the human knows.
 - [ ] The human has copied the **status key** from Settings → *Status for AIVIS* into AIVIS for this business (you do not handle the key).

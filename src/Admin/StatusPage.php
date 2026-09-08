@@ -23,7 +23,6 @@ final class StatusPage {
 		$biz      = $o->business();
 		$state    = $o->sync_state();
 		$counts   = $this->plugin->repository()->counts();
-		$rows     = $this->plugin->repository()->all_for_admin();
 		$interval = $o->sync_interval();
 		$next     = Scheduler::next_sync();
 		$purge    = (array) ( $state['last_purge'] ?? [] );
@@ -45,10 +44,7 @@ final class StatusPage {
 		<div class="wrap aivis-os">
 			<h1>AIVIS OS</h1>
 			<p class="description"><?php esc_html_e( 'Delivers the structured data AIVIS generates for this site into its pages.', 'aivis-os' ); ?></p>
-			<nav class="nav-tab-wrapper">
-				<a class="nav-tab nav-tab-active" href="#"><?php esc_html_e( 'Status', 'aivis-os' ); ?></a>
-				<a class="nav-tab" href="<?php echo esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_SETTINGS ) ); ?>"><?php esc_html_e( 'Settings', 'aivis-os' ); ?></a>
-			</nav>
+			<?php echo Menu::tabs( Menu::SLUG_STATUS ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
 			<div class="aivis-cols">
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Connection', 'aivis-os' ); ?>
@@ -84,12 +80,13 @@ final class StatusPage {
 
 			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Structured data on this site', 'aivis-os' ); ?></h2>
 				<div class="aivis-tiles">
-					<div class="aivis-tile aivis-tile--ok"><div class="n"><?php echo (int) $counts['active']; ?></div><div class="l"><?php esc_html_e( 'Injected', 'aivis-os' ); ?></div></div>
-					<div class="aivis-tile aivis-tile--warn"><div class="n"><?php echo (int) $counts['stale']; ?></div><div class="l"><?php esc_html_e( 'Stale but served', 'aivis-os' ); ?></div></div>
-					<div class="aivis-tile"><div class="n"><?php echo (int) $counts['hold']; ?></div><div class="l"><?php esc_html_e( 'Awaiting AIVIS', 'aivis-os' ); ?></div></div>
-					<div class="aivis-tile aivis-tile--bad"><div class="n"><?php echo (int) $counts['suspended']; ?></div><div class="l"><?php esc_html_e( 'Suspended', 'aivis-os' ); ?></div></div>
-					<div class="aivis-tile"><div class="n"><?php echo (int) $counts['retired']; ?></div><div class="l"><?php esc_html_e( 'Retired', 'aivis-os' ); ?></div></div>
-					<div class="aivis-tile <?php echo $conflict_by_url && $o->conflicts_unacknowledged() ? 'aivis-tile--bad' : ''; ?>"><div class="n"><?php echo count( $conflict_by_url ); ?></div><div class="l"><?php esc_html_e( 'Other JSON-LD found', 'aivis-os' ); ?></div></div>
+					<?php $tile = static fn( string $state, int $n, string $label, string $kind = '' ): string => '<a class="aivis-tile ' . esc_attr( $kind ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_PAGES . '&state=' . $state ) ) . '"><div class="n">' . $n . '</div><div class="l">' . esc_html( $label ) . '</div></a>'; ?>
+					<?php echo $tile( 'active', (int) $counts['active'], __( 'Injected', 'aivis-os' ), 'aivis-tile--ok' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<?php echo $tile( 'stale', (int) $counts['stale'], __( 'Stale but served', 'aivis-os' ), 'aivis-tile--warn' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<?php echo $tile( 'holding', (int) $counts['hold'], __( 'Awaiting AIVIS', 'aivis-os' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<?php echo $tile( 'suspended', (int) $counts['suspended'], __( 'Suspended', 'aivis-os' ), 'aivis-tile--bad' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<?php echo $tile( 'retired', (int) $counts['retired'], __( 'Retired', 'aivis-os' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<?php echo $tile( 'conflict', count( $conflict_by_url ), __( 'Other JSON-LD found', 'aivis-os' ), $conflict_by_url && $o->conflicts_unacknowledged() ? 'aivis-tile--bad' : '' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				</div>
 				<div class="aivis-legend">
 					<span><span class="aivis-chip aivis-chip--ok">Active</span> <?php esc_html_e( 'injected on the page', 'aivis-os' ); ?></span>
@@ -120,12 +117,7 @@ final class StatusPage {
 
 			<?php $moved = (array) ( $state['moved'] ?? [] ); if ( $moved ) : ?>
 			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Moved pages', 'aivis-os' ); ?> <span class="aivis-chip aivis-chip--warn"><?php echo (int) count( $moved ); ?></span></h2>
-				<div class="inside"><p class="description"><?php esc_html_e( 'These pages changed their address since AIVIS crawled them. The structured data stays with the URL AIVIS has, so the new address gets nothing until AIVIS re-crawls. Nothing is changed here — this is a fact for AIVIS, and it is in the status document.', 'aivis-os' ); ?></p></div>
-				<table class="widefat striped"><thead><tr><th><?php esc_html_e( 'AIVIS has', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Page is now at', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Since', 'aivis-os' ); ?></th></tr></thead><tbody>
-				<?php foreach ( $moved as $m ) : ?>
-					<tr><td class="aivis-url"><?php echo esc_html( (string) $m['from'] ); ?></td><td class="aivis-url"><?php echo esc_html( (string) $m['to'] ); ?></td><td class="description"><?php echo esc_html( human_time_diff( (int) $m['since'] ) . ' ' . __( 'ago', 'aivis-os' ) ); ?></td></tr>
-				<?php endforeach; ?>
-				</tbody></table>
+				<div class="inside"><p class="description"><?php esc_html_e( 'These pages changed their address since AIVIS crawled them. The structured data stays with the URL AIVIS has, so the new address gets nothing until AIVIS re-crawls. Nothing is changed here — this is a fact for AIVIS, and it is in the status document.', 'aivis-os' ); ?> <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_PAGES . '&state=moved' ) ); ?>"><?php esc_html_e( 'List them', 'aivis-os' ); ?></a></p></div>
 			</div>
 			<?php endif; ?>
 
@@ -152,31 +144,35 @@ final class StatusPage {
 			</div>
 			<?php endif; ?>
 
-			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Pages', 'aivis-os' ); ?>
+			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Needs attention', 'aivis-os' ); ?>
 				<span style="float:right;font-weight:400">
 					<?php echo $this->purge_chip( (string) ( $purge['state'] ?? '' ), $adapter->id() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					<?php echo Menu::action_form( 'sync_run', __( 'Sync now', 'aivis-os' ), [], 'button button-small' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				</span></h2>
-				<table class="widefat striped aivis-pages"><thead><tr><th style="width:40%"><?php esc_html_e( 'Page', 'aivis-os' ); ?></th><th><?php esc_html_e( 'State', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Language', 'aivis-os' ); ?></th><th><?php esc_html_e( 'Generated', 'aivis-os' ); ?></th></tr></thead><tbody>
-				<?php if ( ! $rows ) : ?><tr><td colspan="5" class="description"><?php esc_html_e( 'Nothing synced yet.', 'aivis-os' ); ?></td></tr><?php endif; ?>
-				<?php foreach ( $rows as $r ) : $st = $this->state_of( $r ); ?>
-					<tr><td>
-						<div class="aivis-url"><?php echo esc_html( (string) wp_parse_url( (string) $r['source_url'], PHP_URL_PATH ) ?: '/' ); ?></div>
-						<?php if ( $r['last_error_code'] ) : ?><div class="description"><?php echo esc_html( $this->explain( (string) $r['last_error_code'], $st ) ); ?></div><?php endif; ?>
-						<div class="row-actions">
-							<?php echo Menu::action_form( 'refresh_url', __( 'Refresh now', 'aivis-os' ), [ 'url' => $r['source_url'] ], 'button-link' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?> |
-							<?php echo Menu::action_form( 'retired' === $st ? 'restore_url' : 'disable_url', 'retired' === $st ? __( 'Restore', 'aivis-os' ) : __( 'Disable here', 'aivis-os' ), [ 'url_key' => $r['url_key'] ], 'button-link' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?> |
-							<a href="<?php echo esc_url( (string) $r['source_url'] ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Open page', 'aivis-os' ); ?></a>
-						</div></td>
-					<td><?php echo $this->chip( $st ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-						<?php if ( isset( $conflict_by_url[ $r['source_url'] ] ) ) : $cf = $conflict_by_url[ $r['source_url'] ]; ?>
-							<div style="margin-top:4px"><span class="aivis-chip aivis-chip--bad"><?php echo esc_html( sprintf( /* translators: 1: sources, 2: types */ __( 'Conflict: %1$s (%2$s)', 'aivis-os' ), implode( ', ', array_map( [ \AivisOS\Delivery\Conflicts::class, 'label' ], (array) $cf['sources'] ) ), implode( ', ', array_slice( (array) $cf['types'], 0, 4 ) ) ) ); ?></span></div>
-						<?php endif; ?></td>
-					<td><code><?php echo esc_html( (string) ( $chains[ $r['chain_id'] ]['name'] ?? $r['chain_id'] ) ); ?></code></td>
-					<td><code><?php echo esc_html( (string) ( $r['language_code'] ?: '—' ) ); ?></code><?php if ( isset( $map[ $r['chain_id'] ] ) && '' !== (string) $r['language_code'] && ! Language::same( (string) $r['language_code'], $map[ $r['chain_id'] ] ) ) : ?> <span class="aivis-chip aivis-chip--warn" title="<?php esc_attr_e( 'AIVIS reports a different language than the chain is assigned to', 'aivis-os' ); ?>">≠ <?php echo esc_html( $map[ $r['chain_id'] ] ); ?></span><?php endif; ?></td>
-					<td class="description"><?php echo $r['source_generated_at'] ? esc_html( (string) $r['source_generated_at'] ) : '—'; ?></td></tr>
-				<?php endforeach; ?>
-				</tbody></table>
+				<div class="inside">
+				<?php
+				$pages_url = static fn( string $state ): string => admin_url( 'admin.php?page=' . Menu::SLUG_PAGES . '&state=' . $state );
+				$items     = [
+					[ (int) $counts['suspended'], __( 'pages suspended — withdrawn in AIVIS, awaiting confirmation', 'aivis-os' ), $pages_url( 'suspended' ), 'bad' ],
+					[ (int) $counts['hold'], __( 'pages holding last good — AIVIS has not generated them yet, or was unreachable', 'aivis-os' ), $pages_url( 'holding' ), 'info' ],
+					[ count( (array) ( $state['moved'] ?? [] ) ), __( 'pages moved since AIVIS crawled them — AIVIS needs to re-crawl', 'aivis-os' ), $pages_url( 'moved' ), 'warn' ],
+					[ $o->conflicts_unacknowledged() ? count( $conflict_by_url ) : 0, __( 'pages carry other JSON-LD — switch it off in that plugin', 'aivis-os' ), $pages_url( 'conflict' ), 'bad' ],
+					[ count( $summary['missing'] ), __( 'languages without a chain — assign under Settings', 'aivis-os' ), admin_url( 'admin.php?page=' . Menu::SLUG_SETTINGS . '#aivis-languages' ), 'bad' ],
+					[ count( $unassigned_chains ), __( 'chains not assigned to a language — not synced', 'aivis-os' ), admin_url( 'admin.php?page=' . Menu::SLUG_SETTINGS . '#aivis-languages' ), 'warn' ],
+				];
+				$items = array_values( array_filter( $items, static fn( array $i ): bool => $i[0] > 0 ) );
+				if ( ! $items ) :
+				?>
+					<p><span class="aivis-chip aivis-chip--ok"><?php esc_html_e( 'Nothing needs you', 'aivis-os' ); ?></span> <span class="description"><?php echo esc_html( sprintf( /* translators: %d: pages */ __( '%d pages are delivered as AIVIS generated them.', 'aivis-os' ), (int) $counts['active'] + (int) $counts['stale'] ) ); ?> <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_PAGES ) ); ?>"><?php esc_html_e( 'Find a page', 'aivis-os' ); ?></a></span></p>
+				<?php else : ?>
+					<ul style="margin:0">
+					<?php foreach ( $items as [ $n, $text, $href, $kind ] ) : ?>
+						<li><span class="aivis-chip aivis-chip--<?php echo esc_attr( $kind ); ?>"><?php echo (int) $n; ?></span> <?php echo esc_html( $text ); ?> — <a href="<?php echo esc_url( $href ); ?>"><?php esc_html_e( 'show', 'aivis-os' ); ?></a></li>
+					<?php endforeach; ?>
+					</ul>
+				<?php endif; ?>
+				<p class="description" style="margin-top:8px"><?php echo wp_kses_post( sprintf( /* translators: %s: link */ __( 'The full list — paginated, searchable, filterable by state, language and chain — is under %s. You do not have to read it.', 'aivis-os' ), '<a href="' . esc_url( admin_url( 'admin.php?page=' . Menu::SLUG_PAGES ) ) . '">' . esc_html__( 'Pages', 'aivis-os' ) . '</a>' ) ); ?></p>
+				</div>
 			</div>
 
 			<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Recent problems', 'aivis-os' ); ?>
@@ -210,7 +206,7 @@ final class StatusPage {
 		return 'active';
 	}
 
-	private function chip( string $st ): string {
+	public static function chip_for( string $st ): string {
 		return match ( $st ) {
 			'active'    => '<span class="aivis-chip aivis-chip--ok">' . esc_html__( 'Active', 'aivis-os' ) . '</span>',
 			'stale'     => '<span class="aivis-chip aivis-chip--warn">' . esc_html__( 'Stale', 'aivis-os' ) . '</span>',
@@ -232,7 +228,7 @@ final class StatusPage {
 		};
 	}
 
-	private function explain( string $code, string $st ): string {
+	public static function explain_code( string $code, string $st ): string {
 		return match ( $code ) {
 			'AIVIS_NOT_GENERATED' => __( 'Not generated yet in AIVIS — nothing injected, nothing removed', 'aivis-os' ),
 			'AIVIS_RETRACTED'     => 'suspended' === $st ? __( 'AIVIS returned “URL not found in your businesses” — injection stopped, cache purged, awaiting inventory confirmation', 'aivis-os' ) : __( 'Withdrawn upstream', 'aivis-os' ),

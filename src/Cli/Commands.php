@@ -279,6 +279,56 @@ final class Commands {
 	}
 
 	/**
+	 * List pages — the same views, filters and search as the Pages screen.
+	 *
+	 * ## OPTIONS
+	 * [--state=<state>]
+	 * : attention | active | stale | holding | suspended | retired | inactive | moved | conflict
+	 *
+	 * [--language=<code>]
+	 * [--chain=<id>]
+	 * [--search=<text>]
+	 * : Substring of the URL.
+	 *
+	 * [--page=<n>]
+	 * [--per-page=<n>]
+	 * : Default 50, max 200.
+	 *
+	 * [--format=<format>]
+	 * : table|json|csv. Default table.
+	 *
+	 * ## EXAMPLES
+	 *     wp aivis pages --state=attention
+	 *     wp aivis pages --search=/services/ --format=json
+	 */
+	public function pages( array $args, array $assoc ): void {
+		$o = $this->plugin->options();
+		$f = \AivisOS\Admin\PagesQuery::from_request(
+			[ 'state' => $assoc['state'] ?? '', 'language' => $assoc['language'] ?? '', 'chain' => $assoc['chain'] ?? '', 's' => $assoc['search'] ?? '', 'paged' => $assoc['page'] ?? 1 ],
+			(int) ( $assoc['per-page'] ?? 0 )
+		);
+		$moved = (array) ( $o->sync_state()['moved'] ?? [] );
+		$conf  = (array) $o->conflicts()['items'];
+		$w     = \AivisOS\Admin\PagesQuery::where( $f, array_keys( $moved ), array_keys( $conf ) );
+		$r     = $this->plugin->repository()->search( $w['sql'], $w['args'], $f['per_page'], $f['page'], $f['orderby'], $f['order'] );
+		$rows  = [];
+		foreach ( $r['rows'] as $row ) {
+			$rows[] = [
+				'url'       => (string) $row['source_url'],
+				'state'     => \AivisOS\Rest\StatusDocument::state_of( $row ),
+				'language'  => (string) $row['language_code'],
+				'chain'     => (string) $row['chain_id'],
+				'generated' => (string) ( $row['source_generated_at'] ?? '' ),
+				'published' => (string) ( $row['published_at'] ?? '' ),
+				'moved_to'  => (string) ( $moved[ (string) $row['url_key'] ]['to'] ?? '' ),
+				'error'     => (string) ( $row['last_error_code'] ?? '' ),
+			];
+		}
+		\WP_CLI::log( sprintf( '%d of %d pages (page %d, %d per page)%s', count( $rows ), $r['total'], $f['page'], $f['per_page'], '' !== $f['state'] ? ' — ' . $f['state'] : '' ) );
+		\WP_CLI\Utils\format_items( (string) ( $assoc['format'] ?? 'table' ), $rows, [ 'url', 'state', 'language', 'chain', 'generated', 'published', 'moved_to', 'error' ] );
+	}
+
+	/**
 	 * The read-only key AIVIS presents to fetch this site's publishing status.
 	 *
 	 * ## OPTIONS

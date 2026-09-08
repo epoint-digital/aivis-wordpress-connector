@@ -84,11 +84,12 @@ Select `#aivis_cache` (`cache_adapter`): leave on *Detect automatically (current
 
 ## 4. First sync
 
-`→ <site>/wp-admin/admin.php?page=aivis-os` (Status)
+`→ <site>/wp-admin/admin.php?page=aivis-os` (Status). The plugin has three tabs: **Status** (overview, nothing to read), **Pages** (the list: paginated, searchable, filterable — `admin.php?page=aivis-os-pages`) and **Settings**.
 
-1. In the **Pages** box header → *Sync now*. Expected notice: *Sync run finished.*
+1. In the **Needs attention** box header → *Sync now*. Expected notice: *Sync run finished.*
 2. Read the **Connection** box: *Business* named, *Domain* `<host>` matched to `<host>`, *Languages* line with each language → its chains, *Last complete sync* a moment ago, *Next sync* in ≤ 15 min.
-3. Read the tiles: **Injected** should be > 0 after the first complete run on a small site. On a large site the first run takes several ticks (20 artifacts per tick, continuing every minute); wait and reload rather than clicking *Sync now* repeatedly.
+3. Read the tiles: **Injected** should be > 0 after the first complete run on a small site. On a large site the first run takes several ticks (20 artifacts per tick, continuing every minute); wait and reload rather than clicking *Sync now* repeatedly. Each tile links to the **Pages** screen filtered to that state.
+3a. Read the **Needs attention** box. *Nothing needs you* is the goal. Every listed item links to the filtered Pages view; put the counts in the report, do not work through the list.
 4. The **Languages** box: every language with chains and counts; a red *no chain* means step 3 is incomplete.
 5. The **Pipelines** box: each chain with its language; *not assigned — not synced* is a warning.
 5a. A **Moved pages** box appears only when pages changed address since AIVIS crawled them. Read it, put it in the report, change nothing — AIVIS re-crawls.
@@ -98,7 +99,7 @@ If *Sync now* results in *Last sync incomplete* or a notice about no chain assig
 
 ## 5. Verify on the public site
 
-Open a page that Status lists as *Active*, in a new tab, as `view-source:<url>` (or read the page HTML with your tool). Look for exactly one:
+On the **Pages** screen, search for a page (search box, top right) that shows *Active*; open it in a new tab, as `view-source:<url>` (or read the page HTML with your tool). Look for exactly one:
 
 ```html
 <script type="application/ld+json" data-aivis="1" data-aivis-hash="…">{…}</script>
@@ -128,6 +129,7 @@ If the marker is missing on the public page but Status says *Active*: the page c
 | Upload plugin | `/wp-admin/plugin-install.php?tab=upload` |
 | Plugins list | `/wp-admin/plugins.php` |
 | AIVIS OS → Status | `/wp-admin/admin.php?page=aivis-os` |
+| AIVIS OS → Pages (list; `&state=attention` etc.) | `/wp-admin/admin.php?page=aivis-os-pages` |
 | AIVIS OS → Settings | `/wp-admin/admin.php?page=aivis-os-settings` |
 | Site Health status / info | `/wp-admin/site-health.php` · `/wp-admin/site-health.php?tab=debug` |
 | Status document (needs the key; for AIVIS, not for you) | `/wp-json/aivis-os/v1/status` |

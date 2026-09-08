@@ -15,6 +15,7 @@ use AivisOS\Sync\Scheduler;
 final class Menu {
 
 	public const SLUG_STATUS   = 'aivis-os';
+	public const SLUG_PAGES    = 'aivis-os-pages';
 	public const SLUG_SETTINGS = 'aivis-os-settings';
 
 	public function __construct( private readonly Plugin $plugin ) {}
@@ -38,7 +39,75 @@ final class Menu {
 		$cap = self::capability();
 		add_menu_page( 'AIVIS OS', 'AIVIS OS', $cap, self::SLUG_STATUS, [ new StatusPage( $this->plugin ), 'render' ], 'dashicons-networking', 81 );
 		add_submenu_page( self::SLUG_STATUS, __( 'Status', 'aivis-os' ), __( 'Status', 'aivis-os' ), $cap, self::SLUG_STATUS, [ new StatusPage( $this->plugin ), 'render' ] );
+		$pages = add_submenu_page( self::SLUG_STATUS, __( 'Pages', 'aivis-os' ), __( 'Pages', 'aivis-os' ), $cap, self::SLUG_PAGES, [ new PagesPage( $this->plugin ), 'render' ] );
 		add_submenu_page( self::SLUG_STATUS, __( 'Settings', 'aivis-os' ), __( 'Settings', 'aivis-os' ), $cap, self::SLUG_SETTINGS, [ new SettingsPage( $this->plugin ), 'render' ] );
+		if ( is_string( $pages ) && '' !== $pages ) {
+			// Runs before headers: Screen Options and bulk actions live here.
+			add_action( 'load-' . $pages, [ $this, 'pages_load' ] );
+		}
+		add_filter( 'set-screen-option', [ $this, 'save_per_page' ], 10, 3 );
+		add_filter( 'set_screen_option_' . PagesPage::OPTION_PER_PAGE, [ $this, 'save_per_page' ], 10, 3 );
+	}
+
+	/** The three plugin screens share one tab strip. */
+	public static function tabs( string $current ): string {
+		$h = '<nav class="nav-tab-wrapper">';
+		foreach ( [ self::SLUG_STATUS => __( 'Status', 'aivis-os' ), self::SLUG_PAGES => __( 'Pages', 'aivis-os' ), self::SLUG_SETTINGS => __( 'Settings', 'aivis-os' ) ] as $slug => $label ) {
+			$h .= '<a class="nav-tab' . ( $slug === $current ? ' nav-tab-active' : '' ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . $slug ) ) . '">' . esc_html( $label ) . '</a>';
+		}
+		return $h . '</nav>';
+	}
+
+	/** Screen Options (per page) and bulk actions for the Pages screen. */
+	public function pages_load(): void {
+		add_screen_option( 'per_page', [ 'label' => __( 'Pages per screen', 'aivis-os' ), 'default' => PagesQuery::PER_PAGE_DEFAULT, 'option' => PagesPage::OPTION_PER_PAGE ] );
+		$bulk = sanitize_key( (string) ( $_GET['aivis_bulk'] ?? '' ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- verified just below.
+		if ( '' === $bulk ) {
+			return;
+		}
+		if ( ! current_user_can( self::capability() ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'aivis-os' ) );
+		}
+		check_admin_referer( 'aivis_os_bulk' );
+		$keys = PagesQuery::bulk_keys( (array) ( $_GET['url_key'] ?? [] ) );
+		$msg  = $this->bulk( $bulk, $keys );
+		wp_safe_redirect( add_query_arg( [ 'page' => self::SLUG_PAGES, 'aivis_msg' => $msg ], admin_url( 'admin.php' ) ) );
+		exit;
+	}
+
+	/**
+	 * @param list<string> $keys
+	 * @return string message key
+	 */
+	public function bulk( string $action, array $keys ): string {
+		if ( ! $keys ) {
+			return 'nothing_selected';
+		}
+		$repo = $this->plugin->repository();
+		switch ( $action ) {
+			case 'refresh':
+				foreach ( $repo->urls_for_keys( $keys ) as $url ) {
+					wp_schedule_single_event( time(), 'aivis_os_lookup', [ $url ] );
+				}
+				return 'bulk_refresh';
+			case 'disable':
+				$repo->retire_many( $keys, 'AIVIS_ADMIN_DISABLED' );
+				$this->plugin->synchronizer()->purge( $repo->urls_for_keys( $keys ) );
+				return 'bulk_disabled';
+			case 'restore':
+				$repo->restore_many( $keys );
+				$this->plugin->synchronizer()->purge( $repo->urls_for_keys( $keys ) );
+				return 'bulk_restored';
+		}
+		return 'nothing_selected';
+	}
+
+	/** @param mixed $status @param string $option @param mixed $value */
+	public function save_per_page( $status, $option, $value ) {
+		if ( PagesPage::OPTION_PER_PAGE === $option ) {
+			return max( 1, min( PagesQuery::PER_PAGE_MAX, (int) $value ) );
+		}
+		return $status;
 	}
 
 	public function assets( string $hook ): void {
@@ -54,7 +123,8 @@ final class Menu {
 			wp_die( esc_html__( 'You do not have permission to do that.', 'aivis-os' ) );
 		}
 		check_admin_referer( 'aivis_os_action' );
-		$do   = sanitize_key( (string) ( $_POST['do'] ?? '' ) );
+		// Row actions on the Pages screen are nonce-signed links (GET); the forms elsewhere POST.
+		$do   = sanitize_key( (string) ( $_REQUEST['do'] ?? '' ) );
 		$back = wp_get_referer() ?: admin_url( 'admin.php?page=' . self::SLUG_STATUS );
 		$msg  = '';
 
@@ -81,7 +151,7 @@ final class Menu {
 				$msg = 'synced';
 				break;
 			case 'refresh_url':
-				$url = esc_url_raw( (string) ( $_POST['url'] ?? '' ) );
+				$url = esc_url_raw( (string) wp_unslash( $_REQUEST['url'] ?? '' ) );
 				if ( '' !== $url ) {
 					$this->plugin->synchronizer()->refresh_url( $url );
 				}
@@ -89,7 +159,7 @@ final class Menu {
 				break;
 			case 'disable_url':
 			case 'restore_url':
-				$key = sanitize_text_field( (string) ( $_POST['url_key'] ?? '' ) );
+				$key = sanitize_text_field( (string) ( $_REQUEST['url_key'] ?? '' ) );
 				if ( 'disable_url' === $do ) {
 					$this->plugin->repository()->retire( $key, 'AIVIS_ADMIN_DISABLED' );
 				} else {
@@ -128,6 +198,11 @@ final class Menu {
 		}
 		wp_safe_redirect( add_query_arg( 'aivis_msg', $msg, $back ) );
 		exit;
+	}
+
+	/** A nonce-signed link for a single action (used where a form cannot nest). */
+	public static function action_url( string $do, array $args = [] ): string {
+		return wp_nonce_url( add_query_arg( array_merge( [ 'action' => 'aivis_os_action', 'do' => $do ], array_map( 'strval', $args ) ), admin_url( 'admin-post.php' ) ), 'aivis_os_action' );
 	}
 
 	/** Small helper used by both pages. */

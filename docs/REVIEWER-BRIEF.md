@@ -91,7 +91,8 @@ src/Delivery/Conflicts.php         other JSON-LD emitters: registry, scan, attri
 src/Rest/StatusController.php      GET /status, /status/urls; bearer status key; no-store
 src/Rest/StatusDocument.php        the document AIVIS fetches; also wp aivis status --format=json
 src/Cache/*                        adapters: WP Super Cache, W3TC, LiteSpeed, Manual; PurgeResult
-src/Admin/*                        Menu, SettingsPage, StatusPage, Notices, SiteHealth, AdminBar
+src/Admin/*                        Menu, StatusPage (overview), PagesPage + PagesTable + PagesQuery (list),
+                                   SettingsPage, ObjectBox (edit screens), Notices, SiteHealth, AdminBar
 src/Cli/Commands.php               wp aivis connection|sync|status|verify|refresh|languages|status-key
 src/Update/GitHubReleases.php      Update URI → GitHub Releases
 src/Domain/*                       UrlKey (local normalization), ErrorCode, Action

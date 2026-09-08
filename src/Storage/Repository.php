@@ -346,6 +346,75 @@ final class Repository {
 		return $out;
 	}
 
+	/**
+	 * The Pages screen's query (§11). $where comes from Admin\PagesQuery,
+	 * $orderby is whitelisted there.
+	 *
+	 * @param list<string> $args
+	 * @return array{rows:list<array<string,mixed>>, total:int}
+	 */
+	public function search( string $where, array $args, int $per_page, int $page, string $orderby, string $order ): array {
+		global $wpdb;
+		$per_page = max( 1, min( 500, $per_page ) );
+		$offset   = max( 0, ( max( 1, $page ) - 1 ) * $per_page );
+		$orderby  = preg_replace( '/[^a-z_]/', '', $orderby ) ?: 'source_url';
+		$order    = 'DESC' === strtoupper( $order ) ? 'DESC' : 'ASC';
+		$total    = $this->count_where( $where, $args );
+		$rows     = (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQL
+				"SELECT * FROM {$this->table()} WHERE {$where} ORDER BY {$orderby} {$order}, id ASC LIMIT %d OFFSET %d",
+				...array_merge( $args, [ $per_page, $offset ] )
+			),
+			ARRAY_A
+		);
+		return [ 'rows' => array_values( $rows ), 'total' => $total ];
+	}
+
+	/** @param list<string> $args */
+	public function count_where( string $where, array $args ): int {
+		global $wpdb;
+		$sql = "SELECT COUNT(*) FROM {$this->table()} WHERE {$where}";
+		return (int) $wpdb->get_var( $args ? $wpdb->prepare( $sql, ...$args ) : $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+	}
+
+	/** Distinct values of a filterable column, for the Pages screen's dropdowns. @return list<string> */
+	public function distinct( string $column ): array {
+		global $wpdb;
+		$column = in_array( $column, [ 'language_code', 'chain_id', 'business_id' ], true ) ? $column : 'language_code';
+		return array_values( array_filter( array_map( 'strval', (array) $wpdb->get_col( "SELECT DISTINCT {$column} FROM {$this->table()} ORDER BY {$column} ASC" ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/** @param list<string> $keys @return int rows touched */
+	public function retire_many( array $keys, string $code ): int {
+		$n = 0;
+		foreach ( $keys as $k ) {
+			$this->retire( (string) $k, $code );
+			$n++;
+		}
+		return $n;
+	}
+
+	/** @param list<string> $keys @return int rows touched */
+	public function restore_many( array $keys ): int {
+		$n = 0;
+		foreach ( $keys as $k ) {
+			$this->restore( (string) $k );
+			$n++;
+		}
+		return $n;
+	}
+
+	/** @param list<string> $keys @return list<string> source URLs */
+	public function urls_for_keys( array $keys ): array {
+		global $wpdb;
+		$keys = array_values( array_filter( array_map( 'strval', $keys ) ) );
+		if ( ! $keys ) {
+			return [];
+		}
+		$in = implode( ',', array_fill( 0, count( $keys ), '%s' ) );
+		return array_values( array_map( 'strval', (array) $wpdb->get_col( $wpdb->prepare( "SELECT source_url FROM {$this->table()} WHERE url_key IN ({$in})", ...$keys ) ) ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+	}
+
 	/** @return list<array<string,mixed>> */
 	public function all_for_admin( int $limit = 500 ): array {
 		global $wpdb;

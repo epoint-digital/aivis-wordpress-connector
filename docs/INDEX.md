@@ -56,7 +56,8 @@ src/Sync/                    Synchronizer, Decision (R-01…R-02a), ChainAssignm
 src/Delivery/                Injector (wp_head 100), Gates, UrlResolver, Language (§07a), Conflicts (§09a)
 src/Rest/                    StatusController + StatusDocument — the status AIVIS fetches (§11a)
 src/Cache/                   CacheAdapter, PurgeResult, adapters (WP Super Cache, W3TC, LiteSpeed, Manual)
-src/Admin/                   Menu, SettingsPage, StatusPage, Notices, SiteHealth, AdminBar
+src/Admin/                   Menu, StatusPage (overview), PagesPage/PagesTable/PagesQuery (list), SettingsPage,
+                             ObjectBox (edit screens), Notices, SiteHealth, AdminBar
 src/Cli/Commands.php         wp aivis connection|sync|status|verify|refresh|languages|status-key
 src/Update/GitHubReleases.php  Update URI answers from GitHub Releases
 src/Domain/                  UrlKey (local normalization), ErrorCode, Action

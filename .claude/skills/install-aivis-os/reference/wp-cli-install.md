@@ -65,6 +65,7 @@ Every site language needs at least one chain. A warning `<Language> has no chain
 ```bash
 wp aivis sync --all               # ticks until nothing is pending (20 artifacts per tick)
 wp aivis status                   # counts, last sync, cache adapter, languages, moved pages
+wp aivis pages --state=attention  # the pages that want a decision (same views/filters/search as the Pages screen)
 wp aivis verify                   # fetches one page over loopback: expect "live"
 wp aivis verify --url=https://example.com/some-page/
 curl -s https://example.com/ | grep -c 'data-aivis="1"'    # expect 1 on a synced page

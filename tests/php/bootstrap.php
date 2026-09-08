@@ -118,6 +118,16 @@ function get_post_types( array $args = [], string $output = 'names' ): array { $
 function get_taxonomies( array $args = [], string $output = 'names' ): array { $taxes = WPStub::$objects['taxonomies'] ?? [ 'category' => 'category', 'post_tag' => 'tag' ]; if ( 'objects' === $output ) { return array_map( fn( $slug, $name ) => (object) [ 'name' => $name, 'rewrite' => [ 'slug' => $slug ] ], $taxes, array_keys( $taxes ) ); } return array_keys( $taxes ); }
 function add_meta_box( string $id, string $title, mixed $cb, mixed $screen = null, string $ctx = 'advanced', string $prio = 'default' ): void { WPStub::$flags['meta_boxes'][] = [ $id, $screen ]; }
 function esc_url( string $u ): string { return $u; }
+function wp_nonce_url( string $u, string $action = '' ): string { return $u . '&_wpnonce=stub'; }
+function wp_unslash( mixed $v ): mixed { return $v; }
+function get_user_option( string $k ): mixed { return WPStub::$options[ 'user:' . $k ] ?? false; }
+function add_screen_option( string $k, array $a = [] ): void { WPStub::$flags['screen_options'][ $k ] = $a; }
+function submit_button( string $t = '', string $type = 'primary', string $name = 'submit', bool $wrap = true, mixed $other = null ): void { echo '<button>' . htmlspecialchars( $t, ENT_QUOTES ) . '</button>'; }
+function selected( mixed $a, mixed $b, bool $echo = true ): string { $s = (string) $a === (string) $b ? ' selected' : ''; if ( $echo ) { echo $s; } return $s; }
+function wp_safe_redirect( string $u, int $code = 302 ): bool { WPStub::$flags['redirect'] = $u; return true; }
+function current_user_can( string $cap ): bool { return WPStub::$flags['can'] ?? true; }
+function check_admin_referer( string $action = '', string $name = '_wpnonce' ): bool { return true; }
+function wp_nonce_field( string $a = '', string $n = '_wpnonce', bool $r = true, bool $e = true ): string { $h = '<input type="hidden" name="' . $n . '" value="stub">'; if ( $e ) { echo $h; } return $h; }
 function esc_html_e( string $s, string $d = '' ): void { echo htmlspecialchars( $s, ENT_QUOTES ); }
 function esc_attr_e( string $s, string $d = '' ): void { echo htmlspecialchars( $s, ENT_QUOTES ); }
 function human_time_diff( int $from, int $to = 0 ): string { return '1 min'; }
