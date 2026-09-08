@@ -172,6 +172,8 @@ final class Commands {
 		$counts = $this->plugin->repository()->counts();
 		$data   = [
 			'version'            => AIVIS_OS_VERSION,
+			'environment'        => $o->environment() . ( 'constant' === $o->api_base_source() ? ' (constant)' : '' ),
+			'api_base'           => $o->api_base(),
 			'token_source'       => $o->token_source(),
 			'business'           => $biz['business_name'] ?: '-',
 			'business_id'        => $biz['business_id'] ?: '-',
@@ -326,6 +328,38 @@ final class Commands {
 		}
 		\WP_CLI::log( sprintf( '%d of %d pages (page %d, %d per page)%s', count( $rows ), $r['total'], $f['page'], $f['per_page'], '' !== $f['state'] ? ' — ' . $f['state'] : '' ) );
 		\WP_CLI\Utils\format_items( (string) ( $assoc['format'] ?? 'table' ), $rows, [ 'url', 'state', 'language', 'chain', 'generated', 'published', 'moved_to', 'error' ] );
+	}
+
+	/**
+	 * Show or switch the AIVIS instance this site talks to (test | production).
+	 *
+	 * ## OPTIONS
+	 * [<environment>]
+	 * : test | production. Omit to show the current one.
+	 *
+	 * ## EXAMPLES
+	 *     wp aivis environment
+	 *     wp aivis environment test
+	 */
+	public function environment( array $args ): void {
+		$o    = $this->plugin->options();
+		$want = strtolower( (string) ( $args[0] ?? '' ) );
+		if ( '' === $want ) {
+			\WP_CLI::log( sprintf( '%s — %s%s', $o->environment(), $o->api_base(), 'constant' === $o->api_base_source() ? ' (fixed by AIVIS_API_BASE_URL)' : '' ) );
+			return;
+		}
+		if ( ! isset( Options::ENVIRONMENTS[ $want ] ) ) {
+			\WP_CLI::error( 'Environment must be one of: ' . implode( ', ', array_keys( Options::ENVIRONMENTS ) ) );
+		}
+		if ( 'constant' === $o->api_base_source() ) {
+			\WP_CLI::error( 'AIVIS_API_BASE_URL is defined in wp-config.php and overrides the setting; remove it first.' );
+		}
+		if ( $want === $o->environment() ) {
+			\WP_CLI::success( "Already on {$want}." );
+			return;
+		}
+		( new \AivisOS\Admin\SettingsPage( $this->plugin ) )->switch_environment( $want );
+		\WP_CLI::success( sprintf( 'Switched to %s (%s). The business is unbound and pages from the other instance stopped serving — run `wp aivis connection test`, then `wp aivis bind`.', $want, Options::ENVIRONMENTS[ $want ] ) );
 	}
 
 	/**

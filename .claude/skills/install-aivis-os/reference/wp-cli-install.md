@@ -22,7 +22,14 @@ wp config set AIVIS_API_TOKEN "$AIVIS_API_TOKEN" --type=constant
 unset AIVIS_API_TOKEN
 ```
 
-Staging that must talk to the AIVIS dev instance instead of production (remove before go-live):
+Choose the AIVIS instance before connecting — a token works on one instance only:
+
+```bash
+wp aivis environment            # shows the current one (production by default)
+wp aivis environment test       # aivis-new.dev.onepoint.ro — pilots run here while production has no DNS
+```
+
+A custom host can still be fixed in `wp-config.php`; it overrides and disables the switch:
 
 ```bash
 wp config set AIVIS_API_BASE_URL 'https://aivis-new.dev.onepoint.ro' --type=constant

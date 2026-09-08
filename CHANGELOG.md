@@ -40,6 +40,11 @@ file, `readme.txt` and the git tag do not agree with it.
 - Agent skill `install-aivis-os` for Claude Code and Codex (identical copies,
   checked in CI): headless WP-CLI install, a wp-admin browser guide with every
   field name, and a report checklist. `AGENTS.md` for repository rules.
+- Environment switch under Settings → Connection: Production
+  (`app.aivis-os.com`) or Test (`aivis-new.dev.onepoint.ro`), a closed
+  two-value choice, never a free URL. Switching unbinds the business, stops
+  serving everything from the other instance and purges. Shown on Status and
+  in the status document; Site Health flags Test; `wp aivis environment`.
 - Pages screen: WordPress list table with pagination (Screen Options), sorting,
   URL search, state/language/chain filters, views (Needs attention first when
   non-empty), row actions and bulk refresh/disable/restore. Status is an

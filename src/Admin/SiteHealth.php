@@ -29,6 +29,7 @@ final class SiteHealth {
 		$tests['direct']['aivis_os_conflicts'] = [ 'label' => 'AIVIS OS: single source of structured data', 'test' => [ $this, 'test_conflicts' ] ];
 		$tests['direct']['aivis_os_languages'] = [ 'label' => 'AIVIS OS: every language has a chain', 'test' => [ $this, 'test_languages' ] ];
 		$tests['direct']['aivis_os_moved']     = [ 'label' => 'AIVIS OS: pages still at the address AIVIS crawled', 'test' => [ $this, 'test_moved' ] ];
+		$tests['direct']['aivis_os_environment'] = [ 'label' => 'AIVIS OS: environment', 'test' => [ $this, 'test_environment' ] ];
 		return $tests;
 	}
 
@@ -139,6 +140,17 @@ final class SiteHealth {
 			return $this->result( 'good', 'AIVIS OS: every page is still at the address AIVIS crawled', sprintf( '%d pages checked.', (int) ( $state['moved_checked'] ?? 0 ) ) );
 		}
 		return $this->result( 'recommended', sprintf( 'AIVIS OS: %d page(s) moved since AIVIS crawled them', count( $moved ) ), 'The structured data stays with the old URL; the new address receives nothing until AIVIS re-crawls. The list is on the Status screen and in the status document AIVIS fetches. Nothing to change on this side.' );
+	}
+
+	public function test_environment(): array {
+		$o = $this->plugin->options();
+		if ( 'constant' === $o->api_base_source() ) {
+			return $this->result( 'good', 'AIVIS OS talks to a host fixed in wp-config.php', sprintf( 'AIVIS_API_BASE_URL = %s. Remove the constant to switch instances under Settings.', $o->api_base() ) );
+		}
+		if ( 'test' === $o->environment() ) {
+			return $this->result( 'recommended', 'AIVIS OS talks to the AIVIS test instance', sprintf( 'Structured data on this site comes from %s. Switch to Production under AIVIS OS → Settings → Connection before go-live; the switch unbinds the business and stops serving what came from the test instance.', \AivisOS\Storage\Options::environment_host( 'test' ) ) );
+		}
+		return $this->result( 'good', 'AIVIS OS talks to AIVIS production', \AivisOS\Storage\Options::environment_host( 'production' ) . '.' );
 	}
 
 	public function test_schema(): array {

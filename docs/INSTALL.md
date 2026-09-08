@@ -52,15 +52,21 @@ define( 'AIVIS_API_TOKEN', 'aivis_…' );
 This keeps the token out of the database. The plugin will accept a token
 entered in Settings instead, but says so on every screen and in Site Health.
 
-The plugin talks to `https://app.aivis-os.com`. For a staging site that should
-use the AIVIS dev instance instead, add — and remove again before go-live:
+There are two AIVIS instances: **Production** (`app.aivis-os.com`) and
+**Test** (`aivis-new.dev.onepoint.ro`). Pick the one this site talks to under
+AIVIS OS → **Settings → Connection → Environment** (or `wp aivis environment
+test`). Production is the default. A token issued on one instance does not
+work on the other, and switching unbinds the business, stops serving everything
+synced from the other instance and purges the affected pages — so choose before
+you connect.
+
+The base URL is never a free-text setting: only these two hosts can receive the
+bearer token. A custom host for development can still be fixed in
+`wp-config.php`, which overrides and disables the switch:
 
 ```php
 define( 'AIVIS_API_BASE_URL', 'https://aivis-new.dev.onepoint.ro' );
 ```
-
-The base URL is deliberately not a setting in the admin: anything typed there
-would receive the bearer token.
 
 ## 3. Install the plugin
 
@@ -291,7 +297,8 @@ data on uninstall* is ticked — the token is removed either way.
 
 | Symptom | Look at |
 |---|---|
-| "Token invalid or revoked" | Recreate the token in AIVIS; update `wp-config.php` |
+| "Token invalid or revoked" | Recreate the token in AIVIS; update `wp-config.php`. Also check the **Environment**: a Test token does not work on Production, and the other way round |
+| Test connection fails at once with a transport error | The selected instance is unreachable — Production has no DNS record yet as of September 2026; use Test until it does |
 | No business matches | The business's base URL in AIVIS must be this site's domain |
 | "… has no chain" in Site Health | Assign a chain to that language under Settings → Languages & chains, or create one in AIVIS |
 | Sync says *no chain assigned to a language* | Same — nothing syncs until at least one chain is assigned |

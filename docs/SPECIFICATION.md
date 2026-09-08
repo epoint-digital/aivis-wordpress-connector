@@ -103,6 +103,11 @@ Each maps to at least one automated test (§16).
 
 ## §03 · API contract
 
+**Two instances.** Production `https://app.aivis-os.com` and Test `https://aivis-new.dev.onepoint.ro`
+serve the same contract from different accounts and data. A site talks to exactly one, chosen in
+Settings (Q-01); a token issued on one instance is invalid on the other, and switching lets go of
+everything that came from the previous one.
+
 Base `https://app.aivis-os.com/api/public/v1` in production; `AIVIS_API_BASE_URL` overrides it for dev/staging (`https://aivis-new.dev.onepoint.ro`). Every request carries `Authorization: Bearer aivis_…` and
 `Accept: application/json`. Errors are `{"error":{"message":"…"}}`.
 
@@ -220,6 +225,7 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 |---|---|
 | `aivis_os_token_status` | Token source (`constant` \| `option`), validation state, `tokenName`, last check |
 | `aivis_os_token` | The token, only when no constant is defined |
+| `aivis_os_environment` | `production` \| `test` — which of the two AIVIS instances the site talks to (§03). Ignored when `AIVIS_API_BASE_URL` is defined |
 | `aivis_os_business` | Selected `businessId`, `baseUrl`, allowed hosts, and `chains`: the chain → language assignment (§07a) |
 | `aivis_os_delivery` | Injection switch, per-URL disables |
 | `aivis_os_sync_state` | Cursors, current sync id, last authoritative completion, lock |
@@ -232,9 +238,10 @@ Transients may vanish before expiry and are never the only artifact store.
 
 ### Constants
 
-`AIVIS_API_TOKEN` (preferred token location — §13), `AIVIS_API_BASE_URL` (development only; the
-base is deliberately not editable in the settings UI, since an arbitrary endpoint would receive the
-bearer token).
+`AIVIS_API_TOKEN` (preferred token location — §13), `AIVIS_API_BASE_URL` (a custom host for
+development; it overrides and disables the environment switch). The base is never a free-text
+setting, since an arbitrary endpoint would receive the bearer token: the UI offers exactly the two
+AIVIS instances (§03).
 
 ### Cron
 
@@ -528,9 +535,11 @@ never as live.
 
 ## §11 · Admin, status and verification
 
-**Settings.** Token entry (with the source and what it can reach stated plainly — §13), connection
-test via `/me`, domain-matched business selector, **languages & chains** (§07a), injection switch,
-sync interval, cache adapter selection.
+**Settings.** Environment switch (Test or Production — §03, Q-01), token entry (with the source and
+what it can reach stated plainly — §13), connection test via `/me`, domain-matched business
+selector, **languages & chains** (§07a), injection switch, sync interval, cache adapter selection.
+The environment is shown on Status, flagged in Site Health while on Test, and carried in the status
+document (`api.environment`).
 
 **Business selector behaviour**, given one business has exactly one domain:
 
@@ -822,7 +831,7 @@ clean (AC-14).
 
 | ID | Decision | Resolution |
 |---|---|---|
-| Q-01 | Production API base URL | **Resolved (2026-09-06)**: `https://app.aivis-os.com` is the shipped default (`Options::DEFAULT_API_BASE`). Dev/staging via the `AIVIS_API_BASE_URL` constant only |
+| Q-01 | API base URL | **Resolved (2026-09-08)**: two instances — **Production** `https://app.aivis-os.com` (the shipped default; no DNS record as of 2026-09-08) and **Test** `https://aivis-new.dev.onepoint.ro` — selectable under Settings → Connection as a closed two-value switch (`Options::ENVIRONMENTS`), never a free URL. Switching unbinds the business, stops serving everything synced from the other instance and purges. `AIVIS_API_BASE_URL` still overrides for custom hosts |
 | Q-02 | API token scope | **Resolved** (§00): account-scoped token, AIVIS-controlled installs only, until API-1 |
 | Q-03 | Bundled cache adapters | **Open** — chosen from actual pilot infrastructure; core stays provider-neutral, manual purge always supported |
 | Q-04 | Default freshness | **Resolved**: 15-minute polling default; 5 minutes for retraction-sensitive managed sites with reliable system cron |

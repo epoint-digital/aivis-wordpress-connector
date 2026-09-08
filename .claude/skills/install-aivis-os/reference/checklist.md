@@ -8,6 +8,7 @@ Fill every line with what you observed. "Expected" is not an observation.
 | WordPress / PHP | |
 | Multisite | yes / no (per-site activation) |
 | Plugin version active | |
+| Environment | Production / Test (or fixed by `AIVIS_API_BASE_URL`) |
 | Token location | `wp-config.php` constant / database option |
 | Connection test | Connected as … / failed: … |
 | Business bound | name, matched automatically / chosen by human / refused because … |

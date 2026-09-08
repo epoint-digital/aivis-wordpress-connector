@@ -12,6 +12,7 @@ namespace AivisOS\Admin;
 use AivisOS\Delivery\Language;
 use AivisOS\Domain\ErrorCode;
 use AivisOS\Plugin;
+use AivisOS\Storage\Options;
 use AivisOS\Sync\Scheduler;
 
 final class SettingsPage {
@@ -41,6 +42,20 @@ final class SettingsPage {
 
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Connection', 'aivis-os' ); ?></h2><div class="inside">
 					<table class="form-table" role="presentation">
+						<tr><th scope="row"><label for="aivis_env"><?php esc_html_e( 'Environment', 'aivis-os' ); ?></label></th><td>
+							<?php if ( 'constant' === $o->api_base_source() ) : ?>
+								<p><code>AIVIS_API_BASE_URL</code> <?php esc_html_e( 'is defined in wp-config.php:', 'aivis-os' ); ?> <code><?php echo esc_html( $o->api_base() ); ?></code></p>
+								<p class="description"><?php esc_html_e( 'The constant overrides this setting. Remove it from wp-config.php to choose between the AIVIS test and production instances here.', 'aivis-os' ); ?></p>
+							<?php else : ?>
+								<select id="aivis_env" name="environment">
+									<?php foreach ( \AivisOS\Storage\Options::ENVIRONMENTS as $key => $url ) : ?>
+										<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $o->environment(), $key ); ?>><?php echo esc_html( \AivisOS\Storage\Options::environment_label( $key ) . ' — ' . (string) wp_parse_url( $url, PHP_URL_HOST ) ); ?></option>
+									<?php endforeach; ?>
+								</select>
+								<?php if ( 'test' === $o->environment() ) : ?><span class="aivis-chip aivis-chip--warn"><?php esc_html_e( 'Test instance', 'aivis-os' ); ?></span><?php endif; ?>
+								<p class="description"><?php esc_html_e( 'Only these two AIVIS instances can be chosen; the token is sent to the selected one and nowhere else. A token issued on the test instance works only there. Switching unbinds the business, stops serving everything synced from the other instance, purges the affected pages and needs a fresh connection test and sync.', 'aivis-os' ); ?></p>
+							<?php endif; ?>
+						</td></tr>
 						<tr><th scope="row"><label for="aivis_token"><?php esc_html_e( 'API token', 'aivis-os' ); ?></label></th><td>
 							<?php if ( 'constant' === $source ) : ?>
 								<p><code>AIVIS_API_TOKEN</code> <?php esc_html_e( 'is defined in wp-config.php', 'aivis-os' ); ?> <span class="aivis-chip aivis-chip--ok"><?php esc_html_e( 'Recommended', 'aivis-os' ); ?></span></p>
@@ -196,7 +211,15 @@ final class SettingsPage {
 
 	/** @param array<string,mixed> $post */
 	public function save( array $post ): string {
-		$o = $this->plugin->options();
+		$o        = $this->plugin->options();
+		$switched = false;
+		if ( isset( $post['environment'] ) && 'constant' !== $o->api_base_source() ) {
+			$env = sanitize_key( (string) $post['environment'] );
+			if ( isset( Options::ENVIRONMENTS[ $env ] ) && $env !== $o->environment() ) {
+				$this->switch_environment( $env );
+				$switched = true;
+			}
+		}
 		if ( 'constant' !== $o->token_source() ) {
 			$tok = trim( (string) ( $post['aivis_token'] ?? '' ) );
 			if ( '' !== $tok ) {
@@ -225,6 +248,10 @@ final class SettingsPage {
 
 		$hosts = array_filter( array_map( 'trim', explode( ',', (string) ( $post['allowed_hosts'] ?? '' ) ) ) );
 		$bid   = sanitize_text_field( (string) ( $post['business_id'] ?? '' ) );
+		if ( $switched ) {
+			// The posted business came from the other instance's list: never bind it.
+			return 'environment_switched';
+		}
 		if ( '' !== $bid ) {
 			$b = null;
 			foreach ( $this->businesses() as $cand ) {
@@ -248,6 +275,32 @@ final class SettingsPage {
 			$this->save_chain_languages( (array) $post['chain_lang'] );
 		}
 		return 'saved';
+	}
+
+	/**
+	 * Switch between the AIVIS test and production instances (Q-01). The two
+	 * instances hold different accounts and businesses, so everything that
+	 * belonged to the previous one is let go: the binding, the token check,
+	 * cached lists, the in-progress sync — and every row stops serving now,
+	 * with its cache purged, rather than lingering until a retirement pass
+	 * that could never see it.
+	 */
+	public function switch_environment( string $environment ): void {
+		$o = $this->plugin->options();
+		if ( ! isset( Options::ENVIRONMENTS[ $environment ] ) ) {
+			return;
+		}
+		$from = $o->environment();
+		$o->set_environment( $environment );
+		$o->set_token_status( null );
+		$o->clear_business();
+		delete_transient( 'aivis_os_businesses' );
+		$o->patch_sync_state( [ 'in_progress' => '', 'inventory' => [], 'chains' => null, 'pending' => [], 'chain_summaries' => [], 'chain_ids' => [], 'language_mismatch' => [], 'moved' => [], 'last_authoritative' => null ] );
+		$urls = $this->plugin->repository()->deactivate_chains_not_in( [], ErrorCode::ENVIRONMENT_SWITCHED );
+		if ( $urls ) {
+			$this->plugin->synchronizer()->purge( $urls );
+		}
+		$o->record( ErrorCode::ENVIRONMENT_SWITCHED, sprintf( 'switched from %s to %s (%s); business unbound, %d page(s) stopped serving, caches purged', $from, $environment, Options::environment_host( $environment ), count( $urls ) ) );
 	}
 
 	/**

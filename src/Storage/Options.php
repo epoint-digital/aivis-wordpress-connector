@@ -16,6 +16,16 @@ final class Options {
 
 	/** Production. Dev/staging override via the AIVIS_API_BASE_URL constant (Q-01). */
 	public const DEFAULT_API_BASE = 'https://app.aivis-os.com';
+
+	/**
+	 * The two AIVIS instances a site may talk to (Q-01). A closed list on
+	 * purpose: the bearer token goes to whichever is selected and nowhere
+	 * else, so this is a switch, never a free URL field.
+	 */
+	public const ENVIRONMENTS = [
+		'production' => 'https://app.aivis-os.com',
+		'test'       => 'https://aivis-new.dev.onepoint.ro',
+	];
 	public const DIAGNOSTICS_CAP  = 100;
 
 	/* ── token (§13) ──────────────────────────────────────────────────── */
@@ -80,14 +90,40 @@ final class Options {
 	/* ── API base (§03) ───────────────────────────────────────────────── */
 
 	/**
-	 * Deliberately not editable in the UI: an arbitrary endpoint would receive
-	 * the bearer token. Override only via the constant, for development.
+	 * The API base: the AIVIS_API_BASE_URL constant when defined (a custom
+	 * host, development only), otherwise the selected environment. Never a
+	 * free-text setting — an arbitrary endpoint would receive the bearer token.
 	 */
 	public function api_base(): string {
-		$base = defined( 'AIVIS_API_BASE_URL' ) && is_string( AIVIS_API_BASE_URL ) && '' !== AIVIS_API_BASE_URL
-			? AIVIS_API_BASE_URL
-			: self::DEFAULT_API_BASE;
-		return rtrim( $base, '/' );
+		if ( 'constant' === $this->api_base_source() ) {
+			return rtrim( (string) AIVIS_API_BASE_URL, '/' );
+		}
+		return self::ENVIRONMENTS[ $this->environment() ];
+	}
+
+	/** 'constant' | 'setting' */
+	public function api_base_source(): string {
+		return defined( 'AIVIS_API_BASE_URL' ) && is_string( AIVIS_API_BASE_URL ) && '' !== AIVIS_API_BASE_URL ? 'constant' : 'setting';
+	}
+
+	/** 'production' | 'test' — the selected AIVIS instance (Settings → Connection). */
+	public function environment(): string {
+		$e = (string) get_option( 'aivis_os_environment', 'production' );
+		return isset( self::ENVIRONMENTS[ $e ] ) ? $e : 'production';
+	}
+
+	public function set_environment( string $environment ): void {
+		if ( isset( self::ENVIRONMENTS[ $environment ] ) ) {
+			update_option( 'aivis_os_environment', $environment, false );
+		}
+	}
+
+	public static function environment_label( string $environment ): string {
+		return 'test' === $environment ? 'Test' : 'Production';
+	}
+
+	public static function environment_host( string $environment ): string {
+		return (string) wp_parse_url( self::ENVIRONMENTS[ $environment ] ?? self::DEFAULT_API_BASE, PHP_URL_HOST );
 	}
 
 	/* ── business binding (§06, §07) ─────────────────────────────────── */

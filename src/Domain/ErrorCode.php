@@ -27,6 +27,8 @@ final class ErrorCode {
 	public const LANGUAGE_UNASSIGNED = 'AIVIS_LANGUAGE_UNASSIGNED';
 	/** §07a: AIVIS's languageCode for a chain's pages disagrees with the assignment. */
 	public const LANGUAGE_MISMATCH   = 'AIVIS_LANGUAGE_MISMATCH';
+	/** The site was switched to the other AIVIS instance; rows from the previous one stop serving. */
+	public const ENVIRONMENT_SWITCHED = 'AIVIS_ENVIRONMENT_SWITCHED';
 	/** §11: a page's address changed since AIVIS crawled it; reported, never acted on. */
 	public const URL_MOVED           = 'AIVIS_URL_MOVED';
 }

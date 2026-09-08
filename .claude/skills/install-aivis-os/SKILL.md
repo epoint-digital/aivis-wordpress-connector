@@ -10,6 +10,7 @@ The plugin syncs the JSON-LD that AIVIS generates for a business's pages into th
 ## Before you start — ask the human for these, in this order
 
 1. **The site URL** and confirmation that the site is one AIVIS controls or operates (v1 ships to those only; the API token is account-scoped).
+1a. **Which AIVIS instance** the site belongs to: Production (`app.aivis-os.com`) or Test (`aivis-new.dev.onepoint.ro`). It is a switch under Settings → Connection; a token works on one instance only, and switching later unbinds everything.
 2. **Who logs in.** The human logs into wp-admin themselves. Never type a password, and never ask for one.
 3. **The API token**, without ever seeing it in chat. Preferred: the human puts `define( 'AIVIS_API_TOKEN', 'aivis_…' );` in `wp-config.php` above the "stop editing" line before you begin. With a shell: the human exports it as an environment variable and you run `wp config set` from that variable. Only if neither is possible does it go into the Settings field — and then the human types it, not you.
 4. **The business exists in AIVIS** with a `baseUrl` on exactly this site's domain. One business = one domain; the plugin refuses to bind anything else.

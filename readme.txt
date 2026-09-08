@@ -31,7 +31,7 @@ This version is intended for sites operated or controlled by AIVIS. An AIVIS API
 1. Create an API token in AIVIS (profile → API tokens).
 2. Add `define( 'AIVIS_API_TOKEN', 'aivis_…' );` to `wp-config.php`.
 3. Upload and activate the plugin, or: `wp plugin install <release zip url> --activate`.
-4. Under AIVIS OS → Settings, test the connection. The business whose domain matches this site is bound automatically.
+4. Under AIVIS OS → Settings, choose the environment (Production or Test) and test the connection. The business whose domain matches this site is bound automatically.
 5. On a multilingual site, assign each chain to the language it serves under Settings → Languages & chains. Single-language sites need nothing here.
 6. Run a sync from the Status screen, or wait for the next cron tick.
 

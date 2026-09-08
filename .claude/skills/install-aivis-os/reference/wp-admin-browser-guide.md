@@ -38,6 +38,7 @@ The page has these boxes in order: **Connection**, **Business**, **Languages & c
 
 ### Connection
 
+- **Environment** select `#aivis_env` (`environment`): *Production — app.aivis-os.com* or *Test — aivis-new.dev.onepoint.ro*. Ask the human which instance this site belongs to **before** anything else: a token from one instance does not work on the other, and switching later unbinds the business and stops serving what came from the other instance. If `wp-config.php` defines `AIVIS_API_BASE_URL` the select is replaced by a note and cannot be changed here. As of September 2026 Production has no DNS record; pilots run on Test.
 - If `wp-config.php` defines the token you see `AIVIS_API_TOKEN is defined in wp-config.php` with a green *Recommended* chip. Good.
 - Otherwise there is a password field `#aivis_token`. **The human types the token.** Then *Save changes*, then come back.
 - Click *Test connection* (a small form; button label *Test connection*). Expected: a green chip *Connected as <email>*. A red *Token invalid or revoked* means a wrong or revoked token — ask the human to fix it; do not retry in a loop.

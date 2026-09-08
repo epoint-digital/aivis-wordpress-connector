@@ -57,6 +57,7 @@ final class Notices {
 				'bulk_disabled'    => __( 'Selected pages disabled here and their caches purged.', 'aivis-os' ),
 				'bulk_restored'    => __( 'Selected pages restored and their caches purged.', 'aivis-os' ),
 				'nothing_selected' => __( 'Nothing selected.', 'aivis-os' ),
+				'environment_switched' => __( 'Environment switched. The business is unbound and everything synced from the other instance stopped being served — test the connection and bind again.', 'aivis-os' ),
 				'refreshed'        => __( 'Page re-checked against AIVIS.', 'aivis-os' ),
 				'updated'          => __( 'Page updated.', 'aivis-os' ),
 				default          => '',
@@ -68,6 +69,14 @@ final class Notices {
 		}
 
 		$this->conflict_notice( $o );
+
+		if ( 'test' === $o->environment() && 'constant' !== $o->api_base_source() ) {
+			$this->notice( 'info', sprintf(
+				/* translators: %s: host */
+				__( '<strong>This site talks to the AIVIS test instance</strong> (<code>%s</code>). Switch to Production under Settings → Connection before go-live.', 'aivis-os' ),
+				esc_html( \AivisOS\Storage\Options::environment_host( 'test' ) )
+			) );
+		}
 
 		if ( 'none' === $o->token_source() ) {
 			$this->notice( 'warning', __( '<strong>AIVIS OS is not connected yet.</strong> Add an API token under Settings to start delivering structured data. Nothing is injected until a business is bound.', 'aivis-os' ) );

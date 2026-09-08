@@ -397,6 +397,7 @@ function statusScreen(){
         : '<span class="chip c-susp"><span class="dot"></span>Unreachable</span>'}</h2>
       <div class="inside">
         <dl class="kv">
+          <dt>Environment</dt><dd>Production <code>app.aivis-os.com</code></dd>
           <dt>Business</dt><dd>${b ? esc(b.name) : '<span class="muted">not bound</span>'}</dd>
           <dt>Domain</dt><dd><code>${SITE_HOST}</code> matched to <code>${b ? esc(host(b.baseUrl)) : '—'}</code></dd>
           <dt>Languages</dt><dd>${LANGS.map(l => { const ch = CHAINS.filter(x => x.lang === l.code).map(x => x.name);
@@ -642,6 +643,18 @@ function settingsScreen(){
     <h2>Connection</h2>
     <div class="inside">
       <table class="form-table">
+        <tr>
+          <th scope="row"><label for="env">Environment</label></th>
+          <td>
+            <select id="env">
+              <option>Production — app.aivis-os.com</option>
+              <option>Test — aivis-new.dev.onepoint.ro</option>
+            </select>
+            <p class="description">Only these two AIVIS instances can be chosen; the token is sent to the selected one and
+            nowhere else. A token issued on the test instance works only there. Switching unbinds the business, stops serving
+            everything synced from the other instance, purges the affected pages and needs a fresh connection test and sync.</p>
+          </td>
+        </tr>
         <tr>
           <th scope="row"><label for="tok">API token</label></th>
           <td>

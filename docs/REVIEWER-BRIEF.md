@@ -52,7 +52,7 @@ Rendered copies of the requirements page, install guide and prototype also exist
 
 | Decision | Where |
 |---|---|
-| Production API base is `https://app.aivis-os.com` | Q-01 |
+| Two instances, Production `app.aivis-os.com` and Test `aivis-new.dev.onepoint.ro`, chosen by a closed switch in Settings; never a free URL | Q-01, §03 |
 | v1 ships to AIVIS-controlled installs only, token preferentially in `wp-config.php` | Q-02, §13 |
 | One business = one domain; bind only the business whose `baseUrl` host equals the site's host; refuse otherwise; two matches force a choice | §06, §07, AC-20 |
 | A bare 404 never deactivates; withdrawal = "URL not found" + confirmation on an authoritative inventory pass; absence on two authoritative passes retires | §06 R-01…R-02a, AC-17/18 |

@@ -56,6 +56,11 @@ final class StatusDocument {
 			'version'     => AIVIS_OS_VERSION,
 			'schema'      => self::SCHEMA,
 			'site'        => $this->options->site_host(),
+			'api'         => [
+				'environment' => $this->options->environment(),
+				'base'        => $this->options->api_base(),
+				'source'      => $this->options->api_base_source(),
+			],
 			'businessId'  => $this->options->business()['business_id'],
 			'generatedAt' => gmdate( 'c' ),
 			'sync'        => [

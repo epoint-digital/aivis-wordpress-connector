@@ -51,6 +51,14 @@ final class StatusPage {
 					<?php if ( $last && false !== $auth ) : ?><span class="aivis-chip aivis-chip--ok"><?php esc_html_e( 'Syncing', 'aivis-os' ); ?></span>
 					<?php elseif ( false === $auth ) : ?><span class="aivis-chip aivis-chip--warn"><?php esc_html_e( 'Last sync incomplete', 'aivis-os' ); ?></span><?php endif; ?></h2>
 					<div class="inside"><dl class="aivis-kv">
+						<dt><?php esc_html_e( 'Environment', 'aivis-os' ); ?></dt><dd><?php
+							echo esc_html( \AivisOS\Storage\Options::environment_label( $o->environment() ) ) . ' <code>' . esc_html( (string) wp_parse_url( $o->api_base(), PHP_URL_HOST ) ) . '</code>';
+							if ( 'constant' === $o->api_base_source() ) {
+								echo ' <span class="description">(' . esc_html__( 'fixed by AIVIS_API_BASE_URL', 'aivis-os' ) . ')</span>';
+							} elseif ( 'test' === $o->environment() ) {
+								echo ' <span class="aivis-chip aivis-chip--warn">' . esc_html__( 'Test instance', 'aivis-os' ) . '</span>';
+							}
+						?></dd>
 						<dt><?php esc_html_e( 'Business', 'aivis-os' ); ?></dt><dd><?php echo '' !== $biz['business_name'] ? esc_html( $biz['business_name'] ) : '<span class="description">' . esc_html__( 'not bound', 'aivis-os' ) . '</span>'; ?></dd>
 						<dt><?php esc_html_e( 'Domain', 'aivis-os' ); ?></dt><dd><code><?php echo esc_html( $o->site_host() ); ?></code> <?php esc_html_e( 'matched to', 'aivis-os' ); ?> <code><?php echo esc_html( (string) wp_parse_url( $biz['base_url'], PHP_URL_HOST ) ?: '—' ); ?></code></dd>
 						<dt><?php esc_html_e( 'Languages', 'aivis-os' ); ?></dt><dd><?php
@@ -237,6 +245,7 @@ final class StatusPage {
 			'AIVIS_SCHEMA_INVALID' => __( 'Last response failed validation — previous artifact kept', 'aivis-os' ),
 			'AIVIS_ADMIN_DISABLED' => __( 'Disabled on this site by an administrator', 'aivis-os' ),
 			'AIVIS_LANGUAGE_UNASSIGNED' => __( 'Its chain is not assigned to a language — not synced, not injected', 'aivis-os' ),
+			'AIVIS_ENVIRONMENT_SWITCHED' => __( 'Synced from the other AIVIS instance before the environment was switched — not injected', 'aivis-os' ),
 			default               => $code,
 		};
 	}
