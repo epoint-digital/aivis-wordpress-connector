@@ -30,6 +30,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// A second copy in another folder (typically a GitHub "Download ZIP", which
+// lands as aivis-wordpress-connector-main) must not load twice: the constants
+// would be redefined and every hook registered a second time (#70). The copy
+// WordPress loads first wins; this one only says where it is.
+if ( defined( 'AIVIS_OS_FILE' ) ) {
+	add_action(
+		'admin_notices',
+		static function (): void {
+			echo '<div class="notice notice-error"><p>';
+			echo esc_html(
+				sprintf(
+					/* translators: 1: this copy's plugin file, 2: the copy that is loaded */
+					__( 'AIVIS OS is installed twice. This copy (%1$s) is not loaded — deactivate and delete it under Plugins, and keep %2$s.', 'aivis-os' ),
+					plugin_basename( __FILE__ ),
+					plugin_basename( AIVIS_OS_FILE )
+				)
+			);
+			echo '</p></div>';
+		}
+	);
+	return;
+}
+
 // The header above is the single source of truth for the version. This
 // constant is derived from it so the two cannot disagree; CI additionally
 // verifies the git tag and CHANGELOG match (scripts/version-check.mjs).

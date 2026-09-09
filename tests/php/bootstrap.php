@@ -225,3 +225,4 @@ if ( ! function_exists( 'checked' ) ) { function checked( mixed $a, mixed $b = t
 if ( ! function_exists( 'disabled' ) ) { function disabled( mixed $a, mixed $b = true, bool $echo = true ): string { $s = (string) $a === (string) $b ? " disabled='disabled'" : ''; if ( $echo ) { echo $s; } return $s; } }
 if ( ! function_exists( 'esc_js' ) ) { function esc_js( string $t ): string { return addslashes( $t ); } }
 if ( ! function_exists( '_e' ) ) { function _e( string $t, string $d = 'default' ): void { echo $t; } }
+if ( ! function_exists( 'plugin_basename' ) ) { function plugin_basename( string $f ): string { return basename( dirname( $f ) ) . '/' . basename( $f ); } }
