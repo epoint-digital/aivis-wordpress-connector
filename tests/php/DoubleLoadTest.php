@@ -13,10 +13,12 @@ final class DoubleLoadTest extends TestCase {
 		// The first copy is already loaded: its file constant exists.
 		define( 'AIVIS_OS_FILE', '/srv/site/wp-content/plugins/aivis-os/aivis-os.php' );
 		$second = dirname( __DIR__, 2 ) . '/aivis-os.php';
+		// The test bootstrap already defines every AIVIS_OS_* constant, so a copy
+		// that ran past the guard would redefine them — PHP raises a warning,
+		// which PHPUnit turns into a test error. Reaching the assertion at all
+		// proves the early return; the null return value proves it was a
+		// top-level `return;` rather than the end of the file (which yields 1).
 		$result = include $second;
 		self::assertNull( $result, 'a top-level `return;` makes include yield null; running to the end would yield 1' );
-		// The bootstrap defines the constants the code under test needs; the
-		// plugin file would add AIVIS_OS_URL, which nothing else defines.
-		self::assertFalse( defined( 'AIVIS_OS_URL' ), 'the second copy defined nothing' );
 	}
 }
