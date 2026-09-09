@@ -7,7 +7,7 @@
 import {
   Action, classifyLookup, decideFromLookup, decideFromInventory,
   validateEnvelope, checkBinding, localUrlKeyInput, isAuthoritative,
-  NOT_FOUND, NOT_GENERATED,
+  NOT_FOUND, NOT_GENERATED, CODE,
 } from '../../src/reference/connector-logic.mjs';
 import { test, assert, eq, throws, heading, finish } from '../harness.mjs';
 
@@ -19,6 +19,7 @@ const env = (over = {}) => ({
 /** An object of exactly `n` nested levels. */
 const nest = n => n <= 1 ? {} : { child: nest(n - 1) };
 const body = message => ({ error: { message } });
+const coded = (code, message = 'Human text, may change') => ({ error: { code, message } });
 
 console.log('\nAIVIS connector — unit tests\n');
 
@@ -36,6 +37,51 @@ await test('404 + "URL not found" → url_gone',        () => eq(classifyLookup(
 await test('404 + "not generated" → not_generated',   () => eq(classifyLookup({ status: 404, body: body(NOT_GENERATED) }), 'not_generated', 'kind'));
 await test('404 with an unknown message → unreadable', () => eq(classifyLookup({ status: 404, body: body('Something else entirely') }), 'unreadable', 'kind'));
 await test('404 with no body at all → unreadable',     () => eq(classifyLookup({ status: 404 }), 'unreadable', 'kind'));
+
+// Contract >= 1.1.0 (API-3): the stable error.code decides; the message is prose.
+heading('classifyLookup by error.code');
+await test('404 url_not_found → url_gone whatever the message',       () => eq(classifyLookup({ status: 404, body: coded(CODE.URL_NOT_FOUND) }), 'url_gone', 'kind'));
+await test('404 jsonld_not_generated → not_generated',                 () => eq(classifyLookup({ status: 404, body: coded(CODE.NOT_GENERATED) }), 'not_generated', 'kind'));
+await test('404 with an unknown code → unreadable (status alone)',    () => eq(classifyLookup({ status: 404, body: coded('business_not_found') }), 'unreadable', 'kind'));
+await test('404 with a code beats a misleading legacy message',        () => eq(classifyLookup({ status: 404, body: { error: { code: CODE.NOT_GENERATED, message: NOT_FOUND } } }), 'not_generated', 'kind'));
+await test('410 withdrawn → withdrawn',                                () => eq(classifyLookup({ status: 410, body: coded(CODE.WITHDRAWN) }), 'withdrawn', 'kind'));
+await test('410 without the code → unreadable (a proxy could say 410)', () => eq(classifyLookup({ status: 410, body: coded('not_found') }), 'unreadable', 'kind'));
+await test('426 client_too_old → client_too_old',                      () => eq(classifyLookup({ status: 426, body: coded(CODE.CLIENT_TOO_OLD) }), 'client_too_old', 'kind'));
+await test('426 without a body → client_too_old (status alone)',       () => eq(classifyLookup({ status: 426 }), 'client_too_old', 'kind'));
+await test('429 rate_limited → throttled',                             () => eq(classifyLookup({ status: 429, body: coded(CODE.RATE_LIMITED) }), 'throttled', 'kind'));
+await test('401 with any code → auth',                                 () => eq(classifyLookup({ status: 401, body: coded('missing_token') }), 'auth', 'kind'));
+await test('403 account_deactivated → account',                        () => eq(classifyLookup({ status: 403, body: coded('account_deactivated') }), 'account', 'kind'));
+await test('500 internal_error → transport',                           () => eq(classifyLookup({ status: 500, body: coded('internal_error') }), 'transport', 'kind'));
+
+heading('decideFromLookup: explicit retraction (R-01b) and 426');
+await test('410 withdrawn deactivates without a reachability proof', () => {
+  const d = decideFromLookup({ status: 410, body: coded(CODE.WITHDRAWN), apiReachable: false });
+  eq(d.action, Action.DEACTIVATE, 'action');
+  eq(d.rule, 'R-01b', 'rule');
+});
+await test('426 client_too_old holds (nothing is removed because the plugin is old)', () => {
+  eq(decideFromLookup({ status: 426, body: coded(CODE.CLIENT_TOO_OLD), apiReachable: true }).action, Action.HOLD, 'action');
+});
+await test('429 rate_limited holds', () => eq(decideFromLookup({ status: 429, body: coded(CODE.RATE_LIMITED), apiReachable: true }).action, Action.HOLD, 'action'));
+
+heading('decideFromInventory: suppressedAt and open enums');
+await test('ready:false + suppressedAt deactivates even while the capture is processing', () => {
+  const row = { jsonLd: { ready: false, suppressedAt: '2026-09-08T10:00:00Z' }, captureStatus: 'processing' };
+  eq(decideFromInventory({ authoritative: true, row, missingCompleteRuns: 0 }).action, Action.DEACTIVATE, 'action');
+});
+await test('ready:true wins over a stale suppressedAt (republished)', () => {
+  const row = { jsonLd: { ready: true, suppressedAt: '2026-09-08T10:00:00Z' }, captureStatus: 'processed' };
+  eq(decideFromInventory({ authoritative: true, row, missingCompleteRuns: 0 }).action, Action.SERVE, 'action');
+});
+await test('ready:false with an unknown captureStatus holds (open enum)', () => {
+  const row = { jsonLd: { ready: false, suppressedAt: null }, captureStatus: 'reprocessing_v2' };
+  eq(decideFromInventory({ authoritative: true, row, missingCompleteRuns: 0 }).action, Action.HOLD, 'action');
+});
+await test('ready:false with captureStatus failed or null deactivates', () => {
+  for (const cs of ['failed', 'processed', 'draft', null]) {
+    eq(decideFromInventory({ authoritative: true, row: { jsonLd: { ready: false, suppressedAt: null }, captureStatus: cs }, missingCompleteRuns: 0 }).action, Action.DEACTIVATE, `captureStatus ${cs}`);
+  }
+});
 await test('a reworded message degrades safely, not silently', () => {
   // The exact scenario API-3 exists to remove: they edit the copy, we must not
   // start deactivating pages.

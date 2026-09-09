@@ -107,7 +107,10 @@ export function conform(spec, method, concretePath, status, body) {
   const res = op.responses?.[String(status)];
   if (!res) return { checked: false, errors: [`spec declares no ${status} response for ${method} ${tpl}`] };
   const schema = res.content?.['application/json']?.schema;
-  if (!schema) return { checked: false, errors: [] };  // documented, no body schema
+  if (!schema) {
+    // Documented without a body (a 304): checked — the body must then be empty.
+    return { checked: true, errors: body == null ? [] : [`${method} ${tpl} ${status}: body present but the document declares none`] };
+  }
   return { checked: true, errors: validate(schema, body, `${method} ${tpl} ${status}`) };
 }
 

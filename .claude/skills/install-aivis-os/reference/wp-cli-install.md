@@ -50,7 +50,7 @@ wp plugin list --name=aivis-os --fields=name,status,version
 ## 4. Connect and bind
 
 ```bash
-wp aivis connection test          # "Connected as … Account-scoped: this token reads every business on the account."
+wp aivis connection test          # "Connected to <host> (contract 1.9.0, minimum client 1.0.0). Token … — bound to business …" (or "account-wide as <email>")
 wp aivis bind                     # binds the one business whose domain matches; lists candidates if several
 # wp aivis bind --business=<id>   # only when more than one business uses this domain and the human said which
 ```

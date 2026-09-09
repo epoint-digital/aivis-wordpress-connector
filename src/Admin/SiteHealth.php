@@ -30,11 +30,19 @@ final class SiteHealth {
 		$tests['direct']['aivis_os_languages'] = [ 'label' => 'AIVIS OS: every language has a chain', 'test' => [ $this, 'test_languages' ] ];
 		$tests['direct']['aivis_os_moved']     = [ 'label' => 'AIVIS OS: pages still at the address AIVIS crawled', 'test' => [ $this, 'test_moved' ] ];
 		$tests['direct']['aivis_os_environment'] = [ 'label' => 'AIVIS OS: environment', 'test' => [ $this, 'test_environment' ] ];
+		$tests['direct']['aivis_os_api']         = [ 'label' => 'AIVIS OS: API contract', 'test' => [ $this, 'test_api' ] ];
 		return $tests;
 	}
 
 	public function test_token(): array {
-		$src = $this->plugin->options()->token_source();
+		$o     = $this->plugin->options();
+		$src   = $o->token_source();
+		$ts    = $o->token_status();
+		$scope = true === $ts['valid']
+			? ( $ts['bound']
+				? sprintf( ' The token is bound to %s and reads nothing else on the account.', $ts['business_name'] )
+				: ' This is an account-wide token — it reads every business on the account — so where copies of it end up matters; prefer a token bound to this business (AIVIS → profile → API tokens).' )
+			: '';
 		return $this->result(
 			'constant' === $src ? 'good' : ( 'option' === $src ? 'recommended' : 'critical' ),
 			match ( $src ) {
@@ -43,11 +51,28 @@ final class SiteHealth {
 				default    => 'AIVIS OS has no API token',
 			},
 			match ( $src ) {
-				'constant' => 'Held outside the database, so it does not travel in backups, staging clones or migrations.',
-				'option'   => 'Define AIVIS_API_TOKEN in wp-config.php instead. An AIVIS token is account-scoped — it reads every business on the account — so where copies of it end up matters.',
+				'constant' => 'Held outside the database, so it does not travel in backups, staging clones or migrations.' . $scope,
+				'option'   => 'Define AIVIS_API_TOKEN in wp-config.php instead.' . $scope,
 				default    => 'Add a token under AIVIS OS → Settings. Nothing is injected until a business is bound.',
 			}
 		);
+	}
+
+	/** §03 — the contract the instance speaks, and whether this connector is still welcome. */
+	public function test_api(): array {
+		$o   = $this->plugin->options();
+		$api = $o->api_info();
+		if ( true === $o->client_too_old() ) {
+			return $this->result( 'critical', 'AIVIS no longer accepts this version of AIVIS OS', sprintf( 'AIVIS requires connector %s or newer; this is %s. Update the plugin — syncing has stopped and pages serve their last known good structured data.', $api['min_client'] ?: '?', AIVIS_OS_VERSION ) );
+		}
+		if ( '' === $api['version'] ) {
+			return $this->result( 'recommended', 'AIVIS OS has not heard from AIVIS yet', 'Test the connection under AIVIS OS → Settings. The instance announces its contract version and minimum client on every response.' );
+		}
+		$next = $api['next_min_client'];
+		if ( null !== $next && version_compare( AIVIS_OS_VERSION, $next['version'], '<' ) ) {
+			return $this->result( 'recommended', 'AIVIS will soon require a newer AIVIS OS', sprintf( 'From %s AIVIS requires connector %s; this is %s. Update the plugin before then.', $next['effective_from'] ?: '?', $next['version'], AIVIS_OS_VERSION ) );
+		}
+		return $this->result( 'good', sprintf( 'AIVIS OS %s speaks AIVIS API contract %s', AIVIS_OS_VERSION, $api['version'] ), sprintf( 'Minimum client %s; last seen %s ago.', $api['min_client'] ?: '?', human_time_diff( (int) $api['seen_at'] ) ) );
 	}
 
 	public function test_cron(): array {

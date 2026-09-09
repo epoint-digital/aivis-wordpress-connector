@@ -2,13 +2,13 @@
 
 | Field | Value |
 |---|---|
-| Specification version | **1.0.0** (supersedes adapted rev 1, 08 Aug 2026) |
+| Specification version | **1.1.0** (supersedes 1.0.0 of 05 Sep 2026 and adapted rev 1 of 08 Aug 2026) |
 | Target plugin version | 1.0.0 |
-| Date | 05 Sep 2026 |
+| Date | 09 Sep 2026 |
 | Repository | `aivis-wordpress-connector` |
 | Plugin slug / text domain | `aivis-os` (bootstrap `aivis-os.php`) |
 | License | GPL-2.0-or-later (deliberately different from the edge connector's Apache-2.0) |
-| API contract | AIVIS Public API v1.0.0 |
+| API contract | AIVIS Public API **1.9.0** (works down to 1.0.0 through the prose fallback of §04; business-bound tokens need ≥ 1.3.0) |
 | Platforms | WordPress 6.5 – 7.1, PHP 8.1 – 8.5 |
 | Companion | [API-REQUIREMENTS.md](API-REQUIREMENTS.md) — extensions requested from the AIVIS team |
 | Process board | [AIVIS Connector — Program Map](https://www.figma.com/board/zQo3mgU7G8eRrVqsBa2LnP) — sync loop, retraction tree, edge composition, API dependencies |
@@ -23,17 +23,25 @@ the code.
 `epoint-digital/aivis@e96b89c` (the Public API shipped as #142 on 2026-08-11, after rev 1 was
 written). Every API statement below carries a source. Changes from rev 1 are listed in §01.
 
+**Re-verified on 09 Sep 2026** against contract **1.9.0** on the Test instance: all eleven asks in
+[API-REQUIREMENTS.md](API-REQUIREMENTS.md) shipped between 1.1.0 and 1.9.0 (all dated 2026-09-08),
+and this revision adopts them — stable error codes, the compatibility policy, business-bound
+tokens, chain language, explicit retraction, the per-URL lookup, the change feed, conditional
+requests and rate limits. Production `app.aivis-os.com` had no DNS record on that date.
+
 ---
 
 ## §00 · Status and prerequisites
 
-**Ship restriction (v1).** The connector ships to **AIVIS-controlled or AIVIS-operated WordPress
-installs only**. Customer-managed distribution is blocked on API-1 (business-scoped tokens), because
-an account-scoped token in a customer's database exposes every business on the account. See §13.
+**Ship restriction (v1) — lifted for bound tokens (2026-09-09).** With a **business-bound token**
+(API-1, contract ≥ 1.3.0: created in AIVIS for one business, reads nothing else) the connector may
+run on **customer-managed installs**. With an **account-wide token** it stays restricted to
+AIVIS-controlled or AIVIS-operated installs, because such a token in a customer's database exposes
+every business on the account. The Settings screen says which kind is in use (§13); the install
+guide asks for a bound token.
 
-Rev 1 recorded business-scoped tokens as a prerequisite expected to land; they do not exist, and the
-appendix's Q-02 contradicted the body on whether v1 could ship without them. Resolved here: **v1
-ships without them, under the restriction above.**
+Rev 1 recorded business-scoped tokens as a prerequisite expected to land; 1.0.0 of this
+specification shipped without them under the restriction above; they exist since 2026-09-08.
 
 **Delivery-only principle (decision 2026-09-07, WP-I12).** The plugin is a delivery method and
 carries no more business logic than the API forces on it. Logic it holds today only because AIVIS
@@ -41,8 +49,8 @@ cannot yet provide it, and what removes it:
 
 | Interim logic in the plugin | Why it exists | Removed when |
 |---|---|---|
-| Retraction inference R-01…R-02a (§06) | No withdrawal signal in the API | API-2/API-3 ship (aivis#266, #267): the plugin obeys a 410 |
-| Language hint sampling and automatic assignment (§07a) | Chains carry no language | API-10 ships (aivis#274): WordPress language code equals chain `languageCode`; the Settings table stays only for overrides |
+| ~~Retraction inference R-01…R-02a (§06)~~ | ~~No withdrawal signal in the API~~ | **Removed 2026-09-09.** The plugin obeys `410 withdrawn` and `suppressedAt` (R-01b, R-02a). R-01/R-02 remain only for *deleted* rows, which AIVIS leaves without a tombstone by design |
+| ~~Language hint sampling (§07a)~~ | ~~Chains carry no language~~ | **Removed 2026-09-09.** The chain's own `languageCode` is the source; the Settings table stays for overrides and for chains AIVIS reports as mixed |
 | Conflict scan of the site's own pages (§09a) | AIVIS does not yet verify delivery from the public page | AIVIS fetches pages itself and sees `data-aivis-hash`; the plugin keeps the "active plugins" fact and the switch-off guidance |
 | Loopback verification (§11) | A delivery diagnostic — is the cache purged? — which only the site can run | Stays; it is a fact about delivery, not a judgment |
 
@@ -77,6 +85,8 @@ multi-chain winner rule and trailing-slash matching (§03).
 | 9 | Rate-limit wording corrected (§04) | No rate limiting exists; the real throttle is ours |
 | 10 | Gaps closed: option keys, cron hooks, GC job, `PurgeResult`, depth limit, text domain, negative-cache naming, `url_key` canonicalisation | All were undefined in rev 1 |
 | 11 | `data-aivis` marker documented as a shared contract (§14) | The edge worker depends on it; no document stated it |
+| 12 | **Contract 1.9.0 adopted** (§03, §04, §06, §07a, §13, §19; spec 1.1.0, 2026-09-09) | All eleven API asks shipped: classification by `error.code`, 410 `withdrawn`, 426 and the version headers, bound tokens, chain `languageCode`, `?url=`, `?updatedSince=`, rate limits |
+| 13 | **Connection test names the host and the reason; one settings form** (§11, #69) | On marketos.ro every failure read "Token invalid or revoked" — including an unreachable production host and a token that was never saved because nested forms broke the page |
 
 ---
 
@@ -108,31 +118,57 @@ serve the same contract from different accounts and data. A site talks to exactl
 Settings (Q-01); a token issued on one instance is invalid on the other, and switching lets go of
 everything that came from the previous one.
 
-Base `https://app.aivis-os.com/api/public/v1` in production; `AIVIS_API_BASE_URL` overrides it for dev/staging (`https://aivis-new.dev.onepoint.ro`). Every request carries `Authorization: Bearer aivis_…` and
-`Accept: application/json`. Errors are `{"error":{"message":"…"}}`.
+Base `https://app.aivis-os.com/api/public/v1` in production; `AIVIS_API_BASE_URL` overrides it for custom hosts. Every request carries `Authorization: Bearer aivis_…`,
+`Accept: application/json` and `User-Agent: aivis-os/<plugin semver> (…)` — the server compares that
+version with its minimum client. Errors are `{"error":{"code","message","details"?}}`
+(contract ≥ 1.1.0): `code` is stable and the connector branches on it; `message` is prose and may
+change. A 1.0.0 envelope has no `code`; §04 keeps the two prose messages as a fallback.
 
 **Authentication** (`lib/public-api/auth.ts`). Token format is `aivis_` + 32 random bytes base64url.
-Only the SHA-256 digest is stored; the plaintext is shown once at creation. The token resolves to a
-**user**, and every route scopes by `userId` — "the business → user chain is the tenancy boundary".
-There is no `businessId`, scope, or expiry on the token, and no rate limiting. Revocation is a row
-delete; rotation is manual (create, swap, delete).
+Only the SHA-256 digest is stored; the plaintext is shown once at creation. Two kinds of token
+(contract ≥ 1.3.0, API-1): an **account-wide** token resolves to a user and reads every business
+on the account; a **business-bound** token is created for one business — `/businesses` lists only
+it and every other endpoint answers 404 outside it, exactly as for another account's data. `/me`
+tells them apart: a bound token has `businessId` and `business{id,name,baseUrl}` and `email`/`name`
+null; `permissions` is `["jsonld:read"]` for every token today (an open list). No expiry on either.
+Revocation is a row delete; rotation is manual (create, swap, delete).
+
+**Compatibility policy (contract ≥ 1.2.0, API-11).** The contract version is semver, published as
+`info.version` and as `X-Aivis-Api-Version` on every response; additive changes bump the minor
+within `/v1`, breaking ones go to `/v2` with six months of overlap. Every response also carries
+`X-Aivis-Min-Client`; a `User-Agent: aivis-os/<semver>` below it is answered `426 Upgrade Required`
+with `error.code: client_too_old` (the documentation routes `/openapi.json`, `/docs`, `/changelog`
+never 426). `GET /changelog` publishes the version, minimum client, a raised minimum announced ahead
+of enforcement (`nextMinClient{version,effectiveFrom}`), the rate limits and current deprecations;
+retiring endpoints carry `Deprecation`, `Sunset` and `Link rel="deprecation"` headers, and
+`GET /deprecation-probe` carries them permanently for testing. **Enums are open** (`state`, `layer`,
+`captureStatus`, `error.code`, `permissions`): the document lists known values in descriptions, and
+the connector treats an unknown value conservatively — an unknown `state` is not `ready`, an unknown
+`captureStatus` means hold, an unknown `error.code` is handled by its HTTP status alone.
 
 ### Endpoints
 
 | Endpoint | Plugin use |
 |---|---|
-| `GET /me` | Validate the token; display `email`, `name`, `tokenName` |
-| `GET /businesses` | Business selector. Returns `id`, `name`, `baseUrl`, `industry{key,name}`, `chainCount`, `createdAt` |
-| `GET /businesses/{businessId}/chains` | Non-archived chains. Returns `id`, `name`, `description`, `state`, `currentStep`, `knowledgeGraphReady`, `graphScore`, `urlCount`, `createdAt` |
-| `GET /chains/{chainId}/urls` | Inventory. Returns `id`, `url`, `languageCode`, `layer`, `captureStatus`, `jsonLd{ready,stale,generatedAt}` |
-| `GET /jsonld?url={absoluteUrl}` | Artifact retrieval, the hot path |
-| `GET /urls/{urlId}/jsonld` | Diagnostics and exact-ID verification only |
+| `GET /me` | Validate the token; `tokenName`, and either `email`/`name` (account-wide) or `businessId`/`business{id,name,baseUrl}` (bound); `permissions` |
+| `GET /changelog` | Contract version, `minClientVersion`, `nextMinClient`, `rateLimits`, `deprecations`, entries. Read on every connection test (§11) |
+| `GET /deprecation-probe` | Deprecated on purpose; carries the deprecation headers so a client can test its handling. Not used in production code |
+| `GET /businesses` | Business selector. Returns `id`, `name`, `baseUrl`, `industry{key,name}`, `chainCount`, `createdAt`. A bound token sees one |
+| `GET /businesses/{businessId}/chains` | Non-archived chains. Returns `id`, `name`, `description`, `state`, `currentStep`, `knowledgeGraphReady`, `graphScore`, `urlCount`, `createdAt`, and (≥ 1.4.0, API-10) **`languageCode`** — the one language its rows use, null when mixed or undeclared — with `urlLanguageCodes` and `declaredLanguageCodes` |
+| `GET /chains/{chainId}/urls` | Inventory. Returns `id`, `url`, `chainId`, `businessId` (≥ 1.6.0), `languageCode`, `layer`, `captureStatus`, `jsonLd{ready,stale,generatedAt,suppressedAt}`. `?url=` (≥ 1.6.0, API-5) narrows to one page — exact plus trailing-slash variant, a miss is an empty page; `?updatedSince=<RFC 3339 with zone>` (≥ 1.7.0, API-6) is the change feed |
+| `GET /urls/{urlId}` | One inventory row by id (≥ 1.6.0) |
+| `GET /jsonld?url={absoluteUrl}` | Artifact by permalink: the freshest published copy across every chain and business the token reads. **Not used by the connector any more** — it cannot pin the chain (§07a) |
+| `GET /urls/{urlId}/jsonld` | Artifact by inventory row: the path the connector fetches on, because it pins the chain |
 
-**Enums.** `state`: `empty` \| `building` \| `ready` \| `re_ingesting`. `layer`: `structural_core`
+**Enums (open).** `state`: `empty` \| `building` \| `ready` \| `re_ingesting`. `layer`: `structural_core`
 \| `editorial`. `captureStatus`: `draft` \| `processing` \| `processed` \| `failed` \| `null`.
+`error.code`: `bad_request`, `unauthorized`, `missing_token`, `invalid_token`, `forbidden`,
+`account_deactivated`, `not_found`, `business_not_found`, `chain_not_found`, `url_not_found`,
+`jsonld_not_generated`, `withdrawn`, `client_too_old`, `rate_limited`, `internal_error`. New values
+may appear within v1 (see the compatibility policy above).
 
-**Artifact envelope**, from both `/jsonld` endpoints — all eight fields required,
-`additionalProperties: false`:
+**Artifact envelope**, from both artifact endpoints — all eight fields required; since 1.1.0 the
+published schemas allow additive fields, which the connector ignores (ZT-02 checks the eight):
 
 ```
 urlId, chainId, businessId, url, languageCode, stale (bool), generatedAt (ts), jsonLd (object|array)
@@ -153,11 +189,21 @@ gives the completion denominator a sync needs (§06).
   would be worse than a 404"). See §07.
 - **Multi-chain winner:** non-stale first, then newest (`compareJsonLdCandidates`).
 
-**Absent by design — do not build against these.** No serve-gate (`validated` vs `latest`); one
-artifact per URL is an enforced invariant (`UrlJsonLdArtifact.urlId @unique`), so there is no
-previous version to fall back to. No `suppressedAt`, tombstone or publication state. No `ETag`,
-`Last-Modified` or `Cache-Control`. No webhooks or change feed. No rate-limit headers. Each is
-requested in [API-REQUIREMENTS.md](API-REQUIREMENTS.md).
+**Present since 2026-09-08** (each was "absent by design" in 1.0.0 and requested in
+[API-REQUIREMENTS.md](API-REQUIREMENTS.md)): unpublish as a publication state — `410 withdrawn` on
+the artifact endpoints and `jsonLd.suppressedAt` + `ready:false` on inventory rows (≥ 1.5.0); a
+strong `ETag` on every 200 with `If-None-Match` → `304` (≥ 1.8.0), `Cache-Control: private,
+no-cache` and `Vary: Authorization`; the change feed `?updatedSince=` (≥ 1.7.0); rate limits — 600
+requests per 60 s per token, `429 rate_limited` with `Retry-After`, `X-RateLimit-Limit`/`-Remaining`/
+`-Reset` on every response (≥ 1.9.0).
+
+**Still absent, by design.** No serve-gate (`validated` vs `latest`): one artifact per URL is an
+enforced invariant (`UrlJsonLdArtifact.urlId @unique`), so there is no previous version to fall back
+to. No tombstone for a *deleted* URL row — it simply disappears from the inventory, which is why the
+periodic full walk (§06) still exists; "unpublish instead when consumers must learn about it". No
+outbound refresh ping (API-6 part 2) in v1. No server-side URL normalization (API-8, declined). The
+connector does not send `If-None-Match`: its inventory diff already avoids re-fetching an unchanged
+artifact, and a 304 saves the transfer, not the lookup.
 
 ---
 
@@ -167,23 +213,29 @@ requested in [API-REQUIREMENTS.md](API-REQUIREMENTS.md).
 |---|---|
 | `200` | Validate through §08 before storing or displaying anything |
 | `400` | Mark the URL request invalid; no retry without changing the request |
-| `401` | Stop the sync, keep last-known-good rows, show "API token invalid or revoked". Covers both missing and unrecognised tokens |
-| `403` | Stop the sync, keep rows, show "AIVIS account deactivated" |
-| `404` — **unknown URL** (`"URL not found in your businesses"`) | New URL: negative-cache the miss (§06). Previously-stored URL: **withdrawal candidate**, R-01 |
-| `404` — **no artifact** (`"JSON-LD not generated yet for this URL"`) | Never deactivate. Hold last-known-good; the page exists and only the artifact is missing |
-| `404` — unrecognised body | Conservative branch: hold last-known-good, suspend, confirm via inventory |
-| `429` | Honour `Retry-After`; schedule a later batch; never sleep in-process. Defensive only — no rate limiting exists today |
-| `5xx` / network / timeout | Keep last-known-good; retry via scheduled backoff |
+| `401` (`missing_token`, `invalid_token`, `unauthorized`) | Stop the sync, keep last-known-good rows. The connection test names the host that rejected the token (§11) |
+| `403` (`account_deactivated`, `forbidden`) | Stop the sync, keep rows, show "AIVIS account deactivated" |
+| `404 url_not_found` | New URL: negative-cache the miss (§06). Previously-stored URL: **deletion candidate**, R-01 |
+| `404 jsonld_not_generated` | Never deactivate. Hold last-known-good; the page exists and only the artifact is missing (R-01a) |
+| `404` with any other code (`business_not_found`, `chain_not_found`, `not_found`, a future one), or no code and an unrecognised body | Conservative branch: hold last-known-good, confirm via inventory (R-01a) |
+| `410 withdrawn` | **Unpublished in AIVIS.** Deactivate now, purge, keep the row; it comes back through the inventory when republished (R-01b). No reachability proof needed: only AIVIS emits the code |
+| `426 client_too_old` | Stop the sync, keep rows, record `AIVIS_CLIENT_TOO_OLD` once per hour, show "update required" on Status, in Site Health and as an admin notice. `X-Aivis-Min-Client` is remembered from every response so the comparison survives a plugin update |
+| `429 rate_limited` | Honour `Retry-After`: the tick yields and continues a minute later; never sleep in-process. The tick also yields when `X-RateLimit-Remaining` drops below 20, leaving headroom for on-demand lookups and AIVIS's own status fetch |
+| `5xx` (`internal_error`) / network / timeout | Keep last-known-good; retry via scheduled backoff. A 5xx *reached* AIVIS and is reported as such; status 0 (DNS, TLS, timeout) as "could not reach" |
 
-Message matching is defensive by construction: the strings are prose, not contract, and any
-unrecognised 404 body takes the conservative branch. API-3 replaces this with a stable `code`.
+Classification branches on `error.code` (contract ≥ 1.1.0). A 1.0.0 envelope carries no code, and
+the two prose messages of that contract — `URL not found in your businesses`, `JSON-LD not generated
+yet for this URL` — remain as the fallback; a code always wins over the message. An unknown code is
+handled by its HTTP status alone, as the compatibility policy asks (§03).
 
 **Transport.** `wp_safe_remote_get()`, TLS verified, **zero redirects** (a redirect would forward
 the bearer token), fixed AIVIS host, 10 s timeout, 1 MiB response cap, connector version in the user
 agent, JSON content type (charset parameter allowed), never on the public render path.
 
-**Self-throttle.** Max 20 artifact requests per job; batch scheduling; no in-process sleeps. This is
-the real rate limit, chosen by us, not negotiated with the API.
+**Self-throttle.** Max 20 artifact requests per job (filter `aivis_connector_artifacts_per_job`);
+batch scheduling; no in-process sleeps. AIVIS allows 600 requests per 60 s per token (§03), so the
+cap is about not monopolising the window — the connection test, on-demand lookups and AIVIS's own
+status fetcher share it — not about surviving without one.
 
 ---
 
@@ -223,12 +275,13 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 
 | Key | Contents |
 |---|---|
-| `aivis_os_token_status` | Token source (`constant` \| `option`), validation state, `tokenName`, last check |
+| `aivis_os_token_status` | Validation state, `tokenName`, and what `/me` said: `email` (account-wide) or the bound business (`bound`, `business_id`, `business_name`, `business_base_url`, `permissions`); on failure `failure{kind,status,detail,host}` — what went wrong and which host answered (§11) |
+| `aivis_os_api_info` | The contract observed on the wire (§03, §19): `version`, `min_client`, `too_old` (a 426 was seen), `next_min_client{version,effective_from}` and `rate_limit` from `/changelog`, `seen_at` |
 | `aivis_os_token` | The token, only when no constant is defined |
 | `aivis_os_environment` | `production` \| `test` — which of the two AIVIS instances the site talks to (§03). Ignored when `AIVIS_API_BASE_URL` is defined |
 | `aivis_os_business` | Selected `businessId`, `baseUrl`, allowed hosts, and `chains`: the chain → language assignment (§07a) |
 | `aivis_os_delivery` | Injection switch, per-URL disables |
-| `aivis_os_sync_state` | Cursors, current sync id, last authoritative completion, lock |
+| `aivis_os_sync_state` | Cursors, current sync id and its `mode` (`full` \| `incremental`) and `since`, last completion, last full walk (`last_full_at`), `last_run_started_at` (the next feed's `updatedSince`), `force_full`, lock |
 | `aivis_os_diagnostics` | Capped recent errors (100 entries, ring buffer) |
 | `aivis_os_schema_version` | DB schema version |
 | `aivis_os_status_key` / `aivis_os_status_disabled` | The read-only key AIVIS presents to fetch the status document (§11a); the explicit "disabled" marker |
@@ -280,16 +333,29 @@ hitting `wp-cron.php`, or WP-CLI.
 2. **Inventory walk.** `/businesses/{id}/chains` → for each chain **assigned to a WordPress
    language** (§07a; unassigned chains are listed for the status screen but never walked),
    `/chains/{id}/urls` with `limit=200`, following `nextCursor`. An assignment to a chain that no
-   longer exists is dropped and recorded.
-3. **Authoritative run.** A sync is *authoritative* only when every page of every chain completed
-   and the row count reconciles with `total`. A partial traversal **never** deactivates or retires
-   anything.
+   longer exists is dropped and recorded. A row naming another `businessId` is skipped and
+   reported (ZT-03 on the row itself).
+   **Two walk modes (contract ≥ 1.7.0, API-6).** A **full walk** reads every row; it runs on a
+   fresh install, when `wp aivis sync --full` asks for one, and whenever the last full walk is
+   older than six hours (`FULL_WALK_EVERY`, filter `aivis_connector_full_walk_every`, floor 15
+   minutes). Between full walks the sync asks the **change feed** — `?updatedSince=` set to the
+   previous run's start minus five minutes — which returns only rows that changed: added,
+   edited, captured, (re)generated, marked stale, unpublished or republished. A deleted row leaves
+   no trace in the feed, by AIVIS's design, which is why the full walk stays.
+3. **Authoritative run.** A sync is *authoritative* only when it is a full walk in which every page
+   of every chain completed and the row count reconciles with `total`. A partial traversal, and
+   every change-feed walk, **never** retires anything for absence — but a row either walk *saw* is
+   authoritative for itself (R-02a): an unpublish arrives through the feed as `ready:false` +
+   `suppressedAt` and takes the block down within one interval.
 4. **Target set.** The distinct absolute URLs with at least one row where `jsonLd.ready = true`.
 5. **Artifact fetch.** `/urls/{urlId}/jsonld` per inventory row, max 20 per job, resuming from
-   persisted cursors. Fetching by id pins the chain; `/jsonld?url=` returns the freshest artifact
-   across every chain on the account, which with one chain per language can be another
-   language's page. `/jsonld?url=` (§07 outbound form) remains the path for "Refresh this URL
-   now" and on-demand lookups, where no inventory row exists.
+   persisted cursors, yielding early when `X-RateLimit-Remaining` drops below 20. Fetching by id
+   pins the chain; `/jsonld?url=` returns the freshest artifact across every chain on the account,
+   which with one chain per language can be another language's page. "Refresh this URL now" and
+   on-demand lookups therefore go through the inventory too: each chain assigned to the page's
+   language is asked for its row (`/chains/{id}/urls?url=`, API-5), which also carries
+   `captureStatus`; a ready row is fetched by id, an unready one applies R-02a for that row, and no
+   row in any of those chains is R-01. `/jsonld?url=` (§07 outbound form) is not used.
 6. **Store.** Validate through §08, then atomically upsert. Purge caches only after a successful
    commit and only when `content_hash` or `active` changed.
 
@@ -302,11 +368,12 @@ ordinary operation — regeneration, a covering intent leaving the `deployment` 
 
 | ID | Rule |
 |---|---|
-| **R-01** | **Confirmed withdrawal.** A stored URL returns 404 with body `"URL not found in your businesses"`, and API reachability is confirmed in the same run (another request succeeded, or a `/me` probe passes). The `Url` row is gone — and since the artifact cascades on delete, that is how a retraction looks today. **Suspend injection immediately and purge that URL's cache**, then confirm on the next authoritative inventory pass before setting `retired_at`. The delay before deletion exists because the same 404 appears when the token's account or the business selection changes, which is not a retraction |
-| **R-01a** | **Not a withdrawal.** 404 with body `"JSON-LD not generated yet for this URL"`, or any unrecognised 404 body: hold last-known-good, keep serving, re-check next run. Never deactivate |
+| **R-01** | **Deletion, suspected.** A stored URL returns `404 url_not_found`, and API reachability is confirmed in the same run (another request succeeded, or a `/me` probe passes). The `Url` row is gone — AIVIS leaves no tombstone for a deleted row. **Suspend injection immediately and purge that URL's cache**, then confirm on the next authoritative inventory pass before setting `retired_at`. The delay before deletion exists because the same 404 appears when the token's binding or the business selection changes, which is not a retraction |
+| **R-01a** | **Not a withdrawal.** `404 jsonld_not_generated`, a 404 with any other code, or an unrecognised 1.0.0 body: hold last-known-good, keep serving, re-check next run. Never deactivate |
+| **R-01b** | **Unpublished, explicit.** `410 withdrawn` from either artifact endpoint (contract ≥ 1.5.0, API-2): **deactivate now** (`active` → 0, `AIVIS_RETRACTED`), purge, keep the row. No confirmation round and no reachability proof — only AIVIS emits the code. When the page is republished its inventory row is `ready` again, it becomes a fetch target, and the artifact re-activates the row |
 | **R-02** | **Inventory retirement, in two steps.** A URL absent from one complete, authoritative sync is **suspended** — injection stops and its cache is purged — when its chain's pipeline is idle (`ready` or `empty`); while the chain is `building` or `re_ingesting` it is held through the first absence, because rows can be transiently missing mid-pipeline. Absent from a second consecutive authoritative sync it is **retired**: `active` → 0, `retired_at` set. Inactive rows are kept 30 days for rollback, never injected, then deleted by `aivis_os_gc`. A chain that disappears from a successful chain listing retires its rows at once. An empty chain reconciles to zero |
-| **R-02a** | **Ready-flag withdrawal.** An authoritative inventory row reporting `jsonLd.ready = false` for a URL that was previously `true` deactivates it — unless `captureStatus` is `processing`, which means regeneration is in flight and last-known-good is held |
-| **R-03** | **Latency honesty.** With an idle pipeline and no backlog, a withdrawn page stops being served within `sync interval + cache purge` (R-02's first step); while its chain is rebuilding, within two intervals. A sync backlog adds to it: artifacts are fetched at most 20 per tick, but a tick with work left schedules a **continuation a minute later** rather than waiting a whole interval, and the Status screen shows the pending count. The R-01 fast path applies only to URLs the plugin re-fetches. All of this presumes a real system cron; WP-Cron only runs on traffic. 5-minute intervals are recommended for retraction-sensitive sites; "Refresh this URL now" forces an immediate check |
+| **R-02a** | **Ready-flag withdrawal.** An inventory row reporting `jsonLd.ready = false` for a URL that was previously `true` deactivates it — unless `captureStatus` is `processing` (regeneration in flight) or a value the connector does not know (open enum: hold), in which case last-known-good is held. A row with `suppressedAt` set (unpublished, ≥ 1.5.0) deactivates whatever the capture is doing. A row the walk *saw* is authoritative for itself in both walk modes — an unpublish arrives through the change feed this way; only *absence* needs the full walk (R-02) |
+| **R-03** | **Latency honesty.** A page **unpublished** in AIVIS stops being served within `sync interval + cache purge` (the change feed carries it, R-02a; a refresh sees the 410, R-01b). A page **deleted** in AIVIS is only noticed by a full walk: within `full-walk period (6 h) + sync interval + cache purge` while its pipeline is idle; while its chain is rebuilding, one full walk later. A sync backlog adds to it: artifacts are fetched at most 20 per tick, but a tick with work left schedules a **continuation a minute later** rather than waiting a whole interval, and the Status screen shows the pending count. The R-01 fast path applies only to URLs the plugin re-fetches. All of this presumes a real system cron; WP-Cron only runs on traffic. 5-minute intervals are recommended for retraction-sensitive sites; "Refresh this URL now" forces an immediate check |
 
 Other retirement paths, unchanged: admin disconnect with explicit clear, business change, per-URL
 admin disable.
@@ -394,8 +461,13 @@ else the default), and the hosts language home URLs use. Two filters cover anyth
   assigned to it, except a chain AIVIS itself reports as another language; several languages →
   a chain is assigned only when the language AIVIS reports for its pages matches exactly one of
   them. Anything else waits for the admin, and nothing syncs until then.
-- Until the chain resource carries a language (API-10), "what AIVIS reports" is a **hint**
-  sampled from the chain's first five inventory rows (`languageCode`), cached 15 minutes.
+- "What AIVIS reports" is the chain's own `languageCode` (contract ≥ 1.4.0, API-10): the one
+  language its URL rows use, or its single declared language while it has no rows. It is **null
+  for a mixed chain** — rows in several languages, or declared with several — and the connector then
+  shows the languages it holds (`urlLanguageCodes`) and leaves the decision to the admin: assign the
+  one language this site should take from it, or split the chain in AIVIS. Chains are many-to-many
+  with languages in AIVIS's own schema; this connector's one-chain-one-language model is the
+  recommended shape, not a constraint AIVIS enforces (product caveat, open with the AIVIS team).
 - **Unassigning a chain stops it now:** its rows are deactivated (`AIVIS_LANGUAGE_UNASSIGNED`)
   and their caches purged; re-assigning brings them back on the next sync.
 
@@ -403,11 +475,14 @@ else the default), and the hosts language home URLs use. Two filters cover anyth
 
 - The inventory walk covers assigned chains only, and reconciles over that set.
 - Every inventory target is fetched by `urlId`, and the envelope's `chainId` must be one of the
-  chains assigned to **the page's WordPress language**. On the `?url=` paths (refresh,
-  on-demand) the same rule applies to whatever chain the API chose.
+  chains assigned to **the page's WordPress language**. A refresh or on-demand lookup asks each
+  chain of the page's language for its row (`/chains/{id}/urls?url=`, API-5) and fetches by
+  `urlId` from there; `/jsonld?url=` is not used, because it answers with the freshest copy across
+  every chain and business the token reads. Inventory rows naming another `businessId` are skipped
+  and reported (`AIVIS_SCOPE_MISMATCH`).
 - AIVIS's per-URL `languageCode` disagreeing with the assignment is **reported, not acted on**
   (`AIVIS_LANGUAGE_MISMATCH`, per chain per run, shown on Status and in Site Health) — the
-  assignment is the admin's decision, and API-10 would settle it authoritatively.
+  assignment is the admin's decision, and the chain's own language stands next to it on Settings.
 - **How AIVIS finds a chain's pages:** by following links, or by URLs entered manually. There is no
   host, subdomain or URL-scheme concept on the AIVIS side, and **no correlation between the URLs of
   different languages** — a page and its translation are unrelated rows. The connector therefore
@@ -535,8 +610,14 @@ never as live.
 
 ## §11 · Admin, status and verification
 
-**Settings.** Environment switch (Test or Production — §03, Q-01), token entry (with the source and
-what it can reach stated plainly — §13), connection test via `/me`, domain-matched business
+**Settings.** One form (§11, #69 — a nested form closes the outer one in every browser, which
+silently broke Save and tested a token that was never stored). Environment switch (Test or
+Production — §03, Q-01), token entry (with the source and what it can reach stated plainly — §13),
+**Save & test connection**: saves the page, then verifies the token via `/me` and reads
+`/changelog`. The result names the host and the reason — "Could not reach app.aivis-os.com (…)",
+"aivis-new.dev.onepoint.ro rejected the token (invalid_token — …)", "Plugin update required
+(minimum x.y.z)", "account deactivated", "rate-limited" — never a blanket "token invalid" for a
+host that did not answer. Domain-matched business
 selector, **languages & chains** (§07a), injection switch, sync interval, cache adapter selection.
 The environment is shown on Status, flagged in Site Health while on Test, and carried in the status
 document (`api.environment`).
@@ -649,9 +730,11 @@ default**, not a fallback — it keeps the token out of the database, and theref
 staging clones and migrations. The database option exists for installs that cannot edit
 `wp-config.php`, and the settings screen says which is in use.
 
-**What the token can reach.** Stated plainly in the admin UI: an AIVIS API token is account-scoped
-and grants read access to every business on the account. This is why v1 is restricted to
-AIVIS-controlled installs (§00) and why API-1 is the blocker for customer-managed distribution.
+**What the token can reach.** Stated plainly in the admin UI from `/me`: a **business-bound**
+token reads one business and nothing else — the right kind for a customer-managed site; an
+**account-wide** token reads every business on the account and belongs only on sites the account
+holder controls (§00). The Settings screen shows which kind is connected and, for an account-wide
+one, asks for a bound token instead.
 
 **AN-01 — crawler analytics are permanently excluded from WordPress.** Not deferred. PHP sees only
 cache-*miss* traffic while AI crawlers hit cached popular pages, so the sample is systematically
@@ -720,6 +803,9 @@ Demonstrated on staging against the designated AIVIS environment.
 | **AC-27** | **The connector issues no request to AIVIS other than GET; the status document is served only with the site-issued key from the Authorization header, and never contains the API token** |
 | **AC-28** | **The script element carries `data-aivis-hash` equal to the SHA-256 of its exact content, next to the `data-aivis="1"` marker** |
 | **AC-29** | **A page whose object's address changed since sync is listed as moved on Status, in Site Health and in the status document, with its first-seen time; no row is changed and nothing is served at the new address** |
+| **AC-30** | **Contract 1.9.0 (2026-09-09).** A `410 withdrawn` deactivates the page at once and purges, and the page returns after a republish; `404 url_not_found` and `404 jsonld_not_generated` are told apart by code with the 1.0.0 messages as fallback; an unknown code is handled by its status alone |
+| **AC-31** | **A `426 client_too_old` stops syncing, keeps every page serving last-known-good, and is shown on Status, in Site Health and as an admin notice with the minimum version; a raised minimum announced in `/changelog` is warned about with its date; the comparison survives a plugin update** |
+| **AC-32** | **The connection test names the host it contacted and the reason it failed, saves the page before testing, and the settings screen is a single form; a business-bound token is shown as bound to its business, an account-wide one with the account warning** |
 
 AC-17 is rewritten from rev 1, where it required immediate deactivation on any fetch-404 — which the
 API cannot support. AC-18 and AC-19 are new, and both guard failure modes that would otherwise be
@@ -799,10 +885,14 @@ the AIVIS side and are reconciled by content hash. **What the connector assumes
 about the API:** v1 is pinned in the path; fields it does not know are ignored;
 the eight envelope fields are strict (ZT-02); a response that stops validating
 holds last-known-good (`AIVIS_SCHEMA_INVALID`); the nightly drift job against
-the live `openapi.json` is the only early warning. There is no runtime version
-negotiation yet — API-11 asks AIVIS for a compatibility policy, deprecation
-headers and a minimum-client signal; the connector-side check that reads them
-and surfaces "update required" in Site Health follows the day they exist.
+the live `openapi.json` catches additive changes early. **Runtime version
+handling (API-11, since 2026-09-09):** every response's `X-Aivis-Api-Version`
+and `X-Aivis-Min-Client` are remembered (`aivis_os_api_info`); a `426
+client_too_old` stops syncing and is shown on Status, in Site Health
+("AIVIS OS: API contract") and as an admin notice; the connection test reads
+`/changelog` and warns ahead of a raised minimum (`nextMinClient`, with its
+date). The Status screen and the status document (§11a) name the contract
+version the instance speaks.
 
 **Updates.** WordPress only auto-updates plugins from wordpress.org, so the
 plugin declares `Update URI: https://github.com/epoint-digital/aivis-wordpress-connector`.
@@ -832,13 +922,13 @@ clean (AC-14).
 | ID | Decision | Resolution |
 |---|---|---|
 | Q-01 | API base URL | **Resolved (2026-09-08)**: two instances — **Production** `https://app.aivis-os.com` (the shipped default; no DNS record as of 2026-09-08) and **Test** `https://aivis-new.dev.onepoint.ro` — selectable under Settings → Connection as a closed two-value switch (`Options::ENVIRONMENTS`), never a free URL. Switching unbinds the business, stops serving everything synced from the other instance and purges. `AIVIS_API_BASE_URL` still overrides for custom hosts |
-| Q-02 | API token scope | **Resolved** (§00): account-scoped token, AIVIS-controlled installs only, until API-1 |
+| Q-02 | API token scope | **Resolved (2026-09-09)**: business-bound tokens exist (API-1). Customer-managed installs use a bound token; an account-wide token stays limited to AIVIS-controlled installs (§00, §13) |
 | Q-03 | Bundled cache adapters | **Open** — chosen from actual pilot infrastructure; core stays provider-neutral, manual purge always supported |
 | Q-04 | Default freshness | **Resolved**: 15-minute polling default; 5 minutes for retraction-sensitive managed sites with reliable system cron |
 | Q-05 | Minimum platforms | **Resolved**: WordPress 6.5–7.1, PHP 8.1–8.5 |
 | Q-06 | Multisite | **Open** — per-site only if fully test-covered; otherwise block network activation in 1.0 |
-| Q-07 | Distribution beyond GitHub | **Resolved for v1** (§19): GitHub Releases only. WordPress.org cannot be considered until API-1, since public distribution implies customer-managed installs |
+| Q-07 | Distribution beyond GitHub | **Resolved for v1** (§19): GitHub Releases only. WordPress.org is no longer blocked by API-1 (bound tokens exist); it stays a later decision |
 | Q-08 | Public repo coordinates | **Open** — `aivis-wordpress-connector` under the org chosen in the shared edge decision |
-| Q-09 | Multilingual sites | **Resolved (2026-09-06)**: one chain per language, assigned by the admin (§07a). Separate domains per language are separate businesses and separate sites. Chain-level language requested as API-10 |
+| Q-09 | Multilingual sites | **Resolved (2026-09-06)**: one chain per language, assigned by the admin (§07a). Separate domains per language are separate businesses and separate sites. Chain-level language shipped as API-10 (2026-09-08); a chain AIVIS reports as mixed waits for the admin |
 | Q-10 | Direction of connector status | **Resolved (2026-09-06)**: pull. Stored in the plugin, fetched by AIVIS with a site-issued key (§11a). Nothing is pushed |
 | Q-11 | Plugin scope | **Resolved (2026-09-07)**: delivery only (WP-I12). Facts and mechanics in the plugin; judgments, histories and policies in AIVIS. Interim logic listed in §00 with its removal trigger |

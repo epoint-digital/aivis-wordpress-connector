@@ -22,13 +22,23 @@ final class ChainAssignmentTest extends TestCase {
 		WPStub::$locale = 'de_DE';
 	}
 
-	private static function chains( array $ids ): array {
-		return [
-			'items'      => array_map( fn( $id ) => [ 'id' => $id, 'name' => strtoupper( $id ), 'state' => 'ready', 'currentStep' => 9, 'knowledgeGraphReady' => true, 'urlCount' => 3 ], $ids ),
-			'nextCursor' => null,
-			'hasMore'    => false,
-			'total'      => count( $ids ),
-		];
+	/**
+	 * Chain catalogue with the language fields of contract ≥ 1.4.0 (API-10).
+	 * Value per id: a code (languageCode), '' (nothing reported: no rows and
+	 * no single declared language), or a list of codes (mixed: languageCode
+	 * null, urlLanguageCodes = the list).
+	 */
+	private static function chains( array $spec ): array {
+		$items = [];
+		foreach ( $spec as $id => $lang ) {
+			$items[] = [
+				'id' => $id, 'name' => strtoupper( $id ), 'state' => 'ready', 'currentStep' => 9, 'knowledgeGraphReady' => true, 'urlCount' => 3,
+				'languageCode'          => is_string( $lang ) && '' !== $lang ? $lang : null,
+				'urlLanguageCodes'      => is_array( $lang ) ? $lang : ( '' === $lang ? [] : [ $lang ] ),
+				'declaredLanguageCodes' => is_array( $lang ) ? $lang : ( '' === $lang ? [] : [ $lang ] ),
+			];
+		}
+		return [ 'items' => $items, 'nextCursor' => null, 'hasMore' => false, 'total' => count( $items ) ];
 	}
 
 	private static function rows( string $lang, int $n = 2 ): array {
@@ -53,11 +63,9 @@ final class ChainAssignmentTest extends TestCase {
 	}
 
 	public function test_one_language_assigns_every_compatible_chain(): void {
-		WPStub::queue( 200, self::chains( [ 'chain_core', 'chain_edit', 'chain_en' ] ) );
-		WPStub::queue( 200, self::rows( 'de' ) );   // chain_core hint
-		WPStub::queue( 200, self::rows( '' ) );     // chain_edit: no language reported
-		WPStub::queue( 200, self::rows( 'en' ) );   // chain_en: contradicts the only site language
+		WPStub::queue( 200, self::chains( [ 'chain_core' => 'de', 'chain_edit' => '', 'chain_en' => 'en' ] ) ); // chain_en contradicts the only site language
 		$r = $this->a->auto_assign();
+		self::assertCount( 1, WPStub::$http_log, 'the chain catalogue carries the language: no sampling requests' );
 		self::assertTrue( $r['catalog_ok'] );
 		self::assertSame( [ 'chain_core' => 'de', 'chain_edit' => 'de' ], $r['map'] );
 		self::assertSame( [ 'chain_en' ], $r['unresolved'], 'a chain AIVIS reports as another language is never guessed' );
@@ -66,26 +74,24 @@ final class ChainAssignmentTest extends TestCase {
 
 	public function test_several_languages_assign_only_on_an_unambiguous_hint(): void {
 		WPStub::$filter_values['aivis_connector_site_languages'] = static fn( array $l ): array => $l + [ 'en' => [ 'code' => 'en', 'name' => 'English', 'home' => 'https://example.com/en/' ] ];
-		WPStub::queue( 200, self::chains( [ 'chain_core', 'chain_en', 'chain_mixed', 'chain_empty' ] ) );
-		WPStub::queue( 200, self::rows( 'de' ) );
-		WPStub::queue( 200, self::rows( 'en-GB' ) );
-		WPStub::queue( 200, [ 'items' => [ self::rows( 'de' )['items'][0], self::rows( 'en' )['items'][1] ], 'nextCursor' => null, 'hasMore' => false, 'total' => 2 ] );
-		WPStub::queue( 200, [ 'items' => [], 'nextCursor' => null, 'hasMore' => false, 'total' => 0 ] );
+		WPStub::queue( 200, self::chains( [ 'chain_core' => 'de', 'chain_en' => 'en-GB', 'chain_mixed' => [ 'de', 'en' ], 'chain_empty' => '' ] ) );
 		$r = $this->a->auto_assign();
 		self::assertSame( [ 'chain_core' => 'de', 'chain_en' => 'en' ], $r['map'] );
 		self::assertSame( [ 'chain_mixed', 'chain_empty' ], $r['unresolved'] );
-		self::assertTrue( $this->a->hint( 'chain_mixed' )['mixed'] );
+		$mixed = $this->a->hint( 'chain_mixed' );
+		self::assertTrue( $mixed['mixed'] );
+		self::assertSame( [ 'de', 'en' ], $mixed['languages'], 'the admin sees what the chain holds' );
 		self::assertNull( $this->a->hint( 'chain_empty' )['language'] );
+		self::assertNull( $this->a->hint( 'chain_unknown' )['language'], 'an unknown chain reports nothing' );
 	}
 
 	public function test_existing_assignments_are_kept_and_deleted_chains_dropped(): void {
 		$this->o->set_chain_languages( [ 'chain_core' => 'de', 'chain_gone' => 'de' ] );
-		WPStub::queue( 200, self::chains( [ 'chain_core', 'chain_new' ] ) );
-		WPStub::queue( 200, self::rows( 'de' ) ); // chain_new only — chain_core needs no hint
+		WPStub::queue( 200, self::chains( [ 'chain_core' => 'de', 'chain_new' => 'de' ] ) );
 		$r = $this->a->auto_assign();
 		self::assertSame( [ 'chain_core' => 'de', 'chain_new' => 'de' ], $r['map'] );
 		self::assertSame( [ 'chain_new' ], $r['assigned'] );
-		self::assertCount( 2, WPStub::$http_log, 'catalog + one hint; no probe for an already assigned chain' );
+		self::assertCount( 1, WPStub::$http_log, 'the catalogue alone' );
 	}
 
 	public function test_unreachable_api_changes_nothing(): void {

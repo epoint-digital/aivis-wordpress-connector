@@ -59,6 +59,19 @@ final class StatusPage {
 								echo ' <span class="aivis-chip aivis-chip--warn">' . esc_html__( 'Test instance', 'aivis-os' ) . '</span>';
 							}
 						?></dd>
+						<dt><?php esc_html_e( 'API', 'aivis-os' ); ?></dt><dd><?php
+							$api = $o->api_info();
+							if ( '' === $api['version'] ) {
+								echo '<span class="description">' . esc_html__( 'no response recorded yet', 'aivis-os' ) . '</span>';
+							} else {
+								echo esc_html( sprintf( /* translators: 1: contract version, 2: minimum client, 3: plugin version */ __( 'contract %1$s · minimum client %2$s · this plugin %3$s', 'aivis-os' ), $api['version'], $api['min_client'] ?: '?', AIVIS_OS_VERSION ) );
+								if ( true === $o->client_too_old() ) {
+									echo ' <span class="aivis-chip aivis-chip--bad">' . esc_html__( 'update required', 'aivis-os' ) . '</span>';
+								} elseif ( null !== $api['next_min_client'] && version_compare( AIVIS_OS_VERSION, $api['next_min_client']['version'], '<' ) ) {
+									echo ' <span class="aivis-chip aivis-chip--warn">' . esc_html( sprintf( /* translators: 1: version, 2: date */ __( '%1$s required from %2$s', 'aivis-os' ), $api['next_min_client']['version'], $api['next_min_client']['effective_from'] ) ) . '</span>';
+								}
+							}
+						?></dd>
 						<dt><?php esc_html_e( 'Business', 'aivis-os' ); ?></dt><dd><?php echo '' !== $biz['business_name'] ? esc_html( $biz['business_name'] ) : '<span class="description">' . esc_html__( 'not bound', 'aivis-os' ) . '</span>'; ?></dd>
 						<dt><?php esc_html_e( 'Domain', 'aivis-os' ); ?></dt><dd><code><?php echo esc_html( $o->site_host() ); ?></code> <?php esc_html_e( 'matched to', 'aivis-os' ); ?> <code><?php echo esc_html( (string) wp_parse_url( $biz['base_url'], PHP_URL_HOST ) ?: '—' ); ?></code></dd>
 						<dt><?php esc_html_e( 'Languages', 'aivis-os' ); ?></dt><dd><?php
@@ -239,9 +252,12 @@ final class StatusPage {
 	public static function explain_code( string $code, string $st ): string {
 		return match ( $code ) {
 			'AIVIS_NOT_GENERATED' => __( 'Not generated yet in AIVIS — nothing injected, nothing removed', 'aivis-os' ),
-			'AIVIS_RETRACTED'     => 'suspended' === $st ? __( 'AIVIS returned “URL not found in your businesses” — injection stopped, cache purged, awaiting inventory confirmation', 'aivis-os' ) : __( 'Withdrawn upstream', 'aivis-os' ),
+			'AIVIS_RETRACTED'     => 'suspended' === $st ? __( 'AIVIS reports the page deleted (url_not_found) — injection stopped, cache purged, awaiting inventory confirmation', 'aivis-os' ) : __( 'Unpublished or withdrawn in AIVIS — injection stopped; resumes when republished', 'aivis-os' ),
 			'AIVIS_HTTP_TIMEOUT', 'AIVIS_HTTP_ERROR' => __( 'Serving last known good — AIVIS unreachable at last check', 'aivis-os' ),
 			'AIVIS_AUTH_401'      => __( 'Serving last known good — token rejected', 'aivis-os' ),
+			'AIVIS_ACCOUNT_403'   => __( 'Serving last known good — AIVIS account deactivated', 'aivis-os' ),
+			'AIVIS_RATE_LIMITED'  => __( 'Serving last known good — AIVIS rate limit reached, retried on the next tick', 'aivis-os' ),
+			'AIVIS_CLIENT_TOO_OLD' => __( 'Serving last known good — AIVIS requires a newer plugin', 'aivis-os' ),
 			'AIVIS_SCHEMA_INVALID' => __( 'Last response failed validation — previous artifact kept', 'aivis-os' ),
 			'AIVIS_ADMIN_DISABLED' => __( 'Disabled on this site by an administrator', 'aivis-os' ),
 			'AIVIS_LANGUAGE_UNASSIGNED' => __( 'Its chain is not assigned to a language — not synced, not injected', 'aivis-os' ),

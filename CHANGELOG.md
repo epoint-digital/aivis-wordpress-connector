@@ -63,12 +63,38 @@ file, `readme.txt` and the git tag do not agree with it.
   `wp aivis status --format=json` prints the same document. The connector
   issues no request to AIVIS other than GET.
 
+- AIVIS Public API contract 1.9.0 (#20, #54): classification by `error.code`
+  with the 1.0.0 messages as fallback; `410 withdrawn` deactivates a page at
+  once and `suppressedAt` on inventory rows does the same (R-01b, R-02a);
+  `X-Aivis-Api-Version` / `X-Aivis-Min-Client` remembered from every response,
+  `426 client_too_old` stops syncing and is shown on Status, in Site Health
+  ("AIVIS OS: API contract") and as a notice, `/changelog` read on every
+  connection test for the announced minimum and rate limits; business-bound
+  tokens shown as such and the customer-managed install restriction lifted
+  for them; chain `languageCode` drives automatic assignment (row sampling
+  removed; mixed chains wait for the admin); refresh and on-demand lookups go
+  through the page's language chains (`?url=`) instead of `/jsonld?url=`;
+  inventory rows pinned to the bound business; change-feed walks
+  (`?updatedSince=`) between full walks every 6 hours (`wp aivis sync
+  --full`); `429` and a low `X-RateLimit-Remaining` make the tick yield. The
+  mock API, the contract suite and the vendored OpenAPI document follow 1.9.0.
+- `scripts/wp-dev/docker-compose.yml`: a throwaway WordPress for verifying the
+  admin screens against the live instances.
+
 ### Removed
 - Email to the site admin when the set of structured-data conflicts changes.
   Notification policy belongs to AIVIS, which fetches the conflicts in the
   status document (WP-I12).
 
 ### Fixed
+- Settings (#69): the screen rendered six forms nested inside the main form,
+  which browsers close at the first one — *Save changes* did nothing and *Test
+  connection* checked a token that was never stored, so every attempt read
+  "Token invalid or revoked". One form now; every button names its action;
+  *Save & test connection* saves, then tests. The connection test names the
+  host it contacted and the reason it failed (unreachable host, rejected
+  token, update required, account deactivated, rate-limited) and no longer
+  calls an unreachable production host a bad token.
 - Independent review, 2026-09-07 (#55–#62): atomic sync lock in its own option
   row (INSERT IGNORE claim, compare-and-swap takeover, owner-checked release);
   an empty chain reconciles to zero and a chain that vanishes from AIVIS retires

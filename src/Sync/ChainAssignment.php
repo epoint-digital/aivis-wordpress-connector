@@ -5,10 +5,10 @@
  * AIVIS has no multilingual model: a chain is one language, because intents
  * and forensic prompts are bound per language. The connector therefore treats
  * "which chain serves which WordPress language" as configuration the admin
- * owns, with two helpers around it: a cached chain catalogue, and a per-chain
- * language *hint* sampled from inventory — the API exposes `languageCode` per
- * URL only (API-10 asks for it on the chain). Assignment is automatic only
- * where there is nothing to decide.
+ * owns, with two helpers around it: a cached chain catalogue, and the
+ * language AIVIS itself reports for each chain (`languageCode`, contract
+ * ≥ 1.4.0 / API-10 — the one language its URL rows use, null when they use
+ * several). Assignment is automatic only where there is nothing to decide.
  *
  * @package AivisOS
  */
@@ -24,9 +24,6 @@ use AivisOS\Storage\Options;
 final class ChainAssignment {
 
 	public const CATALOG_TTL = 5 * MINUTE_IN_SECONDS;
-	public const HINT_TTL    = 15 * MINUTE_IN_SECONDS;
-	/** Rows sampled per chain for the language hint. */
-	public const HINT_SAMPLE = 5;
 
 	public function __construct(
 		private readonly Client $client,
@@ -37,7 +34,11 @@ final class ChainAssignment {
 	 * The bound business's chains, briefly cached. Null when the API could
 	 * not be reached (a failed walk is never cached).
 	 *
-	 * @return list<array{id:string,name:string,state:string,kg:bool,step:int,urlCount:int}>|null
+	 * `language` is AIVIS's `languageCode` for the chain (null = mixed or
+	 * undeclared); `languages` the distinct codes on its rows; `declared` the
+	 * codes it was created with.
+	 *
+	 * @return list<array{id:string,name:string,state:string,kg:bool,step:int,urlCount:int,language:?string,languages:list<string>,declared:list<string>}>|null
 	 */
 	public function catalog( bool $fresh = false ): ?array {
 		$biz = $this->options->business()['business_id'];
@@ -62,13 +63,18 @@ final class ChainAssignment {
 				if ( empty( $c['id'] ) ) {
 					continue;
 				}
+				$lang  = Language::normalize( (string) ( $c['languageCode'] ?? '' ) );
+				$codes = static fn( mixed $v ): array => array_values( array_filter( array_map( static fn( mixed $x ): string => Language::normalize( (string) $x ), (array) ( $v ?? [] ) ) ) );
 				$out[] = [
-					'id'       => (string) $c['id'],
-					'name'     => (string) ( $c['name'] ?? '' ),
-					'state'    => (string) ( $c['state'] ?? '' ),
-					'kg'       => ! empty( $c['knowledgeGraphReady'] ),
-					'step'     => (int) ( $c['currentStep'] ?? 0 ),
-					'urlCount' => (int) ( $c['urlCount'] ?? 0 ),
+					'id'        => (string) $c['id'],
+					'name'      => (string) ( $c['name'] ?? '' ),
+					'state'     => (string) ( $c['state'] ?? '' ),
+					'kg'        => ! empty( $c['knowledgeGraphReady'] ),
+					'step'      => (int) ( $c['currentStep'] ?? 0 ),
+					'urlCount'  => (int) ( $c['urlCount'] ?? 0 ),
+					'language'  => '' !== $lang ? $lang : null,
+					'languages' => $codes( $c['urlLanguageCodes'] ?? null ),
+					'declared'  => $codes( $c['declaredLanguageCodes'] ?? null ),
 				];
 			}
 			$cursor = ( ! empty( $r->body['hasMore'] ) && is_string( $r->body['nextCursor'] ?? null ) ) ? $r->body['nextCursor'] : null;
@@ -78,50 +84,46 @@ final class ChainAssignment {
 	}
 
 	/**
-	 * What AIVIS says the chain's language is, sampled from its first rows.
-	 * Until API-10 this is the only signal. `mixed` means the sample disagreed
-	 * with itself, which the admin should know before assigning.
+	 * What AIVIS says the chain's language is. `language` is the chain's own
+	 * `languageCode`; when that is null the chain is `mixed` (its rows, or its
+	 * declaration, span more than one language) and `language` names the first
+	 * of them so the admin sees what is there. Unknown chain → nothing known.
 	 *
-	 * @return array{language:?string, mixed:bool, sampled:int}
+	 * @return array{language:?string, mixed:bool, languages:list<string>}
 	 */
 	public function hint( string $chain_id, bool $fresh = false ): array {
-		$key = 'aivis_os_chain_lang_' . md5( $chain_id );
-		if ( ! $fresh ) {
-			$cached = get_transient( $key );
-			if ( is_array( $cached ) ) {
-				return $cached;
+		$catalog = $this->catalog( $fresh );
+		foreach ( (array) $catalog as $c ) {
+			if ( $c['id'] !== $chain_id ) {
+				continue;
 			}
+			return self::hint_of( $c );
 		}
-		$r = $this->client->get( '/chains/' . rawurlencode( $chain_id ) . '/urls', [ 'limit' => self::HINT_SAMPLE ] );
-		if ( ! $r->ok() ) {
-			return [ 'language' => null, 'mixed' => false, 'sampled' => 0 ];
+		return [ 'language' => null, 'mixed' => false, 'languages' => [] ];
+	}
+
+	/**
+	 * @param array{language:?string,languages:list<string>,declared:list<string>} $c
+	 * @return array{language:?string, mixed:bool, languages:list<string>}
+	 */
+	public static function hint_of( array $c ): array {
+		if ( null !== $c['language'] ) {
+			return [ 'language' => $c['language'], 'mixed' => false, 'languages' => [ $c['language'] ] ];
 		}
-		$seen = [];
-		foreach ( (array) ( $r->body['items'] ?? [] ) as $row ) {
-			$c = Language::normalize( (string) ( $row['languageCode'] ?? '' ) );
-			if ( '' !== $c ) {
-				$seen[ Language::primary( $c ) ] = $c;
-			}
-		}
-		$hint = [
-			'language' => 1 === count( $seen ) ? (string) reset( $seen ) : ( $seen ? (string) reset( $seen ) : null ),
-			'mixed'    => count( $seen ) > 1,
-			'sampled'  => count( (array) ( $r->body['items'] ?? [] ) ),
-		];
-		set_transient( $key, $hint, self::HINT_TTL );
-		return $hint;
+		$seen = $c['languages'] ?: $c['declared'];
+		return [ 'language' => $seen[0] ?? null, 'mixed' => count( $seen ) > 1, 'languages' => $seen ];
 	}
 
 	/**
 	 * Assign chains where there is nothing to decide, leave the rest to the
 	 * admin. Rules, in order:
 	 *  - a chain already assigned stays as it is;
-	 *  - one site language: every chain whose hint is unknown or the same
-	 *    language is assigned to it;
-	 *  - several site languages: a chain is assigned only when its hint names
-	 *    exactly one of them.
-	 * A chain whose hint contradicts the only site language is left alone and
-	 * reported, never guessed.
+	 *  - one site language: every chain whose language is unknown or the same
+	 *    is assigned to it;
+	 *  - several site languages: a chain is assigned only when its language
+	 *    names exactly one of them.
+	 * A chain whose language contradicts the only site language, or a mixed
+	 * chain, is left alone and reported, never guessed.
 	 *
 	 * @return array{map:array<string,string>, assigned:list<string>, unresolved:list<string>, catalog_ok:bool}
 	 */
@@ -141,7 +143,7 @@ final class ChainAssignment {
 			if ( isset( $map[ $c['id'] ] ) ) {
 				continue;
 			}
-			$hint   = $this->hint( $c['id'] );
+			$hint   = self::hint_of( $c );
 			$target = null;
 			if ( 1 === count( $langs ) ) {
 				$only = (string) array_key_first( $langs );

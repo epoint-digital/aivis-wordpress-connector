@@ -63,21 +63,42 @@ final class Options {
 		return 'aivis_…' . substr( $t, -4 );
 	}
 
-	/** @return array{valid:bool|null, token_name:string, email:string, checked_at:int} */
+	/**
+	 * The last connection test. `bound` and the business fields come from
+	 * `/me` on a business-bound token (API-1); `failure` says why the last
+	 * test did not pass — kind, HTTP status, detail, and the host contacted.
+	 *
+	 * @return array{valid:bool|null, token_name:string, email:string, bound:bool, business_id:string, business_name:string, business_base_url:string, permissions:list<string>, failure:array{kind:string,status:int,detail:string,host:string}|null, checked_at:int}
+	 */
 	public function token_status(): array {
 		$d = (array) get_option( 'aivis_os_token_status', [] );
+		$f = $d['failure'] ?? null;
 		return [
-			'valid'      => $d['valid'] ?? null,
-			'token_name' => (string) ( $d['token_name'] ?? '' ),
-			'email'      => (string) ( $d['email'] ?? '' ),
-			'checked_at' => (int) ( $d['checked_at'] ?? 0 ),
+			'valid'             => $d['valid'] ?? null,
+			'token_name'        => (string) ( $d['token_name'] ?? '' ),
+			'email'             => (string) ( $d['email'] ?? '' ),
+			'bound'             => ! empty( $d['bound'] ),
+			'business_id'       => (string) ( $d['business_id'] ?? '' ),
+			'business_name'     => (string) ( $d['business_name'] ?? '' ),
+			'business_base_url' => (string) ( $d['business_base_url'] ?? '' ),
+			'permissions'       => array_values( array_map( 'strval', (array) ( $d['permissions'] ?? [] ) ) ),
+			'failure'           => is_array( $f ) ? [
+				'kind'   => (string) ( $f['kind'] ?? '' ),
+				'status' => (int) ( $f['status'] ?? 0 ),
+				'detail' => (string) ( $f['detail'] ?? '' ),
+				'host'   => (string) ( $f['host'] ?? '' ),
+			] : null,
+			'checked_at'        => (int) ( $d['checked_at'] ?? 0 ),
 		];
 	}
 
-	public function set_token_status( ?bool $valid, string $token_name = '', string $email = '' ): void {
+	/**
+	 * @param array<string,mixed> $extra bound, business_id, business_name, business_base_url, permissions, failure.
+	 */
+	public function set_token_status( ?bool $valid, string $token_name = '', string $email = '', array $extra = [] ): void {
 		update_option(
 			'aivis_os_token_status',
-			[
+			$extra + [
 				'valid'      => $valid,
 				'token_name' => $token_name,
 				'email'      => $email,
@@ -85,6 +106,67 @@ final class Options {
 			],
 			false
 		);
+	}
+
+	/**
+	 * Record what `/me` said (contract ≥ 1.3.0): a bound token names its one
+	 * business and reads nothing else; an account-wide token has an email.
+	 *
+	 * @param array<string,mixed> $me
+	 */
+	public function set_token_status_from_me( array $me ): void {
+		$biz = is_array( $me['business'] ?? null ) ? $me['business'] : [];
+		$this->set_token_status(
+			true,
+			(string) ( $me['tokenName'] ?? '' ),
+			(string) ( $me['email'] ?? '' ),
+			[
+				'bound'             => '' !== (string) ( $me['businessId'] ?? '' ),
+				'business_id'       => (string) ( $me['businessId'] ?? '' ),
+				'business_name'     => (string) ( $biz['name'] ?? '' ),
+				'business_base_url' => (string) ( $biz['baseUrl'] ?? '' ),
+				'permissions'       => array_values( array_filter( array_map( 'strval', (array) ( $me['permissions'] ?? [] ) ) ) ),
+				'failure'           => null,
+			]
+		);
+	}
+
+	/* ── contract observed on the wire (§03) ──────────────────────────── */
+
+	/**
+	 * @return array{version:string, min_client:string, too_old:bool, next_min_client:?array{version:string,effective_from:string}, rate_limit:?array{limit:int,window:int}, seen_at:int}
+	 */
+	public function api_info(): array {
+		$d = (array) get_option( 'aivis_os_api_info', [] );
+		$n = $d['next_min_client'] ?? null;
+		$r = $d['rate_limit'] ?? null;
+		return [
+			'version'         => (string) ( $d['version'] ?? '' ),
+			'min_client'      => (string) ( $d['min_client'] ?? '' ),
+			'too_old'         => ! empty( $d['too_old'] ),
+			'next_min_client' => is_array( $n ) && '' !== (string) ( $n['version'] ?? '' ) ? [ 'version' => (string) $n['version'], 'effective_from' => (string) ( $n['effective_from'] ?? '' ) ] : null,
+			'rate_limit'      => is_array( $r ) ? [ 'limit' => (int) ( $r['limit'] ?? 0 ), 'window' => (int) ( $r['window'] ?? 0 ) ] : null,
+			'seen_at'         => (int) ( $d['seen_at'] ?? 0 ),
+		];
+	}
+
+	/** @param array<string,mixed> $patch */
+	public function set_api_info( array $patch ): void {
+		update_option( 'aivis_os_api_info', $patch + (array) get_option( 'aivis_os_api_info', [] ), false );
+	}
+
+	/**
+	 * Is this connector below the minimum the instance announced (§03)? Null
+	 * when nothing was announced yet.
+	 */
+	public function client_too_old(): ?bool {
+		$info = $this->api_info();
+		if ( '' === $info['min_client'] ) {
+			// A 426 without a minimum header: too old until a later response says otherwise.
+			return $info['too_old'] ? true : null;
+		}
+		// The flag alone does not decide: after a plugin update the version comparison must win.
+		return version_compare( AIVIS_OS_VERSION, $info['min_client'], '<' );
 	}
 
 	/* ── API base (§03) ───────────────────────────────────────────────── */

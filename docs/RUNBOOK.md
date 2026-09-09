@@ -28,14 +28,47 @@ several ticks.
 
 ## Invalid or revoked token
 
-**Symptom.** `AIVIS_AUTH_401` in diagnostics; Settings shows *Token invalid or
-revoked*; Site Health flags it.
+**Symptom.** `AIVIS_AUTH_401` in diagnostics; Settings shows *Token rejected by
+<host>* with the code AIVIS sent (`invalid_token`); Site Health flags it. If the
+chip says *Could not reach <host>* instead, the problem is the environment or
+the network, not the token.
 
 **Plugin behaviour.** Syncing stops. Pages keep serving last known good.
 
 **Do.** Create a new token in AIVIS, update `AIVIS_API_TOKEN` in `wp-config.php`
-(or Settings), *Test connection*, then `wp aivis sync --all`. Revoke the old
+(or Settings), *Save & test connection*, then `wp aivis sync --all`. Revoke the old
 token in AIVIS afterwards, not before.
+
+## Plugin update required (426)
+
+**Symptom.** `AIVIS_CLIENT_TOO_OLD` in diagnostics; a red *Update AIVIS OS*
+notice; Status shows *update required* next to the API row; Site Health
+"AIVIS OS: API contract" is critical. `wp aivis connection test` says so too.
+
+**Plugin behaviour.** AIVIS answers `426 client_too_old` to every request
+from a connector below its minimum client version. Syncing stops; pages keep
+serving last known good. AIVIS announces a raised minimum in `/changelog`
+ahead of time (`nextMinClient`), which the connector shows as an amber notice
+with the date after each connection test.
+
+**Do.** Update the plugin (GitHub Releases), then `wp aivis connection test`
+and `wp aivis sync --all`. The comparison uses the version the instance
+announced, so the flag clears on its own after the update.
+
+## Page unpublished in AIVIS (410 withdrawn)
+
+**Symptom.** `AIVIS_RETRACTED` with "unpublished in AIVIS" in diagnostics;
+the page is *inactive* on the Pages screen; its cache was purged.
+
+**Plugin behaviour.** An unpublish is explicit: the artifact endpoints answer
+`410 withdrawn` and the inventory row carries `suppressedAt` with
+`ready:false`. The connector deactivates the page at once — no confirmation
+round — and keeps the row. The change feed carries the unpublish, so it takes
+effect within one sync interval plus the cache purge; a "Refresh this URL now"
+sees the 410 immediately.
+
+**Do.** Nothing. When the page is republished in AIVIS its row is `ready`
+again, the next sync fetches the artifact and the page serves again.
 
 ## Malformed artifact from AIVIS
 
@@ -84,17 +117,19 @@ Settings or file a bug with the adapter name.
 **Symptom.** Status shows one or more **Suspended** rows and the withdrawal
 notice; `AIVIS_RETRACTED` in diagnostics.
 
-**Plugin behaviour.** On the first lookup returning "URL not found in your
-businesses" with confirmed reachability, injection is suspended and the page
-purged immediately. The row is kept until the next complete, authoritative
+**Plugin behaviour.** On the first lookup returning `404 url_not_found` with
+confirmed reachability, injection is suspended and the page purged
+immediately. The row is kept until the next complete, authoritative
 sync confirms the URL is absent from inventory — then it is retired and kept
 30 more days for rollback. If the URL reappears in inventory, the suspicion is
 cleared and the page serves again.
 
 **Check.** `curl -s "https://<aivis-host>/api/public/v1/jsonld?url=<url>" -H "Authorization: Bearer …"`
-should return that exact message. If it returns "JSON-LD not generated yet",
+should return `error.code: url_not_found`. If it returns `jsonld_not_generated`,
 the plugin is correctly *holding* instead — the page is being regenerated, not
-withdrawn.
+deleted; if it returns `410 withdrawn`, the page was unpublished (see above).
+Deleted rows leave no trace in the change feed, so a deletion is only noticed
+by a full inventory walk (every 6 hours, or `wp aivis sync --full`).
 
 **Do.** Usually nothing. To force immediate confirmation: `wp aivis sync --all`.
 Worst-case latency is the sync interval plus the cache purge; the Status

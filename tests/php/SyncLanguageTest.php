@@ -54,8 +54,7 @@ final class SyncLanguageTest extends TestCase {
 
 	public function test_nothing_runs_until_a_chain_is_assigned(): void {
 		WPStub::$filter_values['aivis_connector_site_languages'] = static fn( array $l ): array => $l + [ 'en' => [ 'code' => 'en', 'name' => 'English', 'home' => 'https://example.com/en/' ] ];
-		WPStub::queue( 200, self::list( [ self::chain( 'chain_x' ) ] ) );
-		WPStub::queue( 200, self::list( [] ) ); // hint: empty chain — ambiguous with two languages
+		WPStub::queue( 200, self::list( [ self::chain( 'chain_x' ) ] ) ); // no languageCode — ambiguous with two languages
 		$r = $this->sync()->run();
 		self::assertSame( 'no chain assigned to a language', $r['skipped'] );
 		self::assertSame( 'AIVIS_LANGUAGE_UNASSIGNED', end( WPStub::$options['aivis_os_diagnostics'] )['code'] );
@@ -103,21 +102,36 @@ final class SyncLanguageTest extends TestCase {
 		self::assertContains( 'AIVIS_LANGUAGE_MISMATCH', array_column( WPStub::$options['aivis_os_diagnostics'], 'code' ) );
 	}
 
-	public function test_refresh_rejects_an_artifact_from_a_chain_not_assigned_to_the_pages_language(): void {
+	public function test_refresh_asks_only_the_pages_language_chain_and_rejects_a_foreign_envelope(): void {
 		WPStub::$filter_values['aivis_connector_site_languages'] = static fn( array $l ): array => $l + [ 'en' => [ 'code' => 'en', 'name' => 'English', 'home' => 'https://example.com/en/' ] ];
 		$this->o->set_chain_languages( [ 'chain_de' => 'de', 'chain_en' => 'en' ] );
-		// The German chain answers for an English page: /jsonld?url= picked the freshest.
+		// API-5: the English chain is asked for its row; the German one is never consulted
+		// and /jsonld?url= (freshest across every chain) is never used.
+		WPStub::queue( 200, self::list( [ self::row( 'u9', 'https://example.com/en/about/', 'en' ) ] ) );
+		// A lying envelope that names the German chain is still rejected by the binding.
 		WPStub::queue( 200, self::envelope( 'u9', 'chain_de', 'https://example.com/en/about/', 'de' ) );
 		$r = $this->sync()->refresh_url( 'https://example.com/en/about/' );
 		self::assertSame( 'reject', $r['action'] );
 		self::assertSame( 'AIVIS_SCOPE_MISMATCH', $r['code'] );
 		$last = end( WPStub::$options['aivis_os_diagnostics'] );
 		self::assertStringContainsString( 'chainId chain_de is not an assigned chain for language en', $last['message'] );
+		$paths = self::paths();
+		self::assertSame( '/api/public/v1/chains/chain_en/urls?limit=200&url=https%3A%2F%2Fexample.com%2Fen%2Fabout%2F', $paths[0] );
+		self::assertSame( '/api/public/v1/urls/u9/jsonld', $paths[1] );
+		self::assertCount( 2, $paths );
 
 		// The English chain answering for the English page is accepted.
+		WPStub::queue( 200, self::list( [ self::row( 'u9', 'https://example.com/en/about/', 'en' ) ] ) );
 		WPStub::queue( 200, self::envelope( 'u9', 'chain_en', 'https://example.com/en/about/', 'en' ) );
 		$r = $this->sync()->refresh_url( 'https://example.com/en/about/' );
 		self::assertSame( 'serve', $r['action'] );
+
+		// No chain of the page's language holds it: AIVIS answered, so R-01 suspends (nothing local: a miss).
+		WPStub::queue( 200, self::list( [] ) );
+		$r = $this->sync()->refresh_url( 'https://example.com/en/nowhere/' );
+		self::assertSame( 'suspend', $r['action'] );
+		self::assertSame( 'R-01', $r['rule'] );
+		self::assertNotFalse( get_transient( 'aivis_os_miss_' . \AivisOS\Domain\UrlKey::of( 'https://example.com/en/nowhere/' ) ), 'remembered as a miss' );
 	}
 
 	public function test_refresh_needs_an_assignment_too(): void {

@@ -84,7 +84,7 @@ final class EnvironmentTest extends TestCase {
 		self::assertSame( 'recommended', $r['status'] );
 		self::assertStringContainsString( 'test instance', $r['label'] );
 		$d = ( new StatusDocument( $o, new Repository(), new AdapterFactory( $o ) ) )->build();
-		self::assertSame( [ 'environment' => 'test', 'base' => 'https://aivis-new.dev.onepoint.ro', 'source' => 'setting' ], $d['api'] );
+		self::assertSame( [ 'environment' => 'test', 'base' => 'https://aivis-new.dev.onepoint.ro', 'source' => 'setting', 'contractVersion' => null, 'minClient' => null, 'clientTooOld' => false ], $d['api'] );
 	}
 
 	public function test_cli_environment_shows_and_switches(): void {

@@ -3,8 +3,10 @@
 **Audience:** the AIVIS platform team (`epoint-digital/aivis`)
 **Requested by:** the AIVIS WordPress Connector (`aivis-wordpress-connector`) and, where noted, the
 Cloudflare Edge Connector
-**Status:** requirements, not designs — each item states the need and a proposed contract, and the
-platform team owns the final shape
+**Status (2026-09-09): all eleven shipped.** AIVIS released them as contract 1.1.0 → 1.9.0 on
+2026-09-08 (aivis#264 and sub-issues); the connector adopted them on 2026-09-09 (spec 1.1.0, #20,
+#54). The table below records what shipped and how the connector uses it; the sections that follow
+are the original asks, kept as the record of *why*
 **Verified against:** `origin/main` @ `e96b89c` (2026-08-11) and the live OpenAPI at
 `https://aivis-new.dev.onepoint.ro/api/public/v1/openapi.json`, both read 2026-09-05
 
@@ -32,6 +34,26 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | **API-9** | Fetch the connector's publishing status (site-served, key-gated) | Medium — AIVIS-side fetcher; the connector pushes nothing |
 | **API-10** | `languageCode` on the chain resource | Medium — makes chain → language assignment exact instead of sampled |
 | **API-11** | Versioning and compatibility policy | **High** — nothing else in this list can ship safely without it |
+
+### Outcome (2026-09-09)
+
+| Req | Shipped as | Connector use |
+|---|---|---|
+| API-1 | 1.3.0 — business-bound tokens; `/me` returns `businessId`, `business`, `permissions` | Settings and CLI show the bound business; the customer-managed install restriction is lifted for bound tokens |
+| API-2 | 1.5.0 — `410 withdrawn`; `jsonLd.suppressedAt` + `ready:false` on inventory rows | R-01b: deactivate at once, keep the row, resume on republish; R-02a honours `suppressedAt` |
+| API-3 | 1.1.0 — `error.code` on every error; open enum | Classification branches on the code; the 1.0.0 messages remain as fallback |
+| API-4 | 1.8.0 — `ETag` / `If-None-Match` / 304, `Cache-Control: private, no-cache` | Not sent by the connector: its inventory diff already avoids re-fetching an unchanged artifact; a 304 saves the transfer, not the lookup |
+| API-5 | 1.6.0 — `GET /urls/{urlId}`, `?url=` on the chain listing, `chainId`/`businessId` on rows | Refresh and on-demand lookups go through the page's language chains (`?url=`), never `/jsonld?url=`; rows are business-pinned |
+| API-6 | 1.7.0 — `?updatedSince=` change feed (no tombstones; ping declined for v1) | Incremental walks between full walks (every 6 h); an unpublish arrives within one interval |
+| API-7 | 1.9.0 — 600/60 s per token, `429 rate_limited` + `Retry-After`, `X-RateLimit-*` | The tick yields on 429 and below 20 remaining requests |
+| API-8 | Declined (ADR) — exact + trailing-slash matching stays | Unchanged |
+| API-9 | AIVIS-side fetcher (aivis#286) with a sealed per-business key | The site-issued status key and `/wp-json/aivis-os/v1/status` are unchanged |
+| API-10 | 1.4.0 — chain `languageCode`, `urlLanguageCodes`, `declaredLanguageCodes` | Automatic assignment uses the chain's language; row sampling removed; a mixed chain waits for the admin |
+| API-11 | 1.2.0 — semver headers, 426 `client_too_old`, `/changelog` with `nextMinClient`, deprecation headers | Headers remembered per response; 426 stops syncing and is shown on Status, in Site Health and as a notice; `/changelog` read on every connection test |
+
+**Open product caveat.** Chains are many-to-many with languages in AIVIS's schema; the connector's
+one-chain-one-language model is the recommended shape, not an enforced one. A chain AIVIS reports
+as mixed (`languageCode: null`) is left to the admin to assign or split.
 
 ---
 

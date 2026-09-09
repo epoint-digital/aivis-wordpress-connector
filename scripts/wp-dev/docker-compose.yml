@@ -1,0 +1,52 @@
+# Throwaway WordPress for verifying the plugin's admin screens against the real
+# AIVIS instances (the prototype in docs/admin-ui.html is not WordPress).
+#
+#   docker compose -f scripts/wp-dev/docker-compose.yml up -d
+#   docker compose -f scripts/wp-dev/docker-compose.yml run --rm cli wp core install \
+#     --url=http://localhost:8090 --title=Dev --admin_user=admin --admin_password=admin \
+#     --admin_email=dev@example.com --skip-email
+#   docker compose -f scripts/wp-dev/docker-compose.yml run --rm cli wp plugin activate aivis-os
+#   open http://localhost:8090/wp-admin/  (admin / admin)
+#
+# The repository is mounted read-only as wp-content/plugins/aivis-os.
+name: aivis-wp-dev
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: wp
+      MARIADB_ROOT_PASSWORD: root
+    volumes:
+      - db:/var/lib/mysql
+  wordpress:
+    image: wordpress:php8.3
+    depends_on: [db]
+    ports:
+      - "8090:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: "1"
+    volumes:
+      - wp:/var/www/html
+      - ../..:/var/www/html/wp-content/plugins/aivis-os:ro
+  cli:
+    image: wordpress:cli-php8.3
+    depends_on: [wordpress, db]
+    user: "33:33"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wp:/var/www/html
+      - ../..:/var/www/html/wp-content/plugins/aivis-os:ro
+    profiles: [tools]
+volumes:
+  db:
+  wp:

@@ -15,12 +15,13 @@ language assignment without the Settings screen.
 
 ## Who may install this
 
-**v1 ships to AIVIS-controlled or AIVIS-operated sites only.** An AIVIS API
-token is account-scoped: it can read structured data for *every* business on
-the account, not just this site's. A WordPress database is copied into backups,
-staging clones and migrations. Until the platform offers business-scoped tokens
-(tracked as API-1), do not install this on a site whose database you do not
-control.
+**Use a business-bound token.** When you create the API token in AIVIS
+(profile → API tokens), pick the business this site is: the token then reads
+that business and nothing else, and the plugin may run on a customer-managed
+site. An **account-wide** token reads *every* business on the account — and a
+WordPress database is copied into backups, staging clones and migrations — so
+use one only on a site whose database you control. Settings shows which kind is
+connected. Either way, keep the token in `wp-config.php`.
 
 ## Requirements
 
@@ -91,8 +92,14 @@ makes no network request and needs no token.
 
 ## 4. Connect and bind the business
 
-AIVIS OS → **Settings** → *Test connection*. On success the business whose
-domain matches this site is bound automatically.
+AIVIS OS → **Settings**: choose the **Environment**, paste the token (unless it
+is in `wp-config.php`) and click **Save & test connection** — it saves the page,
+then verifies the token against the selected instance. On success the chip
+reads *Connected — bound to <business>* (or *Connected as <email>* for an
+account-wide token) and the business whose domain matches this site is bound
+automatically. A failure says which host answered and why — *Could not reach
+app.aivis-os.com (…)* is the environment, *… rejected the token (invalid_token)*
+is the token.
 
 ![Settings screen](screenshots/settings.png)
 
@@ -297,8 +304,10 @@ data on uninstall* is ticked — the token is removed either way.
 
 | Symptom | Look at |
 |---|---|
-| "Token invalid or revoked" | Recreate the token in AIVIS; update `wp-config.php`. Also check the **Environment**: a Test token does not work on Production, and the other way round |
-| Test connection fails at once with a transport error | The selected instance is unreachable — Production has no DNS record yet as of September 2026; use Test until it does |
+| "<host> rejected the token (invalid_token — …)" | The token is wrong, revoked, or issued on the other instance: a Test token does not work on Production, and the other way round. Recreate it on the instance selected under Environment and paste it again |
+| "Could not reach app.aivis-os.com (…)" | The selected instance did not answer at all — Production has no DNS record yet as of September 2026; switch Environment to Test and save again. If it persists on Test, the host blocks outbound requests |
+| "AIVIS requires a newer connector (minimum x.y.z)" | Update the plugin. Syncing stops until then; pages keep serving their last known good data |
+| "<host> is rate-limiting this token (429)" | Wait a minute. 600 requests per minute per token; another integration may share the token — issue one per site |
 | No business matches | The business's base URL in AIVIS must be this site's domain |
 | "… has no chain" in Site Health | Assign a chain to that language under Settings → Languages & chains, or create one in AIVIS |
 | Sync says *no chain assigned to a language* | Same — nothing syncs until at least one chain is assigned |

@@ -41,9 +41,22 @@ final class Notices {
 
 		if ( isset( $_GET['aivis_msg'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$m = sanitize_key( (string) $_GET['aivis_msg'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$ts   = $o->token_status();
+			$f    = $ts['failure'] ?? [ 'kind' => '', 'status' => 0, 'detail' => '', 'host' => '' ];
+			$api  = $o->api_info();
 			$text = match ( $m ) {
-				'connected'      => __( 'Connected. The token is valid.', 'aivis-os' ),
-				'auth_failed'    => __( 'Token invalid or revoked.', 'aivis-os' ),
+				'connected'      => $ts['bound']
+					? sprintf( /* translators: 1: host, 2: business name */ __( 'Connected to %1$s. The token is valid and bound to %2$s.', 'aivis-os' ), esc_html( (string) wp_parse_url( $o->api_base(), PHP_URL_HOST ) ), esc_html( $ts['business_name'] ) )
+					: sprintf( /* translators: %s: host */ __( 'Connected to %s. The token is valid (account-wide).', 'aivis-os' ), esc_html( (string) wp_parse_url( $o->api_base(), PHP_URL_HOST ) ) ),
+				'no_token'       => __( 'Add an API token first.', 'aivis-os' ),
+				'token_format'   => __( 'That is not an AIVIS token — tokens start with aivis_. Nothing was saved.', 'aivis-os' ),
+				'auth_failed'    => sprintf( /* translators: 1: host, 2: detail */ __( '%1$s rejected the token (%2$s). Tokens are issued per instance — one created on Test does not work on Production and vice versa — and may have been revoked. Create one on this instance and paste it again.', 'aivis-os' ), esc_html( $f['host'] ), esc_html( $f['detail'] ?: '401' ) ),
+				'account_disabled' => sprintf( /* translators: 1: host, 2: detail */ __( '%1$s: the AIVIS account behind this token is deactivated (%2$s).', 'aivis-os' ), esc_html( $f['host'] ), esc_html( $f['detail'] ) ),
+				'client_too_old' => sprintf( /* translators: 1: minimum version, 2: this version */ __( 'AIVIS requires a newer connector: minimum %1$s, this is %2$s. Update the plugin — nothing syncs until then.', 'aivis-os' ), esc_html( $api['min_client'] ?: '?' ), esc_html( AIVIS_OS_VERSION ) ),
+				'throttled'      => sprintf( /* translators: %s: host */ __( '%s is rate-limiting this token (429). Try again in a minute.', 'aivis-os' ), esc_html( $f['host'] ) ),
+				'unreachable'    => sprintf( /* translators: 1: host, 2: detail */ __( 'Could not reach %1$s (%2$s). The token was not checked.', 'aivis-os' ), esc_html( $f['host'] ), esc_html( $f['detail'] ) )
+					. ( 'production' === $o->environment() && 'constant' !== $o->api_base_source() ? ' ' . __( 'If AIVIS is not live on app.aivis-os.com yet, switch Environment to Test and save again.', 'aivis-os' ) : '' ),
+				'api_error'      => sprintf( /* translators: 1: host, 2: detail */ __( '%1$s answered unexpectedly (%2$s). The token was not verified.', 'aivis-os' ), esc_html( $f['host'] ), esc_html( $f['detail'] ) ),
 				'sync_requested' => __( 'Sync requested — it runs on the next cron tick.', 'aivis-os' ),
 				'synced'         => __( 'Sync run finished.', 'aivis-os' ),
 				'saved'          => __( 'Settings saved.', 'aivis-os' ),
@@ -63,10 +76,12 @@ final class Notices {
 				default          => '',
 			};
 			if ( '' !== $text ) {
-				$kind = 'auth_failed' === $m ? 'error' : 'success';
+				$kind = in_array( $m, [ 'auth_failed', 'account_disabled', 'client_too_old', 'unreachable', 'api_error', 'token_format', 'no_token' ], true ) ? 'error' : ( 'throttled' === $m ? 'warning' : 'success' );
 				echo '<div class="notice notice-' . esc_attr( $kind ) . ' is-dismissible"><p>' . esc_html( $text ) . '</p></div>';
 			}
 		}
+
+		$this->contract_notice( $o );
 
 		$this->conflict_notice( $o );
 
@@ -116,6 +131,34 @@ final class Notices {
 		}
 		if ( ( $state['last_authoritative'] ?? null ) === false ) {
 			$this->notice( 'info', __( 'The last sync did not complete fully, so nothing was retired. It will retry on the next tick.', 'aivis-os' ) );
+		}
+	}
+
+	/**
+	 * §03 — the instance's minimum client. Red once AIVIS answers 426 (or the
+	 * announced minimum is above this version); amber while a raised minimum
+	 * is only announced (`nextMinClient`), with its date.
+	 */
+	private function contract_notice( \AivisOS\Storage\Options $o ): void {
+		$api = $o->api_info();
+		if ( true === $o->client_too_old() ) {
+			$this->notice( 'error', sprintf(
+				/* translators: 1: minimum version, 2: this version */
+				__( '<strong>Update AIVIS OS.</strong> AIVIS requires connector %1$s or newer; this is %2$s. Syncing has stopped; pages keep serving their last known good structured data.', 'aivis-os' ),
+				esc_html( $api['min_client'] ?: '?' ),
+				esc_html( AIVIS_OS_VERSION )
+			) );
+			return;
+		}
+		$next = $api['next_min_client'];
+		if ( null !== $next && version_compare( AIVIS_OS_VERSION, $next['version'], '<' ) ) {
+			$this->notice( 'warning', sprintf(
+				/* translators: 1: version, 2: date, 3: this version */
+				__( '<strong>AIVIS will require connector %1$s from %2$s.</strong> This is %3$s — update the plugin before then.', 'aivis-os' ),
+				esc_html( $next['version'] ),
+				esc_html( $next['effective_from'] ?: '?' ),
+				esc_html( AIVIS_OS_VERSION )
+			) );
 		}
 	}
 

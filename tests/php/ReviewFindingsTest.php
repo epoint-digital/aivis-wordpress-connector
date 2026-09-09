@@ -108,15 +108,18 @@ final class ReviewFindingsTest extends TestCase {
 
 	public function test_57_a_known_language_without_a_chain_rejects_every_artifact(): void {
 		WPStub::$filter_values['aivis_connector_site_languages'] = static fn( array $l ): array => $l + [ 'en' => [ 'code' => 'en', 'name' => 'English', 'home' => 'https://example.com/en/' ] ];
-		WPStub::queue( 200, [ 'urlId' => 'u', 'chainId' => 'de-chain', 'businessId' => 'biz', 'url' => 'https://example.com/en/about/', 'languageCode' => 'de', 'stale' => false, 'generatedAt' => '2026-09-01T00:00:00Z', 'jsonLd' => [ '@type' => 'Thing' ] ] );
 		$r = $this->sync()->refresh_url( 'https://example.com/en/about/' );
 		self::assertSame( 'reject', $r['action'] );
 		self::assertSame( 'AIVIS_LANGUAGE_UNASSIGNED', $r['code'] );
+		self::assertCount( 0, WPStub::$http_log, 'a language without a chain is refused before any request' );
 		self::assertNotFalse( get_transient( 'aivis_os_miss_' . \AivisOS\Domain\UrlKey::of( 'https://example.com/en/about/' ) ), 'remembered as a miss' );
 		self::assertSame( [], $GLOBALS['wpdb']->writes, 'nothing stored' );
-		// The German page still accepts its own chain.
+		// The German page still accepts its own chain: its row (API-5), then the artifact by id.
+		WPStub::queue( 200, self::list( [ [ 'id' => 'u2', 'url' => 'https://example.com/ueber/', 'chainId' => 'de-chain', 'businessId' => 'biz', 'languageCode' => 'de', 'layer' => 'editorial', 'captureStatus' => 'processed', 'jsonLd' => [ 'ready' => true, 'stale' => false, 'generatedAt' => '2026-09-01T00:00:00Z', 'suppressedAt' => null ] ] ] ) );
 		WPStub::queue( 200, [ 'urlId' => 'u2', 'chainId' => 'de-chain', 'businessId' => 'biz', 'url' => 'https://example.com/ueber/', 'languageCode' => 'de', 'stale' => false, 'generatedAt' => '2026-09-01T00:00:00Z', 'jsonLd' => [ '@type' => 'Thing' ] ] );
 		self::assertSame( 'serve', $this->sync()->refresh_url( 'https://example.com/ueber/' )['action'] );
+		self::assertStringContainsString( '/chains/de-chain/urls?limit=200&url=https%3A%2F%2Fexample.com%2Fueber%2F', WPStub::$http_log[0][0] );
+		self::assertStringContainsString( '/urls/u2/jsonld', WPStub::$http_log[1][0] );
 	}
 
 	/* ── #58 ── */

@@ -34,15 +34,15 @@ Activation makes no network request and needs no token. If the site is not on HT
 
 `→ <site>/wp-admin/admin.php?page=aivis-os-settings`
 
-The page has these boxes in order: **Connection**, **Business**, **Languages & chains**, **Delivery**, **Structured data sources**, **Status for AIVIS**, **Page cache**. One *Save changes* button at the bottom submits all of them.
+The page has these boxes in order: **Connection**, **Business**, **Languages & chains**, **Delivery**, **Structured data sources**, **Status for AIVIS**, **Page cache**. It is **one form**: every button on it (*Save & test connection*, *Scan pages now*, the status-key buttons, *Save changes*, *Disconnect*) submits the whole page with its own action.
 
 ### Connection
 
 - **Environment** select `#aivis_env` (`environment`): *Production — app.aivis-os.com* or *Test — aivis-new.dev.onepoint.ro*. Ask the human which instance this site belongs to **before** anything else: a token from one instance does not work on the other, and switching later unbinds the business and stops serving what came from the other instance. If `wp-config.php` defines `AIVIS_API_BASE_URL` the select is replaced by a note and cannot be changed here. As of September 2026 Production has no DNS record; pilots run on Test.
 - If `wp-config.php` defines the token you see `AIVIS_API_TOKEN is defined in wp-config.php` with a green *Recommended* chip. Good.
-- Otherwise there is a password field `#aivis_token`. **The human types the token.** Then *Save changes*, then come back.
-- Click *Test connection* (a small form; button label *Test connection*). Expected: a green chip *Connected as <email>*. A red *Token invalid or revoked* means a wrong or revoked token — ask the human to fix it; do not retry in a loop.
-- The yellow note *What this token can reach* is informational: the token reads every business on the account. Mention it in the report.
+- Otherwise there is a password field `#aivis_token`. **The human types the token.** Leave it there — the next button saves it.
+- Click **Save & test connection** (`button[name=do][value=save_and_test]`, right under the token field). It saves the page — environment and token included — then verifies the token against the selected instance. Expected: a green chip *Connected — bound to <business>* (business-bound token) or *Connected as <email>* (account-wide), and a notice naming the host. A red chip names the failure: *Token rejected by <host>* (wrong, revoked or issued on the other instance — ask the human; do not retry in a loop), *Could not reach <host>* (the environment: switch to Test while Production has no DNS record, or the host blocks outbound requests), *Plugin update required* (stop and report).
+- *What this token can reach* says which kind of token is connected. Green *Business-bound token* names the one business it reads — the right kind. A yellow *account-wide* warning means the token reads every business on the account: mention it in the report and suggest a bound token.
 
 ### Business
 
@@ -83,7 +83,7 @@ Select `#aivis_cache` (`cache_adapter`): leave on *Detect automatically (current
 
 ### Save
 
-`→` *Save changes*. Expected notice: *Settings saved.* If the notice is *Token invalid or revoked* after a business save, the domain check refused the binding — report it.
+`→` *Save changes*. Expected notice: *Settings saved.* A *Token invalid or revoked* notice after a business save means the domain check refused the binding — report it.
 
 ## 4. First sync
 

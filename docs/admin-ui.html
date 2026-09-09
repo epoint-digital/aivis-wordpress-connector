@@ -669,22 +669,21 @@ function settingsScreen(){
                  <code>AIVIS_API_TOKEN</code> in <code>wp-config.php</code> — see the warning below.</p>
                  <p style="margin-top:8px"><button class="button" data-act="useconst">Use the wp-config.php constant</button></p>`}
             <p style="margin-top:10px">
-              <button class="button" data-act="test" ${S.testing ? 'disabled' : ''}>${S.testing ? 'Testing&hellip;' : 'Test connection'}</button>
-              ${S.testResult === 'ok' ? '<span class="chip c-active" style="margin-left:8px"><span class="dot"></span>Connected as marketing@epoint.ro</span>' : ''}
-              ${S.testResult === 'fail' ? '<span class="chip c-susp" style="margin-left:8px"><span class="dot"></span>Token invalid or revoked</span>' : ''}
+              <button class="button" data-act="test" ${S.testing ? 'disabled' : ''}>${S.testing ? 'Testing&hellip;' : 'Save &amp; test connection'}</button>
+              ${S.testResult === 'ok' ? '<span class="chip c-active" style="margin-left:8px"><span class="dot"></span>Connected — bound to Example GmbH</span>' : ''}
+              ${S.testResult === 'fail' ? '<span class="chip c-susp" style="margin-left:8px"><span class="dot"></span>Token rejected by aivis-new.dev.onepoint.ro</span>' : ''}
             </p>
+            <p class="description">Saves everything on this page, then verifies the token against the selected instance.</p>
           </td>
         </tr>
         <tr>
           <th scope="row">What this token can reach</th>
           <td>
-            <div class="notice notice-warning" style="margin:0">
-              <p>An AIVIS API token is scoped to your <strong>account</strong>, not to one business. This token can
-              read structured data for <strong>all ${BUSINESSES.length} businesses</strong> on the account, not only
-              this site&rsquo;s.</p>
-              <p>Because of that, install this plugin only on sites you control. Keeping the token in
-              <code>wp-config.php</code> rather than the database limits where copies of it end up.</p>
-            </div>
+            <p><span class="chip c-active"><span class="dot"></span>Business-bound token</span>
+            This token reads <strong>Example GmbH</strong> (<code>${SITE_HOST}</code>) and nothing else on the account
+            — the right kind for a customer-managed site.</p>
+            <p class="description">Keeping it in <code>wp-config.php</code> rather than the database still limits where
+            copies of it end up.</p>
           </td>
         </tr>
       </table>
@@ -716,7 +715,7 @@ function settingsScreen(){
       to the WordPress language its pages are in. A language without a chain receives no structured data; a chain without a language is
       not synced. Language subdomains are fine; a separate domain per language needs its own AIVIS business and its own site.</p>
       <table class="widefat striped">
-        <thead><tr><th>Chain</th><th>AIVIS reports</th><th>Serves WordPress language</th><th>Pages</th></tr></thead>
+        <thead><tr><th>Chain</th><th>Language in AIVIS</th><th>Serves WordPress language</th><th>Pages</th></tr></thead>
         <tbody>${CHAINS.map(c=>`<tr>
           <td><strong>${esc(c.name)}</strong><br><span class="muted"><code>${c.id}</code> · ${c.state.replace('_',' ')} · ${c.urlCount} URLs</span></td>
           <td><code>${c.hint}</code></td>

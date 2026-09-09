@@ -3,7 +3,7 @@
 **Purpose.** Everything an independent reviewer (human or model) needs to check this connector: what it is, what was decided and why, what was verified against reality, where the code and tests are, what is known to be missing, and the questions where a second opinion matters most. Every link points into the repository, which you have access to.
 
 - Repository: https://github.com/epoint-digital/aivis-wordpress-connector (plugin slug `aivis-os`, GPL-2.0-or-later)
-- State at the time of writing: all suites green — PHPUnit 114 tests / 12 546 assertions, JS contract 36, JS unit 65, serializer fuzz 16 — on `main`, 2026-09-07. Not yet piloted on a live site (#18). No release tagged.
+- State at the time of writing: all suites green — PHPUnit 181 tests / 12 893 assertions, JS contract 52, JS unit 85, serializer fuzz 16 — on `main`, 2026-09-09, against AIVIS API contract 1.9.0. Settings screen verified in a real WordPress (Docker) against the live Test instance. Not yet piloted on a live site (#18). No release tagged.
 - Documentation index (every document, page, board and issue set): [`docs/INDEX.md`](https://github.com/epoint-digital/aivis-wordpress-connector/blob/main/docs/INDEX.md)
 
 Suggested reading order, about two hours: this brief → §1–§3 of it → the specification's invariants (§02), retraction (§06), URL handling (§07, §07a), zero trust (§08), status for AIVIS (§11a) → the code and tests named in §7 below → the open issues in §6.
@@ -19,7 +19,7 @@ A WordPress plugin that connects one site to one **AIVIS business** and delivers
 - **Retract**: when a page is withdrawn in AIVIS, stop printing the block and purge the page's cache — inferred today from two signals (see §3). With an idle pipeline and no backlog that takes one sync interval plus purge; two while a chain is rebuilding.
 - **Never push**: the connector's only requests to AIVIS are reads. Its own status is stored locally and fetched by AIVIS from a key-gated, read-only endpoint on the site.
 
-Audience for v1: sites AIVIS controls or operates. Customer-managed distribution is blocked on API-1 (account-scoped tokens).
+Audience for v1: any site with a business-bound token (API-1 shipped 2026-09-08); sites AIVIS controls or operates when the token is account-wide.
 
 ## 2. Documents
 
@@ -41,7 +41,7 @@ Rendered copies of the requirements page, install guide and prototype also exist
 
 **Verified** against `epoint-digital/aivis` `origin/main` @ `e96b89c` (2026-08-11, Public API v1 merged as [#142](https://github.com/epoint-digital/aivis/pull/142)) and the live OpenAPI at https://aivis-new.dev.onepoint.ro/api/public/v1/openapi.json, vendored as [`tests/fixtures/openapi-v1.json`](https://github.com/epoint-digital/aivis-wordpress-connector/blob/main/tests/fixtures/openapi-v1.json) with a nightly drift job:
 
-- Tokens are **account-scoped** (`ApiToken{id,userId,name,tokenHash,prefixLast4,…}`, no scope, no expiry). One token reads every business on the account.
+- Tokens come in two kinds since contract 1.3.0: **account-wide** (reads every business on the account) and **business-bound** (`/me` names the business; every other endpoint answers 404 outside it). No expiry on either.
 - `/jsonld?url=` returns **two distinct 404 messages**: `"URL not found in your businesses"` (the `Url` row is gone — how withdrawal looks today, since the artifact cascades on delete) and `"JSON-LD not generated yet for this URL"` (row exists, no artifact yet). Only prose distinguishes them.
 - Matching is **exact plus a trailing-slash variant**, deliberately. No normalization on the AIVIS side.
 - `/jsonld?url=` picks the freshest artifact **across every business on the account**; `Business.baseUrl` is single but **not unique**. Hence: `businessId` equality on every artifact, and inventory targets fetched by `urlId`.
@@ -122,12 +122,12 @@ Say so before the reviewer finds it:
 
 - **No WordPress integration tests.** PHPUnit runs against function stubs ([`tests/php/bootstrap.php`](https://github.com/epoint-digital/aivis-wordpress-connector/blob/main/tests/php/bootstrap.php)); nothing has executed inside a real WordPress yet. The pilot (#18) is the first real run.
 - **Language providers are implemented from their documentation**, not against installed WPML/Polylang/TranslatePress/Weglot. Detection is best-effort with filters to override ([`src/Delivery/Language.php`](https://github.com/epoint-digital/aivis-wordpress-connector/blob/main/src/Delivery/Language.php)).
-- **Retraction is inference** until API-2/API-3 land; a 410 today falls into the conservative hold branch.
+- **Retraction of a *deleted* page is still inference** (two authoritative absences, R-01/R-02): AIVIS leaves no tombstone for a deleted row by design. An *unpublished* page is explicit (`410 withdrawn`, `suppressedAt`) and comes down at once.
 - **Loopback verification** may be blocked on some hosts; then "could not verify" is reported, never "not live".
 - **Scaling**: the in-progress inventory is persisted in `wp_options` ([#31](https://github.com/epoint-digital/aivis-wordpress-connector/issues/31)); target selection and the retirement pass are N+1 ([#32](https://github.com/epoint-digital/aivis-wordpress-connector/issues/32)). Fine for thousands of URLs, not for hundreds of thousands.
 - **Updates cannot be served while the repository is private** ([#34](https://github.com/epoint-digital/aivis-wordpress-connector/issues/34)).
 - **Node 24+ engine bug** in `JSON.parse(JSON.stringify(x))` affects the JS test tooling only, not the PHP plugin ([#19](https://github.com/epoint-digital/aivis-wordpress-connector/issues/19), reproducer in `tests/known-issues/`).
-- **No runtime API version negotiation** until API-11 ([aivis#275](https://github.com/epoint-digital/aivis/issues/275), in the AIVIS repository) and its connector counterpart ([#54](https://github.com/epoint-digital/aivis-wordpress-connector/issues/54)).
+- **Runtime API version handling exists** since 2026-09-09 (headers, 426, `/changelog`, Site Health; #54) but has only been exercised against the mock and the Test instance's current minimum (1.0.0); no real 426 has been observed.
 - **Cache adapters** cover WP Super Cache, W3 Total Cache and LiteSpeed; anything else is "manual purge required" by design (Q-03 open until the pilot's infrastructure is known).
 
 Open issues: https://github.com/epoint-digital/aivis-wordpress-connector/issues?q=is%3Aissue+is%3Aopen · For the AIVIS team, now in the AIVIS repository and assigned to Marius Diacu: [aivis#264](https://github.com/epoint-digital/aivis/issues/264) with sub-issues aivis#265–#275 · Internal API tracker: [#20](https://github.com/epoint-digital/aivis-wordpress-connector/issues/20).

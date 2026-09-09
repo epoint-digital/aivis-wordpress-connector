@@ -23,6 +23,10 @@ final class ErrorCode {
 	public const PURGE_UNSUPPORTED = 'AIVIS_PURGE_UNSUPPORTED';
 	public const PURGE_FAILED      = 'AIVIS_PURGE_FAILED';
 	public const LOCKED            = 'AIVIS_LOCKED';
+	/** §03: AIVIS answered 426 — this connector is below X-Aivis-Min-Client; nothing syncs until updated. */
+	public const CLIENT_TOO_OLD    = 'AIVIS_CLIENT_TOO_OLD';
+	/** §04: 429 from AIVIS; the tick yields and continues after Retry-After. */
+	public const RATE_LIMITED      = 'AIVIS_RATE_LIMITED';
 	/** §07a: a site language has no chain, or a chain is not assigned to any language. */
 	public const LANGUAGE_UNASSIGNED = 'AIVIS_LANGUAGE_UNASSIGNED';
 	/** §07a: AIVIS's languageCode for a chain's pages disagrees with the assignment. */

@@ -9,6 +9,7 @@ declare( strict_types=1 );
 
 namespace AivisOS\Admin;
 
+use AivisOS\Domain\ErrorCode;
 use AivisOS\Plugin;
 use AivisOS\Sync\Scheduler;
 
@@ -130,17 +131,17 @@ final class Menu {
 
 		switch ( $do ) {
 			case 'save_settings':
+			case 'save_and_test':
+				// One form, two buttons (#69): the test always runs against what was
+				// just saved — token and environment included — never against a
+				// stale copy.
 				$msg = ( new SettingsPage( $this->plugin ) )->save( $_POST );
+				if ( 'save_and_test' === $do && ! in_array( $msg, [ 'token_format', 'auth_failed' ], true ) ) {
+					$msg = $this->test_connection();
+				}
 				break;
 			case 'test_connection':
-				$r = $this->plugin->client()->me();
-				if ( $r->ok() ) {
-					$this->plugin->options()->set_token_status( true, (string) ( $r->body['tokenName'] ?? '' ), (string) ( $r->body['email'] ?? '' ) );
-					$msg = 'connected';
-				} else {
-					$this->plugin->options()->set_token_status( false );
-					$msg = 'auth_failed';
-				}
+				$msg = $this->test_connection();
 				break;
 			case 'sync_now':
 				Scheduler::request_sync_now();
@@ -206,6 +207,94 @@ final class Menu {
 	}
 
 	/** Small helper used by both pages. */
+	/**
+	 * §11 — verify the token against the selected instance and remember the
+	 * outcome *with its reason*: which host answered what. A blanket "token
+	 * invalid" hid an unreachable production host and an unsaved token
+	 * behind the same words (#69).
+	 *
+	 * @return string Notice key: connected | no_token | auth_failed | account_disabled
+	 *                | client_too_old | throttled | unreachable | api_error
+	 */
+	public function test_connection(): string {
+		$o    = $this->plugin->options();
+		$host = (string) wp_parse_url( $o->api_base(), PHP_URL_HOST );
+		if ( 'none' === $o->token_source() ) {
+			$o->set_token_status( null );
+			return 'no_token';
+		}
+		$r = $this->plugin->client()->me();
+		if ( $r->ok() ) {
+			$o->set_token_status_from_me( (array) $r->body );
+			delete_transient( 'aivis_os_businesses' );
+			$this->note_changelog();
+			return 'connected';
+		}
+		$kind   = $r->kind();
+		$detail = '' !== $r->transport_error
+			? $r->transport_error
+			: ( '' !== $r->code() ? $r->code() . ' — ' . $r->message() : ( $r->message() ?: 'HTTP ' . $r->status ) );
+		$o->set_token_status( false, '', '', [ 'failure' => [ 'kind' => $kind, 'status' => $r->status, 'detail' => $detail, 'host' => $host ] ] );
+		$code = match ( $kind ) {
+			'auth'           => ErrorCode::AUTH_401,
+			'account'        => ErrorCode::ACCOUNT_403,
+			'client_too_old' => ErrorCode::CLIENT_TOO_OLD,
+			'throttled'      => ErrorCode::RATE_LIMITED,
+			'transport'      => ErrorCode::HTTP_TIMEOUT,
+			default          => ErrorCode::HTTP_ERROR,
+		};
+		if ( 'client_too_old' !== $kind ) {
+			$o->record( $code, "connection test against {$host}: {$detail}" );
+		}
+		return match ( $kind ) {
+			'auth'           => 'auth_failed',
+			'account'        => 'account_disabled',
+			'client_too_old' => 'client_too_old',
+			'throttled'      => 'throttled',
+			// No HTTP status at all: DNS, TLS, timeout, host pin. A 5xx did reach AIVIS.
+			'transport'      => 0 === $r->status ? 'unreachable' : 'api_error',
+			default          => 'api_error',
+		};
+	}
+
+	/**
+	 * §03 — `/changelog` (contract ≥ 1.2.0) announces a raised minimum client
+	 * ahead of enforcement and publishes the rate limits. One request per
+	 * connection test; a 1.0.0 instance has no such route and that is fine.
+	 */
+	private function note_changelog(): void {
+		$o = $this->plugin->options();
+		$r = $this->plugin->client()->changelog();
+		if ( ! $r->ok() ) {
+			return;
+		}
+		$info = $o->api_info();
+		$n    = $r->body['nextMinClient'] ?? null;
+		$rl   = $r->body['rateLimits']['perToken'] ?? null;
+		$o->set_api_info(
+			[
+				'version'         => '' !== (string) ( $r->body['apiVersion'] ?? '' ) ? (string) $r->body['apiVersion'] : $info['version'],
+				'min_client'      => '' !== (string) ( $r->body['minClientVersion'] ?? '' ) ? (string) $r->body['minClientVersion'] : $info['min_client'],
+				'next_min_client' => is_array( $n ) && '' !== (string) ( $n['version'] ?? '' ) ? [ 'version' => (string) $n['version'], 'effective_from' => (string) ( $n['effectiveFrom'] ?? '' ) ] : null,
+				'rate_limit'      => is_array( $rl ) ? [ 'limit' => (int) ( $rl['limit'] ?? 0 ), 'window' => (int) ( $rl['windowSeconds'] ?? 0 ) ] : $info['rate_limit'],
+				'seen_at'         => time(),
+			]
+		);
+	}
+
+	/**
+	 * A submit button for a form that already carries the nonce and action
+	 * (the settings form). Use this inside such a form — a nested
+	 * action_form() is invalid HTML: browsers close the outer form at the
+	 * inner one and every field after it stops being submitted (#69).
+	 */
+	public static function action_button( string $do, string $label, string $class = 'button', bool $confirm = false ): string {
+		return '<button type="submit" class="' . esc_attr( $class ) . '" name="do" value="' . esc_attr( $do ) . '"'
+			. ( $confirm ? ' onclick="return confirm(\'' . esc_js( __( 'Are you sure?', 'aivis-os' ) ) . '\')"' : '' )
+			. '>' . esc_html( $label ) . '</button>';
+	}
+
+	/** A standalone one-button form. Never place it inside another form — see action_button(). */
 	public static function action_form( string $do, string $label, array $hidden = [], string $class = 'button', bool $confirm = false ): string {
 		$h = '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="display:inline"'
 			. ( $confirm ? ' onsubmit="return confirm(\'' . esc_js( __( 'Are you sure?', 'aivis-os' ) ) . '\')"' : '' ) . '>';

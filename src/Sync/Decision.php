@@ -15,32 +15,39 @@ use AivisOS\Domain\Action;
 
 final class Decision {
 
+	/** `captureStatus` values the contract names; anything else means hold (§03 open enums). */
+	public const KNOWN_CAPTURE = [ 'draft', 'processing', 'processed', 'failed' ];
+
 	/**
-	 * R-01 / R-01a — what a single refresh attempt does to a stored row.
+	 * R-01 / R-01a / R-01b — what a single refresh attempt does to a stored row.
 	 * `$api_reachable` must be confirmed within the same run; without it a 404
-	 * proves nothing.
+	 * proves nothing. A 410 `withdrawn` needs no such proof: only AIVIS emits
+	 * that code, and it is the explicit retraction signal (API-2).
 	 *
 	 * @return array{action:string, rule:?string, kind:string, needs_confirmation:bool}
 	 */
 	public static function from_lookup( Response $r, bool $api_reachable ): array {
 		$kind = $r->kind();
 		return match ( $kind ) {
-			'ok'            => self::d( Action::SERVE, null, $kind ),
-			// The Url row is gone. Cascade delete is how a retraction looks today.
-			'url_gone'      => $api_reachable
+			'ok'             => self::d( Action::SERVE, null, $kind ),
+			// The Url row is gone. Cascade delete is how a deletion looks.
+			'url_gone'       => $api_reachable
 				? self::d( Action::SUSPEND, 'R-01', $kind )
 				: self::d( Action::HOLD, 'R-01', $kind ),
 			// The page still exists; only the artifact is missing. Never deactivate.
-			'not_generated' => self::d( Action::HOLD, 'R-01a', $kind ),
+			'not_generated'  => self::d( Action::HOLD, 'R-01a', $kind ),
+			// Unpublished in AIVIS: take the block down now, keep the row, keep polling.
+			'withdrawn'      => self::d( Action::DEACTIVATE, 'R-01b', $kind ),
 			// A signal we cannot read is not evidence. Keep serving, confirm later.
-			'unreadable'    => self::d( Action::HOLD, 'R-01a', $kind, true ),
-			default         => self::d( Action::HOLD, null, $kind ),
+			'unreadable'     => self::d( Action::HOLD, 'R-01a', $kind, true ),
+			default          => self::d( Action::HOLD, null, $kind ),
 		};
 	}
 
 	/**
 	 * R-02 / R-02a — from an authoritative inventory pass. A partial traversal
-	 * never retires or deactivates anything.
+	 * never retires anything; a row it did see is still authoritative for
+	 * itself (the change feed, API-6, delivers unpublish this way).
 	 *
 	 * @param array<string,mixed>|null $row        Inventory row (null = absent).
 	 * @param bool                     $chain_idle The row's chain is `ready` or `empty` — not building or
@@ -73,8 +80,18 @@ final class Decision {
 				'missing_runs' => 0,
 			];
 		}
-		// ready:false — regeneration in flight is not a withdrawal.
-		if ( ( $row['captureStatus'] ?? null ) === 'processing' ) {
+		// Unpublished in AIVIS (suppressedAt, contract ≥ 1.5.0): down, whatever the capture is doing.
+		if ( ! empty( $row['jsonLd']['suppressedAt'] ) ) {
+			return [
+				'action'       => Action::DEACTIVATE,
+				'rule'         => 'R-02a',
+				'missing_runs' => 0,
+			];
+		}
+		// ready:false — regeneration in flight is not a withdrawal, and neither is
+		// a captureStatus this connector does not know (§03: unknown means hold).
+		$capture = $row['captureStatus'] ?? null;
+		if ( 'processing' === $capture || ( null !== $capture && ! in_array( (string) $capture, self::KNOWN_CAPTURE, true ) ) ) {
 			return [
 				'action'       => Action::HOLD,
 				'rule'         => 'R-02a',

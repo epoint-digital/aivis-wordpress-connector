@@ -38,7 +38,7 @@ final class SettingsPage {
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<?php wp_nonce_field( 'aivis_os_action' ); ?>
-				<input type="hidden" name="action" value="aivis_os_action"><input type="hidden" name="do" value="save_settings">
+				<input type="hidden" name="action" value="aivis_os_action">
 
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Connection', 'aivis-os' ); ?></h2><div class="inside">
 					<table class="form-table" role="presentation">
@@ -64,22 +64,40 @@ final class SettingsPage {
 								<input type="password" id="aivis_token" name="aivis_token" class="regular-text" autocomplete="off" value="" placeholder="<?php echo esc_attr( '' !== $o->token_display() ? $o->token_display() : 'aivis_…' ); ?>">
 								<p class="description"><?php esc_html_e( 'Stored in this site’s database. Prefer defining AIVIS_API_TOKEN in wp-config.php — see the warning below. Leave blank to keep the current token.', 'aivis-os' ); ?></p>
 							<?php endif; ?>
-							<p style="margin-top:10px"><?php echo Menu::action_form( 'test_connection', __( 'Test connection', 'aivis-os' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							<p style="margin-top:10px"><?php echo Menu::action_button( 'save_and_test', __( 'Save & test connection', 'aivis-os' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 							<?php if ( true === $status['valid'] ) : ?>
-								<span class="aivis-chip aivis-chip--ok"><?php echo esc_html( sprintf( /* translators: %s: email */ __( 'Connected as %s', 'aivis-os' ), $status['email'] ) ); ?></span>
+								<span class="aivis-chip aivis-chip--ok"><?php
+									echo esc_html( $status['bound']
+										? sprintf( /* translators: %s: business name */ __( 'Connected — bound to %s', 'aivis-os' ), $status['business_name'] )
+										: sprintf( /* translators: %s: email */ __( 'Connected as %s', 'aivis-os' ), $status['email'] ) );
+								?></span>
 							<?php elseif ( false === $status['valid'] ) : ?>
-								<span class="aivis-chip aivis-chip--bad"><?php esc_html_e( 'Token invalid or revoked', 'aivis-os' ); ?></span>
+								<span class="aivis-chip aivis-chip--bad"><?php echo esc_html( self::failure_label( $status['failure'] ) ); ?></span>
 							<?php endif; ?></p>
+							<p class="description"><?php esc_html_e( 'Saves everything on this page, then verifies the token against the selected instance.', 'aivis-os' ); ?></p>
 						</td></tr>
 						<tr><th scope="row"><?php esc_html_e( 'What this token can reach', 'aivis-os' ); ?></th><td>
-							<div class="notice notice-warning inline" style="margin:0"><p>
+							<?php if ( true === $status['valid'] && $status['bound'] ) : ?>
+								<p><span class="aivis-chip aivis-chip--ok"><?php esc_html_e( 'Business-bound token', 'aivis-os' ); ?></span>
 								<?php echo wp_kses_post( sprintf(
-									/* translators: %d: number of businesses */
-									__( 'An AIVIS API token is scoped to your <strong>account</strong>, not to one business. This token can read structured data for <strong>all %d businesses</strong> on the account, not only this site’s.', 'aivis-os' ),
-									count( $businesses )
+									/* translators: 1: business name, 2: domain */
+									__( 'This token reads <strong>%1$s</strong> (<code>%2$s</code>) and nothing else on the account — the right kind for a customer-managed site.', 'aivis-os' ),
+									esc_html( $status['business_name'] ),
+									esc_html( (string) wp_parse_url( $status['business_base_url'], PHP_URL_HOST ) )
 								) ); ?></p>
-								<p><?php echo wp_kses_post( __( 'Because of that, install this plugin only on sites you control. Keeping the token in <code>wp-config.php</code> rather than the database limits where copies of it end up.', 'aivis-os' ) ); ?></p>
-							</div>
+								<p class="description"><?php echo wp_kses_post( __( 'Keeping it in <code>wp-config.php</code> rather than the database still limits where copies of it end up.', 'aivis-os' ) ); ?></p>
+							<?php else : ?>
+								<div class="notice notice-warning inline" style="margin:0"><p>
+									<?php echo wp_kses_post( true === $status['valid']
+										? sprintf(
+											/* translators: %d: number of businesses */
+											__( 'This is an <strong>account-wide</strong> token: it can read structured data for <strong>all %d businesses</strong> on the account, not only this site’s.', 'aivis-os' ),
+											count( $businesses )
+										)
+										: __( 'An account-wide AIVIS token can read structured data for <strong>every business</strong> on the account, not only this site’s.', 'aivis-os' ) ); ?></p>
+									<p><?php echo wp_kses_post( __( 'Prefer a token <strong>bound to this business</strong> — create it on the profile page in AIVIS and pick the business there. Use an account-wide token only on sites you control, and keep it in <code>wp-config.php</code> rather than the database.', 'aivis-os' ) ); ?></p>
+								</div>
+							<?php endif; ?>
 						</td></tr>
 					</table>
 				</div></div>
@@ -89,6 +107,9 @@ final class SettingsPage {
 						<tr><th scope="row"><?php esc_html_e( 'This site serves', 'aivis-os' ); ?></th><td>
 							<?php if ( 'none' === $source || true !== $status['valid'] ) : ?>
 								<p class="description"><?php esc_html_e( 'Add a valid token and test the connection first — the list of businesses comes from AIVIS.', 'aivis-os' ); ?></p>
+							<?php elseif ( 0 === count( $matching ) && $status['bound'] ) : ?>
+								<p><?php echo wp_kses_post( sprintf( /* translators: 1: business name, 2: its domain, 3: this site's host */ __( 'This token is bound to <strong>%1$s</strong>, whose domain is <code>%2$s</code> — not <code>%3$s</code>.', 'aivis-os' ), esc_html( $status['business_name'] ), esc_html( (string) wp_parse_url( $status['business_base_url'], PHP_URL_HOST ) ), esc_html( $host ) ) ); ?></p>
+								<p class="description"><?php esc_html_e( 'Issue a token for the business whose domain is this site, or correct that business’s base URL in AIVIS, then test the connection again. A business on another domain is never bound.', 'aivis-os' ); ?></p>
 							<?php elseif ( 0 === count( $matching ) ) : ?>
 								<p><?php echo wp_kses_post( sprintf( /* translators: %s: host */ __( 'No business on this account uses <code>%s</code>.', 'aivis-os' ), esc_html( $host ) ) ); ?></p>
 								<p class="description"><?php esc_html_e( 'A business has exactly one domain in AIVIS. Create one for this site, or correct its base URL there, then test the connection again. Businesses on other domains are not offered — binding one would serve another site’s data here.', 'aivis-os' ); ?></p>
@@ -175,7 +196,7 @@ final class SettingsPage {
 					<?php endforeach; ?>
 					</tbody></table>
 					<?php endif; ?>
-					<p style="margin-top:10px"><?php echo Menu::action_form( 'scan_conflicts', __( 'Scan pages now', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+					<p style="margin-top:10px"><?php echo Menu::action_button( 'scan_conflicts', __( 'Scan pages now', 'aivis-os' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 					<p class="description"><?php esc_html_e( 'Nothing is sent from here — not to AIVIS, not by email. AIVIS fetches this site’s publishing status, conflicts included, and decides who is told (see Status for AIVIS below).', 'aivis-os' ); ?></p>
 				</div></div>
 
@@ -200,9 +221,9 @@ final class SettingsPage {
 					</table>
 				</div></div>
 
-				<p><button type="submit" class="button button-primary"><?php esc_html_e( 'Save changes', 'aivis-os' ); ?></button>
+				<p><?php echo Menu::action_button( 'save_settings', __( 'Save changes', 'aivis-os' ), 'button button-primary' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				<?php if ( 'none' !== $source ) : ?>
-					&nbsp; <?php echo Menu::action_form( 'disconnect', __( 'Disconnect and remove local data', 'aivis-os' ), [], 'button button-link-delete', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					&nbsp; <?php echo Menu::action_button( 'disconnect', __( 'Disconnect and remove local data', 'aivis-os' ), 'button button-link-delete', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 				<?php endif; ?></p>
 			</form>
 		</div>
@@ -224,7 +245,7 @@ final class SettingsPage {
 			$tok = trim( (string) ( $post['aivis_token'] ?? '' ) );
 			if ( '' !== $tok ) {
 				if ( ! str_starts_with( $tok, 'aivis_' ) ) {
-					return 'auth_failed';
+					return 'token_format';
 				}
 				$o->set_token( $tok );
 				$o->set_token_status( null );
@@ -351,13 +372,13 @@ final class SettingsPage {
 			<tr><th scope="row"><?php esc_html_e( 'Status key', 'aivis-os' ); ?></th><td>
 				<?php if ( '' === $key ) : ?>
 					<span class="aivis-chip"><?php esc_html_e( 'Disabled', 'aivis-os' ); ?></span> <span class="description"><?php esc_html_e( 'The endpoint answers 404 until a key is issued.', 'aivis-os' ); ?></span>
-					<p style="margin-top:8px"><?php echo Menu::action_form( 'status_key_regenerate', __( 'Issue a key', 'aivis-os' ), [], 'button' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+					<p style="margin-top:8px"><?php echo Menu::action_button( 'status_key_regenerate', __( 'Issue a key', 'aivis-os' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 				<?php else : ?>
 					<code id="aivis-status-key-value"><?php echo esc_html( $key ); ?></code>
 					<p class="description"><?php esc_html_e( 'Enter this in AIVIS for this business. It is not the API token: it reaches nothing but the status document, which names this site’s pages and their publishing state and never the token.', 'aivis-os' ); ?></p>
 					<pre style="margin:8px 0;padding:8px;background:#f6f7f7;overflow:auto">curl -H "Authorization: Bearer <?php echo esc_html( $key ); ?>" <?php echo esc_html( $url ); ?></pre>
-					<p><?php echo Menu::action_form( 'status_key_regenerate', __( 'Regenerate', 'aivis-os' ), [], 'button', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-					<?php echo Menu::action_form( 'status_key_disable', __( 'Disable', 'aivis-os' ), [], 'button button-link-delete', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
+					<p><?php echo Menu::action_button( 'status_key_regenerate', __( 'Regenerate', 'aivis-os' ), 'button', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<?php echo Menu::action_button( 'status_key_disable', __( 'Disable', 'aivis-os' ), 'button button-link-delete', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 				<?php endif; ?>
 			</td></tr>
 		</table>
@@ -399,7 +420,7 @@ final class SettingsPage {
 		?>
 		<table class="widefat striped"><thead><tr>
 			<th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th>
-			<th><?php esc_html_e( 'AIVIS reports', 'aivis-os' ); ?></th>
+			<th><?php esc_html_e( 'Language in AIVIS', 'aivis-os' ); ?></th>
 			<th><?php esc_html_e( 'Serves WordPress language', 'aivis-os' ); ?></th>
 			<th><?php esc_html_e( 'Pages', 'aivis-os' ); ?></th>
 		</tr></thead><tbody>
@@ -421,9 +442,9 @@ final class SettingsPage {
 				<td><strong><?php echo esc_html( $c['name'] ); ?></strong><br><span class="description"><code><?php echo esc_html( $c['id'] ); ?></code> · <?php echo esc_html( sprintf( /* translators: 1: state, 2: url count */ __( '%1$s · %2$d URLs', 'aivis-os' ), ucfirst( str_replace( '_', ' ', $c['state'] ) ), $c['urlCount'] ) ); ?></span></td>
 				<td><?php
 					if ( null === $hint['language'] ) {
-						echo '<span class="description">' . esc_html__( 'no pages yet', 'aivis-os' ) . '</span>';
+						echo '<span class="description">' . esc_html__( 'none reported — no pages and no single declared language', 'aivis-os' ) . '</span>';
 					} elseif ( $hint['mixed'] ) {
-						echo '<span class="aivis-chip aivis-chip--warn">' . esc_html( sprintf( /* translators: %s: language code */ __( 'mixed (%s and more)', 'aivis-os' ), $hint['language'] ) ) . '</span>';
+						echo '<span class="aivis-chip aivis-chip--warn">' . esc_html( sprintf( /* translators: %s: comma-separated language codes */ __( 'mixed: %s — one chain, several languages; assign the one this site should take from it, or split the chain in AIVIS', 'aivis-os' ), implode( ', ', $hint['languages'] ) ) ) . '</span>';
 					} else {
 						echo '<code>' . esc_html( $hint['language'] ) . '</code>';
 					}
@@ -438,7 +459,7 @@ final class SettingsPage {
 							<option value="<?php echo esc_attr( $code ); ?>" <?php selected( '' !== $current ? $current : $suggest, $code ); ?>><?php echo esc_html( $l['name'] . ' (' . $code . ')' ); ?></option>
 						<?php endforeach; ?>
 					</select>
-					<?php if ( '' === $current && '' !== $suggest ) : ?><br><span class="description"><?php esc_html_e( 'suggested from what AIVIS reports — save to confirm', 'aivis-os' ); ?></span><?php endif; ?>
+					<?php if ( '' === $current && '' !== $suggest ) : ?><br><span class="description"><?php esc_html_e( 'suggested from the chain’s language in AIVIS — save to confirm', 'aivis-os' ); ?></span><?php endif; ?>
 				</td>
 				<td><?php echo esc_html( sprintf( /* translators: 1: active, 2: holding */ __( '%1$d injected · %2$d holding', 'aivis-os' ), $cnt['active'], $cnt['hold'] ) ); ?></td>
 			</tr>
@@ -454,6 +475,25 @@ final class SettingsPage {
 		endforeach; ?>
 		</p>
 		<?php
+	}
+
+	/**
+	 * The chip next to the test button: what went wrong, where (§11 / #69).
+	 *
+	 * @param array{kind:string,status:int,detail:string,host:string}|null $f
+	 */
+	public static function failure_label( ?array $f ): string {
+		if ( null === $f ) {
+			return __( 'Token invalid or revoked', 'aivis-os' );
+		}
+		return match ( $f['kind'] ) {
+			'auth'           => sprintf( /* translators: %s: host */ __( 'Token rejected by %s', 'aivis-os' ), $f['host'] ),
+			'account'        => sprintf( /* translators: %s: host */ __( 'Account deactivated on %s', 'aivis-os' ), $f['host'] ),
+			'client_too_old' => __( 'Plugin update required', 'aivis-os' ),
+			'throttled'      => sprintf( /* translators: %s: host */ __( 'Rate-limited by %s — retry in a minute', 'aivis-os' ), $f['host'] ),
+			'transport'      => sprintf( /* translators: %s: host */ __( 'Could not reach %s', 'aivis-os' ), $f['host'] ),
+			default          => sprintf( /* translators: 1: host, 2: HTTP status */ __( 'Unexpected answer from %1$s (HTTP %2$d)', 'aivis-os' ), $f['host'], $f['status'] ),
+		};
 	}
 
 	/** @return list<array<string,mixed>> cached briefly; this is admin-only. */

@@ -10,7 +10,7 @@ Fill every line with what you observed. "Expected" is not an observation.
 | Plugin version active | |
 | Environment | Production / Test (or fixed by `AIVIS_API_BASE_URL`) |
 | Token location | `wp-config.php` constant / database option |
-| Connection test | Connected as … / failed: … |
+| Connection test | Connected — bound to … / Connected as … (account-wide) / failed: <host> — <reason> |
 | Business bound | name, matched automatically / chosen by human / refused because … |
 | Language provider | WPML / Polylang / TranslatePress / Weglot / core |
 | Chains → languages | chain → lang, … ; unassigned: … |

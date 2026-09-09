@@ -24,14 +24,14 @@ AIVIS OS connects a WordPress site to an AIVIS business and delivers the JSON-LD
 
 = Distribution note =
 
-This version is intended for sites operated or controlled by AIVIS. An AIVIS API token is account-scoped — it reads every business on the account — and a WordPress database travels through backups, staging clones and migrations. Keep the token in `wp-config.php` as `AIVIS_API_TOKEN`.
+Create the API token for this business (a business-bound token reads nothing else) and the plugin may run on any site. An account-wide token reads every business on the account — and a WordPress database travels through backups, staging clones and migrations — so use one only on a site you control. Keep the token in `wp-config.php` as `AIVIS_API_TOKEN`.
 
 == Installation ==
 
-1. Create an API token in AIVIS (profile → API tokens).
+1. Create an API token in AIVIS (profile → API tokens) bound to this site's business.
 2. Add `define( 'AIVIS_API_TOKEN', 'aivis_…' );` to `wp-config.php`.
 3. Upload and activate the plugin, or: `wp plugin install <release zip url> --activate`.
-4. Under AIVIS OS → Settings, choose the environment (Production or Test) and test the connection. The business whose domain matches this site is bound automatically.
+4. Under AIVIS OS → Settings, choose the environment (Production or Test) and click *Save & test connection*. The business whose domain matches this site is bound automatically; a failure names the host and the reason.
 5. On a multilingual site, assign each chain to the language it serves under Settings → Languages & chains. Single-language sites need nothing here.
 6. Run a sync from the Status screen, or wait for the next cron tick.
 

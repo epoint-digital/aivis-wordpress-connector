@@ -219,3 +219,9 @@ function is_wp_error( mixed $x ): bool { return $x instanceof WP_Error; }
 function wp_remote_retrieve_response_code( mixed $r ): int { return (int) ( $r['response']['code'] ?? 0 ); }
 function wp_remote_retrieve_header( mixed $r, string $h ): string { return (string) ( $r['headers'][ strtolower( $h ) ] ?? '' ); }
 function wp_remote_retrieve_body( mixed $r ): string { return (string) ( $r['body'] ?? '' ); }
+
+/* ── rendering helpers used by the settings screen ─────────────────────── */
+if ( ! function_exists( 'checked' ) ) { function checked( mixed $a, mixed $b = true, bool $echo = true ): string { $s = (string) $a === (string) $b ? " checked='checked'" : ''; if ( $echo ) { echo $s; } return $s; } }
+if ( ! function_exists( 'disabled' ) ) { function disabled( mixed $a, mixed $b = true, bool $echo = true ): string { $s = (string) $a === (string) $b ? " disabled='disabled'" : ''; if ( $echo ) { echo $s; } return $s; } }
+if ( ! function_exists( 'esc_js' ) ) { function esc_js( string $t ): string { return addslashes( $t ); } }
+if ( ! function_exists( '_e' ) ) { function _e( string $t, string $d = 'default' ): void { echo $t; } }

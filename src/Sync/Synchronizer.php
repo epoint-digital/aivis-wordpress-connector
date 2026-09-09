@@ -2,6 +2,11 @@
 /**
  * §06 — inventory walk, authoritative runs, artifact fetch, retirement.
  *
+ * Two walk modes: a full inventory walk (authoritative — absent rows retire)
+ * every FULL_WALK_EVERY, and the change feed (`?updatedSince=`, API-6) in
+ * between, which only sees rows that changed. An unpublish arrives through
+ * either as ready:false + suppressedAt; a deleted row only through the full walk.
+ *
  * Runs from cron (and WP-CLI / the admin "Sync now"). Never on a public
  * request. Resumable: cursors and the in-progress inventory persist in
  * aivis_os_sync_state so a tick that hits its time budget picks up where it
@@ -36,6 +41,17 @@ final class Synchronizer {
 	public const TIME_BUDGET_S = 20;
 	/** Negative cache for unknown URLs (§05). */
 	public const MISS_TTL = 6 * HOUR_IN_SECONDS;
+	/**
+	 * §06 — how often a full inventory walk runs. Between full walks the sync
+	 * asks the change feed (API-6, `?updatedSince=`), which is authoritative for
+	 * the rows it returns but never for absence: deleted rows leave no trace in
+	 * the feed, so absent-means-deleted (R-02) needs the periodic full walk.
+	 */
+	public const FULL_WALK_EVERY = 6 * HOUR_IN_SECONDS;
+	/** Safety margin subtracted from the previous run's start for `updatedSince` (clocks differ). */
+	public const FEED_MARGIN = 5 * MINUTE_IN_SECONDS;
+	/** Requests left in the rate-limit window below which a tick yields (§04). */
+	public const RATE_RESERVE = 20;
 
 	private float $started = 0.0;
 	private bool $api_reachable = false;
@@ -102,8 +118,12 @@ final class Synchronizer {
 			$sync_id = (string) ( $state['in_progress'] ?? '' );
 			if ( '' === $sync_id ) {
 				$sync_id = wp_generate_uuid4();
+				$mode    = $this->next_mode( $state );
 				$state   = [
 					'in_progress' => $sync_id,
+					'mode'        => $mode,  // full | incremental (§06)
+					'since'       => 'incremental' === $mode ? gmdate( 'Y-m-d\\TH:i:s\\Z', (int) $state['last_run_started_at'] - self::FEED_MARGIN ) : null,
+					'force_full'  => false,
 					'chains'      => null,   // list of chain ids once listed
 					'chain_pos'   => 0,
 					'cursor'      => null,
@@ -139,40 +159,40 @@ final class Synchronizer {
 				return $summary + [ 'skipped' => 'aborted', 'sync_id' => $sync_id ];
 			}
 
+			$mode          = (string) ( $state['mode'] ?? 'full' );
 			$authoritative = $this->reconciles( $state );
 			$fetched       = $this->fetch_artifacts( $state, $biz, $sync_id );
 			$this->options->patch_sync_state( $state );
 
+			$retired = 0;
 			if ( empty( $state['pending'] ) ) {
 				$this->note_language_mismatch( (array) ( $state['mismatch'] ?? [] ) );
-			}
-
-			$retired = 0;
-			if ( $authoritative && empty( $state['pending'] ) ) {
-				$retired = $this->retirement_pass( $state, $biz['business_id'], $sync_id );
-				$this->options->patch_sync_state(
-					[
-						'in_progress'             => '',
-						'last_complete_at'        => time(),
-						'last_complete_sync_id'   => $sync_id,
-						'last_authoritative'      => true,
-						'inventory'               => [],
-						'chains'                  => null,
-						'pending'                 => [],
-					]
-				);
-			} elseif ( empty( $state['pending'] ) ) {
-				// Walk done but not reconciled: a partial traversal never retires.
-				$this->options->patch_sync_state(
-					[
-						'in_progress'        => '',
-						'last_complete_at'   => time(),
-						'last_authoritative' => false,
-						'inventory'          => [],
-						'chains'             => null,
-					]
-				);
-				$this->options->record( 'AIVIS_SYNC_PARTIAL', 'inventory did not reconcile with totals; nothing retired' );
+				// A row the walk saw is authoritative for itself in either mode: an
+				// unpublish arrives through the change feed as ready:false + suppressedAt.
+				$this->reconcile_rows( (array) $state['inventory'], $sync_id );
+				$done = [
+					'in_progress'           => '',
+					'last_complete_at'      => time(),
+					'last_complete_sync_id' => $sync_id,
+					'last_mode'             => $mode,
+					'last_run_started_at'   => (int) ( $state['started_at'] ?? time() ),
+					'inventory'             => [],
+					'chains'                => null,
+					'pending'               => [],
+				];
+				if ( 'full' === $mode ) {
+					if ( $authoritative ) {
+						// Only a complete full walk may say a row is absent (R-02).
+						$retired                    = $this->retire_absent( $biz['business_id'], $sync_id );
+						$done['last_authoritative'] = true;
+						$done['last_full_at']       = time();
+					} else {
+						// Walk done but not reconciled: a partial traversal never retires.
+						$done['last_authoritative'] = false;
+						$this->options->record( 'AIVIS_SYNC_PARTIAL', 'inventory did not reconcile with totals; nothing retired' );
+					}
+				}
+				$this->options->patch_sync_state( $done );
 			}
 
 			$this->flush_purges();
@@ -181,11 +201,12 @@ final class Synchronizer {
 				// Backlog: keep draining at the per-tick cap, a minute apart (#62).
 				Scheduler::request_continuation();
 			}
-			do_action( 'aivis_connector_sync_completed', [ 'sync_id' => $sync_id, 'authoritative' => $authoritative, 'fetched' => $fetched, 'retired' => $retired, 'pending' => $left ] );
+			do_action( 'aivis_connector_sync_completed', [ 'sync_id' => $sync_id, 'mode' => $mode, 'authoritative' => $authoritative, 'fetched' => $fetched, 'retired' => $retired, 'pending' => $left ] );
 
 			return [
 				'ok'            => true,
 				'sync_id'       => $sync_id,
+				'mode'          => $mode,
 				'authoritative' => $authoritative,
 				'fetched'       => $fetched,
 				'retired'       => $retired,
@@ -200,7 +221,15 @@ final class Synchronizer {
 		}
 	}
 
-	/** Force one URL's re-check outside the schedule ("Refresh this URL now"). */
+	/**
+	 * Force one URL's re-check outside the schedule ("Refresh this URL now",
+	 * on-demand lookups). API-5: each chain assigned to the page's language is
+	 * asked for its row (`?url=`), which pins the chain and carries
+	 * `captureStatus`; the artifact is then fetched by id. `/jsonld?url=` is
+	 * never used here — it picks the freshest artifact across every chain and
+	 * business on the account, which with one chain per language can be
+	 * another language's page.
+	 */
 	public function refresh_url( string $absolute_url ): array {
 		$biz = $this->options->business();
 		if ( '' === $biz['business_id'] ) {
@@ -210,12 +239,80 @@ final class Synchronizer {
 			return [ 'ok' => false, 'error' => 'no chain assigned to a language' ];
 		}
 		$sync_id = 'manual-' . wp_generate_uuid4();
-		$r       = $this->client->jsonld_by_url( $absolute_url );
-		$this->api_reachable = $this->api_reachable || 200 === $r->status;
 		[ $chains, $context ] = $this->chains_for_url( $absolute_url );
-		$out = $this->apply_lookup( $absolute_url, $r, $biz, $sync_id, $chains, $context );
+		if ( [] === $chains ) {
+			$out = $this->apply_lookup( $absolute_url, new Response( 404, null ), $biz, $sync_id, [], $context );
+			$this->flush_purges();
+			return $out;
+		}
+		try {
+			$want = UrlKey::of( $absolute_url );
+		} catch ( \Throwable ) {
+			return [ 'ok' => false, 'error' => 'not an http(s) URL' ];
+		}
+		$best   = null;
+		$failed = null;
+		foreach ( $chains as $chain_id ) {
+			$r = $this->client->urls( $chain_id, null, null, $absolute_url );
+			if ( ! $r->ok() ) {
+				$failed = $r;
+				if ( in_array( $r->kind(), [ 'auth', 'account', 'client_too_old', 'throttled' ], true ) ) {
+					break;
+				}
+				continue;
+			}
+			$this->api_reachable = true;
+			foreach ( (array) ( $r->body['items'] ?? [] ) as $item ) {
+				$row = $this->compact_row( $item, $chain_id );
+				// Only the page asked for (or its slash alias): an instance that ignores
+				// `?url=` would hand back an unfiltered page.
+				if ( null === $row || UrlKey::of( (string) $row['url'] ) !== $want ) {
+					continue;
+				}
+				if ( null === $best || self::wins( $row, $best ) ) {
+					$best = $row;
+				}
+			}
+		}
+		if ( null === $best ) {
+			$r = ( null !== $failed && ! $this->api_reachable )
+				? $failed // nothing answered: hold, like any transport failure
+				// AIVIS answered and no chain of this language holds the page: R-01.
+				: new Response( 404, [ 'error' => [ 'code' => Response::CODE_URL_NOT_FOUND, 'message' => Response::NOT_FOUND ] ] );
+			$out = $this->apply_lookup( $absolute_url, $r, $biz, $sync_id, $chains, $context );
+		} elseif ( ! empty( $best['jsonLd']['ready'] ) ) {
+			$r = $this->client->jsonld_by_id( (string) $best['urlId'] );
+			$this->api_reachable = $this->api_reachable || 200 === $r->status;
+			$out = $this->apply_lookup( $absolute_url, $r, $biz, $sync_id, $chains, $context );
+		} else {
+			$out = $this->apply_row( $absolute_url, $best, $sync_id );
+		}
 		$this->flush_purges();
 		return $out;
+	}
+
+	/**
+	 * §06 — full walk or change feed for the next run. Full when nothing
+	 * complete happened yet, when the last full walk is older than
+	 * FULL_WALK_EVERY, or when one was requested (`wp aivis sync --full`).
+	 *
+	 * @param array<string,mixed> $state
+	 */
+	private function next_mode( array $state ): string {
+		$last_full  = (int) ( $state['last_full_at'] ?? 0 );
+		$last_start = (int) ( $state['last_run_started_at'] ?? 0 );
+		/**
+		 * Filter how long the sync may rely on the change feed before it walks
+		 * the whole inventory again. Deleted URL rows are only noticed by a
+		 * full walk; unpublished ones arrive through the feed.
+		 *
+		 * @param int $seconds Default 6 hours.
+		 */
+		$every = max( 15 * MINUTE_IN_SECONDS, (int) apply_filters( 'aivis_connector_full_walk_every', self::FULL_WALK_EVERY ) );
+		if ( ! empty( $state['force_full'] ) || $last_full <= 0 || $last_start <= 0 || time() - $last_full >= $every ) {
+			return 'full';
+		}
+		return 'incremental';
 	}
 
 	/** Purge a set of URLs now (used when an assignment change deactivates rows). */
@@ -283,10 +380,10 @@ final class Synchronizer {
 			}
 			$chain_id   = (string) $chains[ $state['chain_pos'] ];
 			$chain_lang = (string) ( $this->options->language_for_chain( $chain_id ) ?? '' );
-			$r          = $this->client->urls( $chain_id, $state['cursor'] );
+			$r          = $this->client->urls( $chain_id, $state['cursor'], is_string( $state['since'] ?? null ) ? $state['since'] : null );
 			if ( ! $r->ok() ) {
 				$this->note_failure( $r, "inventory {$chain_id}" );
-				if ( in_array( $r->kind(), [ 'auth', 'account' ], true ) ) {
+				if ( in_array( $r->kind(), [ 'auth', 'account', 'client_too_old' ], true ) ) {
 					$state['phase'] = 'aborted';
 				}
 				return $state;
@@ -298,37 +395,30 @@ final class Synchronizer {
 				// Count every row the API returned BEFORE filtering: `seen` must
 				// reconcile with `total`, or the run can never be authoritative.
 				$state['totals'][ $chain_id ]['seen'] = ( $state['totals'][ $chain_id ]['seen'] ?? 0 ) + 1;
-				$url = (string) ( $item['url'] ?? '' );
-				if ( '' === $url ) {
+				$compact = $this->compact_row( (array) $item, $chain_id );
+				if ( null === $compact ) {
 					continue;
 				}
-				try {
-					$key = UrlKey::of( $url );
-				} catch ( \Throwable ) {
+				$url = (string) $compact['url'];
+				$key = UrlKey::of( $url );
+				// ZT-03 on the row itself (contract ≥ 1.6.0): a row that names another
+				// business is never stored, whatever chain it came through.
+				if ( '' !== (string) $compact['businessId'] && (string) $compact['businessId'] !== $business_id ) {
+					if ( empty( $state['scope_noted'][ $chain_id ] ) ) {
+						$state['scope_noted'][ $chain_id ] = true;
+						$this->options->record( ErrorCode::SCOPE_MISMATCH, sprintf( 'inventory row of chain %s belongs to business %s, not the bound %s; skipped', $chain_id, (string) $compact['businessId'], $business_id ), $url );
+					}
 					continue;
 				}
 				// AIVIS's own language for the row vs the admin's assignment: a
 				// disagreement is reported, not acted on — the assignment is the
-				// admin's decision, and the API-10 chain language would settle it.
-				$aivis_lang = Language::normalize( (string) ( $item['languageCode'] ?? '' ) );
+				// admin's decision.
+				$aivis_lang = Language::normalize( (string) $compact['languageCode'] );
 				if ( '' !== $aivis_lang && '' !== $chain_lang && ! Language::same( $aivis_lang, $chain_lang ) ) {
 					$m                              = (array) ( $state['mismatch'][ $chain_id ] ?? [ 'aivis' => $aivis_lang, 'assigned' => $chain_lang, 'count' => 0, 'url' => $url ] );
 					$m['count']                     = (int) $m['count'] + 1;
 					$state['mismatch'][ $chain_id ] = $m;
 				}
-				$compact = [
-					'url'           => $url,
-					'urlId'         => (string) ( $item['id'] ?? '' ),
-					'chainId'       => $chain_id,
-					'languageCode'  => (string) ( $item['languageCode'] ?? '' ),
-					'layer'         => (string) ( $item['layer'] ?? '' ),
-					'captureStatus' => $item['captureStatus'] ?? null,
-					'jsonLd'        => [
-						'ready'       => ! empty( $item['jsonLd']['ready'] ),
-						'stale'       => ! empty( $item['jsonLd']['stale'] ),
-						'generatedAt' => $item['jsonLd']['generatedAt'] ?? null,
-					],
-				];
 				// Same URL in two chains (#58): a row with an artifact always beats one
 				// without — the API's tie-break (non-stale first, then newest) only ever
 				// ranks candidates that have artifacts. Among servable rows, prefer the
@@ -446,8 +536,9 @@ final class Synchronizer {
 		$pending = (array) ( $state['pending'] ?? [] );
 		$done    = 0;
 		/**
-		 * Filter how many artifacts one sync tick may fetch. No real rate limit
-		 * exists upstream (API-7); raise this for an initial import.
+		 * Filter how many artifacts one sync tick may fetch. AIVIS allows 600
+		 * requests per minute per token (API-7); the tick also yields when the
+		 * window runs low. Raise this for an initial import.
 		 *
 		 * @param int $n Default 20.
 		 */
@@ -475,8 +566,14 @@ final class Synchronizer {
 				array_unshift( $pending, $key );
 				break;
 			}
-			if ( in_array( $r->kind(), [ 'auth', 'account' ], true ) ) {
+			if ( in_array( $r->kind(), [ 'auth', 'account', 'client_too_old' ], true ) ) {
 				array_unshift( $pending, $key );
+				break;
+			}
+			$left = $r->rate_remaining();
+			if ( null !== $left && $left < self::RATE_RESERVE ) {
+				// Leave headroom for on-demand lookups and AIVIS's own status fetch;
+				// the continuation tick a minute later starts a fresh window.
 				break;
 			}
 		}
@@ -561,19 +658,36 @@ final class Synchronizer {
 				if ( $local && empty( $local['suspended_at'] ) ) {
 					$this->repository->suspend( $key, $sync_id );
 					$this->purge[] = $url;
-					$this->options->record( ErrorCode::RETRACTED, 'withdrawn upstream; injection suspended pending inventory confirmation', $url );
+					$this->options->record( ErrorCode::RETRACTED, 'deleted upstream (url_not_found); injection suspended pending inventory confirmation', $url );
+				} elseif ( ! $local ) {
+					// Nothing to suspend: an unknown page. Remember the miss (§05).
+					set_transient( 'aivis_os_miss_' . $key, 1, self::MISS_TTL );
 				}
 				return [ 'ok' => true, 'action' => 'suspend', 'rule' => 'R-01' ];
+
+			case Action::DEACTIVATE:
+				// 410 withdrawn (R-01b): explicit, so no confirmation round. The row
+				// stays; a republish brings it back through the inventory.
+				if ( $local && (int) $local['active'] === 1 ) {
+					$this->repository->deactivate( $key, ErrorCode::RETRACTED );
+					$this->purge[] = $url;
+					$this->options->record( ErrorCode::RETRACTED, 'unpublished in AIVIS (410 withdrawn); injection stopped, cache purged — resumes when republished', $url );
+				} elseif ( ! $local ) {
+					set_transient( 'aivis_os_miss_' . $key, 1, self::MISS_TTL );
+				}
+				return [ 'ok' => true, 'action' => 'deactivate', 'rule' => 'R-01b' ];
 
 			case Action::HOLD:
 			default:
 				if ( $local ) {
 					$code = match ( $decision['kind'] ) {
-						'not_generated' => ErrorCode::NOT_GENERATED,
-						'auth'          => ErrorCode::AUTH_401,
-						'account'       => ErrorCode::ACCOUNT_403,
-						'transport'     => ErrorCode::HTTP_TIMEOUT,
-						default         => ErrorCode::HTTP_ERROR,
+						'not_generated'  => ErrorCode::NOT_GENERATED,
+						'auth'           => ErrorCode::AUTH_401,
+						'account'        => ErrorCode::ACCOUNT_403,
+						'throttled'      => ErrorCode::RATE_LIMITED,
+						'client_too_old' => ErrorCode::CLIENT_TOO_OLD,
+						'transport'      => ErrorCode::HTTP_TIMEOUT,
+						default          => ErrorCode::HTTP_ERROR,
 					};
 					$this->repository->mark_hold( $key, $code, $sync_id );
 				} elseif ( 'url_gone' === $decision['kind'] ) {
@@ -584,14 +698,50 @@ final class Synchronizer {
 		}
 	}
 
-	/* ── phase 3: retirement (authoritative only) ────────────────────── */
+	/**
+	 * One inventory row, reduced to what the sync keeps in state. Null when the
+	 * row has no usable URL.
+	 *
+	 * @param array<string,mixed> $item
+	 * @return array<string,mixed>|null
+	 */
+	private function compact_row( array $item, string $chain_id ): ?array {
+		$url = (string) ( $item['url'] ?? '' );
+		if ( '' === $url ) {
+			return null;
+		}
+		try {
+			UrlKey::of( $url );
+		} catch ( \Throwable ) {
+			return null;
+		}
+		return [
+			'url'           => $url,
+			'urlId'         => (string) ( $item['id'] ?? '' ),
+			'chainId'       => '' !== (string) ( $item['chainId'] ?? '' ) ? (string) $item['chainId'] : $chain_id,
+			'businessId'    => (string) ( $item['businessId'] ?? '' ),
+			'languageCode'  => (string) ( $item['languageCode'] ?? '' ),
+			'layer'         => (string) ( $item['layer'] ?? '' ),
+			'captureStatus' => $item['captureStatus'] ?? null,
+			'jsonLd'        => [
+				'ready'        => ! empty( $item['jsonLd']['ready'] ),
+				'stale'        => ! empty( $item['jsonLd']['stale'] ),
+				'generatedAt'  => $item['jsonLd']['generatedAt'] ?? null,
+				'suppressedAt' => $item['jsonLd']['suppressedAt'] ?? null,
+			],
+		];
+	}
 
-	/** @param array<string,mixed> $state */
-	private function retirement_pass( array $state, string $business_id, string $sync_id ): int {
-		$retired   = 0;
-		$inventory = (array) $state['inventory'];
+	/* ── phase 3: reconciliation and retirement ──────────────────────── */
 
-		// Rows the inventory knows about: apply R-02a and clear stale suspicions.
+	/**
+	 * Rows the walk saw: apply R-02a and clear stale suspicions. Runs after a
+	 * full walk and after a change-feed walk alike — a row that arrived is
+	 * authoritative for itself.
+	 *
+	 * @param array<string,array<string,mixed>> $inventory
+	 */
+	private function reconcile_rows( array $inventory, string $sync_id ): void {
 		foreach ( $inventory as $key => $row ) {
 			$local = $this->repository->find_by_key( (string) $key );
 			if ( null === $local ) {
@@ -601,6 +751,7 @@ final class Synchronizer {
 			if ( Action::DEACTIVATE === $d['action'] && (int) $local['active'] === 1 ) {
 				$this->repository->deactivate( (string) $key, ErrorCode::RETRACTED );
 				$this->purge[] = (string) $row['url'];
+				$this->options->record( ErrorCode::RETRACTED, ! empty( $row['jsonLd']['suppressedAt'] ) ? 'unpublished in AIVIS; injection stopped, cache purged' : 'no document and the capture is not running; injection stopped, cache purged', (string) $row['url'] );
 			} elseif ( Action::SERVE === $d['action'] ) {
 				if ( ! empty( $local['suspended_at'] ) ) {
 					// Suspicion not confirmed: the URL is still in inventory and ready.
@@ -611,8 +762,40 @@ final class Synchronizer {
 				$this->repository->mark_seen( (string) $key, $sync_id );
 			}
 		}
+	}
 
-		// Rows the inventory did NOT see: two authoritative absences retire (R-02).
+	/**
+	 * One row, outside a walk (API-5 refresh): the page is in inventory but has
+	 * no document. R-02a for that row alone.
+	 *
+	 * @param array<string,mixed> $row
+	 * @return array<string,mixed>
+	 */
+	private function apply_row( string $url, array $row, string $sync_id ): array {
+		$key   = UrlKey::of( $url );
+		$local = $this->repository->find_by_key( $key );
+		$d     = Decision::from_inventory( true, $row, (int) ( $local['missing_complete_runs'] ?? 0 ) );
+		$capture = (string) ( $row['captureStatus'] ?? 'never captured' );
+		if ( Action::DEACTIVATE === $d['action'] ) {
+			if ( $local && (int) $local['active'] === 1 ) {
+				$this->repository->deactivate( $key, ErrorCode::RETRACTED );
+				$this->purge[] = $url;
+			}
+			$this->options->record( ErrorCode::RETRACTED, ! empty( $row['jsonLd']['suppressedAt'] ) ? 'unpublished in AIVIS; injection stopped, cache purged' : "no document and the capture is not running ({$capture}); injection stopped", $url );
+			return [ 'ok' => true, 'action' => 'deactivate', 'rule' => 'R-02a' ];
+		}
+		if ( $local ) {
+			$this->repository->mark_hold( $key, ErrorCode::NOT_GENERATED, $sync_id );
+		} else {
+			set_transient( 'aivis_os_miss_' . $key, 1, self::MISS_TTL );
+		}
+		$this->options->record( ErrorCode::NOT_GENERATED, "not generated yet (capture: {$capture}); nothing changed", $url );
+		return [ 'ok' => true, 'action' => 'hold', 'rule' => 'R-02a' ];
+	}
+
+	/** Rows a complete full walk did NOT see: two authoritative absences retire (R-02). */
+	private function retire_absent( string $business_id, string $sync_id ): int {
+		$retired = 0;
 		// A row whose chain is no longer assigned to a language is absent by the
 		// admin's decision, not AIVIS's — it retires under its own code (§07a).
 		$assigned  = $this->options->assigned_chain_ids();
@@ -642,9 +825,9 @@ final class Synchronizer {
 
 	/* ── helpers ─────────────────────────────────────────────────────── */
 
-	/** @param array<string,mixed> $state */
+	/** @param array<string,mixed> $state A change-feed walk is never authoritative for absence. */
 	private function reconciles( array $state ): bool {
-		return self::is_reconciled( (array) ( $state['totals'] ?? [] ), (array) ( $state['chains'] ?? [] ) );
+		return 'full' === (string) ( $state['mode'] ?? 'full' ) && self::is_reconciled( (array) ( $state['totals'] ?? [] ), (array) ( $state['chains'] ?? [] ) );
 	}
 
 	/**
@@ -706,16 +889,24 @@ final class Synchronizer {
 	}
 
 	private function note_failure( Response $r, string $ctx ): void {
-		$code = match ( $r->kind() ) {
-			'auth'          => ErrorCode::AUTH_401,
-			'account'       => ErrorCode::ACCOUNT_403,
-			'transport'     => '' !== $r->transport_error ? ErrorCode::HTTP_TIMEOUT : ErrorCode::HTTP_ERROR,
-			'not_generated' => ErrorCode::NOT_GENERATED,
-			'url_gone'      => ErrorCode::RETRACTED,
-			default         => ErrorCode::HTTP_ERROR,
+		$kind = $r->kind();
+		$code = match ( $kind ) {
+			'auth'           => ErrorCode::AUTH_401,
+			'account'        => ErrorCode::ACCOUNT_403,
+			'throttled'      => ErrorCode::RATE_LIMITED,
+			'client_too_old' => ErrorCode::CLIENT_TOO_OLD,
+			'transport'      => '' !== $r->transport_error ? ErrorCode::HTTP_TIMEOUT : ErrorCode::HTTP_ERROR,
+			'not_generated'  => ErrorCode::NOT_GENERATED,
+			'url_gone',
+			'withdrawn'      => ErrorCode::RETRACTED,
+			default          => ErrorCode::HTTP_ERROR,
 		};
-		if ( 'ok' !== $r->kind() ) {
-			$this->options->record( $code, $r->message() ?: $r->transport_error ?: ( 'HTTP ' . $r->status ), $ctx );
+		if ( 'client_too_old' === $kind ) {
+			return; // the client recorded it once, with the minimum version
+		}
+		if ( 'ok' !== $kind ) {
+			$detail = '' !== $r->code() ? $r->code() . ': ' . $r->message() : ( $r->message() ?: $r->transport_error ?: ( 'HTTP ' . $r->status ) );
+			$this->options->record( $code, $detail, $ctx );
 		}
 	}
 

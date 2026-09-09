@@ -33,13 +33,23 @@ final class Commands {
 		if ( 'none' === $o->token_source() ) {
 			\WP_CLI::error( 'No token. Define AIVIS_API_TOKEN in wp-config.php or set one under AIVIS OS → Settings.' );
 		}
-		$r = $this->plugin->client()->me();
-		if ( ! $r->ok() ) {
-			$o->set_token_status( false );
-			\WP_CLI::error( sprintf( 'HTTP %d — %s', $r->status, $r->message() ?: $r->transport_error ) );
+		$host = (string) wp_parse_url( $o->api_base(), PHP_URL_HOST );
+		$msg  = ( new \AivisOS\Admin\Menu( $this->plugin ) )->test_connection();
+		$ts   = $o->token_status();
+		if ( 'connected' !== $msg ) {
+			$f = $ts['failure'] ?? [ 'detail' => $msg, 'status' => 0 ];
+			\WP_CLI::error( sprintf( '%s — %s (HTTP %d, %s)', \AivisOS\Admin\SettingsPage::failure_label( $ts['failure'] ), $f['detail'], $f['status'], $host ) );
 		}
-		$o->set_token_status( true, (string) ( $r->body['tokenName'] ?? '' ), (string) ( $r->body['email'] ?? '' ) );
-		\WP_CLI::success( sprintf( 'Connected as %s (token "%s", from %s). Account-scoped: this token reads every business on the account.', $r->body['email'] ?? '?', $r->body['tokenName'] ?? '?', $o->token_source() ) );
+		$api = $o->api_info();
+		\WP_CLI::success( sprintf(
+			'Connected to %s (contract %s, minimum client %s). Token "%s" from %s — %s.',
+			$host,
+			$api['version'] ?: '?',
+			$api['min_client'] ?: '?',
+			$ts['token_name'] ?: '?',
+			$o->token_source(),
+			$ts['bound'] ? sprintf( 'bound to business %s (%s), reads nothing else', $ts['business_name'], $ts['business_id'] ) : sprintf( 'account-wide as %s: it reads every business on the account', $ts['email'] ?: '?' )
+		) );
 	}
 
 	/**
@@ -68,7 +78,7 @@ final class Commands {
 			$o->set_token_status( false );
 			\WP_CLI::error( sprintf( 'Token rejected: HTTP %d — %s', $me->status, $me->message() ?: $me->transport_error ) );
 		}
-		$o->set_token_status( true, (string) ( $me->body['tokenName'] ?? '' ), (string) ( $me->body['email'] ?? '' ) );
+		$o->set_token_status_from_me( (array) $me->body );
 
 		$host   = $o->site_host();
 		$all    = [];
@@ -131,6 +141,10 @@ final class Commands {
 	 * [--all]
 	 * : Repeat until the run is complete and no artifacts are pending.
 	 *
+	 * [--full]
+	 * : Walk the whole inventory now instead of the change feed (a full walk
+	 * : runs on its own every 6 hours; only it can retire deleted pages).
+	 *
 	 * ## EXAMPLES
 	 *     wp aivis sync
 	 *     wp aivis sync --all
@@ -138,6 +152,10 @@ final class Commands {
 	public function sync( array $args, array $assoc ): void {
 		$all   = isset( $assoc['all'] );
 		$guard = 0;
+		if ( isset( $assoc['full'] ) ) {
+			// §06: force a full inventory walk instead of the change feed.
+			$this->plugin->options()->patch_sync_state( [ 'force_full' => true ] );
+		}
 		do {
 			$s = $this->plugin->synchronizer()->run();
 			if ( ! ( $s['ok'] ?? false ) ) {
@@ -145,8 +163,9 @@ final class Commands {
 				return;
 			}
 			\WP_CLI::log( sprintf(
-				'sync %s — phase %s, authoritative=%s, fetched=%d, retired=%d, pending=%d',
+				'sync %s — %s walk, phase %s, authoritative=%s, fetched=%d, retired=%d, pending=%d',
 				(string) ( $s['sync_id'] ?? '' ),
+				(string) ( $s['mode'] ?? 'full' ),
 				(string) ( $s['phase'] ?? 'done' ),
 				isset( $s['authoritative'] ) ? ( $s['authoritative'] ? 'yes' : 'no' ) : '-',
 				(int) ( $s['fetched'] ?? 0 ),

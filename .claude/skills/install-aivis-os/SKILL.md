@@ -9,7 +9,7 @@ The plugin syncs the JSON-LD that AIVIS generates for a business's pages into th
 
 ## Before you start — ask the human for these, in this order
 
-1. **The site URL** and confirmation that the site is one AIVIS controls or operates (v1 ships to those only; the API token is account-scoped).
+1. **The site URL** and which kind of token the human has: a **business-bound** token (created in AIVIS for this site's business — reads nothing else; fine on any site) or an **account-wide** one (reads every business on the account; only on a site the account holder controls).
 1a. **Which AIVIS instance** the site belongs to: Production (`app.aivis-os.com`) or Test (`aivis-new.dev.onepoint.ro`). It is a switch under Settings → Connection; a token works on one instance only, and switching later unbinds everything.
 2. **Who logs in.** The human logs into wp-admin themselves. Never type a password, and never ask for one.
 3. **The API token**, without ever seeing it in chat. Preferred: the human puts `define( 'AIVIS_API_TOKEN', 'aivis_…' );` in `wp-config.php` above the "stop editing" line before you begin. With a shell: the human exports it as an environment variable and you run `wp config set` from that variable. Only if neither is possible does it go into the Settings field — and then the human types it, not you.
@@ -40,7 +40,7 @@ The plugin syncs the JSON-LD that AIVIS generates for a business's pages into th
 ## Done means all of these are true
 
 - [ ] Plugins screen shows **AIVIS OS** active; Site Health has no critical **AIVIS OS:** test.
-- [ ] Settings shows *Connected as …* and the business **matched automatically** (or the human's explicit choice on a duplicate domain).
+- [ ] Settings shows *Connected — bound to <business>* (or *Connected as <email>* for an account-wide token) and the business **matched automatically** (or the human's explicit choice on a duplicate domain).
 - [ ] Every site language has at least one chain under **Languages & chains**; unassigned chains are intentional.
 - [ ] Status shows a completed sync (*Syncing* chip), a non-zero **Injected** count, and *Nothing needs you* — or the attention items are in the report with counts, not worked through.
 - [ ] `view-source:` of a synced page contains `<script type="application/ld+json" data-aivis="1" data-aivis-hash="…">`, or `wp aivis verify` says *live*.
@@ -55,7 +55,9 @@ Report using `reference/checklist.md` — filled in, with what you saw, not what
 
 | Symptom | Do |
 |---|---|
-| "Token invalid or revoked" | Human recreates the token in AIVIS and updates `wp-config.php`; click *Test connection* again |
+| "<host> rejected the token (invalid_token — …)" | Wrong, revoked, or issued on the other instance. Human recreates it on the selected instance and updates `wp-config.php`; click *Save & test connection* again |
+| "Could not reach <host> (…)" | The environment, not the token: Production has no DNS record yet — switch Environment to Test and save again. If Test is unreachable too, the host blocks outbound requests: stop and report |
+| "AIVIS requires a newer connector (minimum x.y.z)" | Stop. Report that the plugin must be updated before anything syncs |
 | "No business on this account uses <host>" | Stop. The business's base URL in AIVIS must be this domain. Report |
 | Two businesses match | Ask the human which is live; the list shows creation date and chain count |
 | "<Language> — no chain" in red | Ask the human which chain serves it, or report that AIVIS has none |

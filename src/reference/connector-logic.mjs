@@ -17,22 +17,41 @@ export const Action = {
 export const NOT_FOUND    = 'URL not found in your businesses';
 export const NOT_GENERATED = 'JSON-LD not generated yet for this URL';
 
+/** `error.code` values the connector acts on (contract >= 1.1.0, API-3). */
+export const CODE = {
+  URL_NOT_FOUND:  'url_not_found',
+  NOT_GENERATED:  'jsonld_not_generated',
+  WITHDRAWN:      'withdrawn',
+  CLIENT_TOO_OLD: 'client_too_old',
+  RATE_LIMITED:   'rate_limited',
+};
+
+/** `captureStatus` values the contract names; anything else means hold (open enum). */
+export const KNOWN_CAPTURE = ['draft', 'processing', 'processed', 'failed'];
+
 /**
- * Classify a lookup outcome. The message strings are prose, not contract —
- * anything unrecognised falls to 'unreadable', which is treated conservatively.
- * API-3 would replace this with a stable `code`.
+ * Classify a lookup outcome. Branches on the stable `error.code`; the two
+ * 1.0.0 prose messages are the fallback for an envelope without one. Unknown
+ * codes are treated like their HTTP status alone (compatibility policy).
  */
 export function classifyLookup({ status, body }) {
+  const code = body && body.error && typeof body.error.code === 'string' ? body.error.code : '';
   if (status === 200) return 'ok';
-  if (status === 400) return 'bad_request';
+  if (status >= 500 || status === 0) return 'transport';
+  if (code === CODE.CLIENT_TOO_OLD || status === 426) return 'client_too_old';
+  if (code === CODE.WITHDRAWN) return 'withdrawn';
+  if (code === CODE.RATE_LIMITED || status === 429) return 'throttled';
   if (status === 401) return 'auth';
   if (status === 403) return 'account';
-  if (status === 429) return 'throttled';
-  if (status >= 500 || status === 0) return 'transport';
+  if (status === 400) return 'bad_request';
   if (status === 404) {
-    const m = body && body.error && body.error.message;
-    if (m === NOT_FOUND) return 'url_gone';
-    if (m === NOT_GENERATED) return 'not_generated';
+    if (code === CODE.URL_NOT_FOUND) return 'url_gone';
+    if (code === CODE.NOT_GENERATED) return 'not_generated';
+    if (code === '') {
+      const m = body && body.error && body.error.message;
+      if (m === NOT_FOUND) return 'url_gone';
+      if (m === NOT_GENERATED) return 'not_generated';
+    }
     return 'unreadable';
   }
   return 'unreadable';
@@ -53,10 +72,14 @@ export function decideFromLookup({ status, body, apiReachable }) {
                                  : { action: Action.HOLD,    rule: 'R-01',  kind };
     // The page still exists; only the artifact is missing. Never deactivate.
     case 'not_generated': return { action: Action.HOLD,    rule: 'R-01a',   kind };
+    // Unpublished in AIVIS (410, API-2): take the block down now, keep the row, keep polling.
+    // Only AIVIS emits the code, so no reachability proof is needed.
+    case 'withdrawn':     return { action: Action.DEACTIVATE, rule: 'R-01b', kind };
     // A signal we cannot read is not evidence. Keep serving, confirm later.
     case 'unreadable':    return { action: Action.HOLD,    rule: 'R-01a',   kind, needsInventoryConfirmation: true };
     case 'auth':
     case 'account':
+    case 'client_too_old':
     case 'throttled':
     case 'transport':
     case 'bad_request':   return { action: Action.HOLD,    rule: null,      kind };
@@ -65,8 +88,9 @@ export function decideFromLookup({ status, body, apiReachable }) {
 }
 
 /**
- * R-02 / R-02a — decide from an authoritative inventory pass. A non-authoritative
- * pass never retires or deactivates anything.
+ * R-02 / R-02a — decide from an authoritative inventory pass. A partial
+ * traversal never retires anything; a row it did see is still authoritative
+ * for itself (the change feed, API-6, delivers unpublish this way).
  */
 export function decideFromInventory({ authoritative, row, missingCompleteRuns, chainIdle = false }) {
   if (!authoritative) return { action: Action.HOLD, rule: null, reason: 'partial traversal' };
@@ -79,8 +103,14 @@ export function decideFromInventory({ authoritative, row, missingCompleteRuns, c
     return { action: chainIdle ? Action.SUSPEND : Action.HOLD, rule: 'R-02', missingCompleteRuns: runs };
   }
   if (row.jsonLd && row.jsonLd.ready) return { action: Action.SERVE, rule: null, missingCompleteRuns: 0 };
-  // ready:false — regeneration in flight is not a withdrawal.
-  if (row.captureStatus === 'processing') return { action: Action.HOLD, rule: 'R-02a', missingCompleteRuns: 0 };
+  // Unpublished in AIVIS (suppressedAt, contract >= 1.5.0): down, whatever the capture is doing.
+  if (row.jsonLd && row.jsonLd.suppressedAt) return { action: Action.DEACTIVATE, rule: 'R-02a', missingCompleteRuns: 0 };
+  // ready:false — regeneration in flight is not a withdrawal, and neither is a
+  // captureStatus this connector does not know (open enum: unknown means hold).
+  const capture = row.captureStatus;
+  if (capture === 'processing' || (capture != null && !KNOWN_CAPTURE.includes(capture))) {
+    return { action: Action.HOLD, rule: 'R-02a', missingCompleteRuns: 0 };
+  }
   return { action: Action.DEACTIVATE, rule: 'R-02a', missingCompleteRuns: 0 };
 }
 

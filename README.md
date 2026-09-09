@@ -6,7 +6,7 @@ never fetched on a public request.
 - **Plugin slug:** `aivis-os`
 - **Requires:** WordPress 6.5–7.1, PHP 8.1–8.5
 - **License:** GPL-2.0-or-later
-- **API contract:** [AIVIS Public API v1.0.0](https://aivis-new.dev.onepoint.ro/api/public/v1/docs)
+- **API contract:** [AIVIS Public API 1.9.0](https://aivis-new.dev.onepoint.ro/api/public/v1/docs) (works down to 1.0.0; business-bound tokens need ≥ 1.3.0)
 
 ## Status
 
@@ -48,7 +48,7 @@ docs/         SPECIFICATION · API-REQUIREMENTS · INSTALL · RUNBOOK · KNOWN-I
 ## Tests
 
 ```bash
-npm test               # JS: 65 unit + serializer fuzz + 34 contract (offline)
+npm test               # JS: 85 unit + serializer fuzz + 52 contract (offline)
 ./scripts/phpunit.sh   # PHPUnit (Docker if no local PHP)
 ./scripts/lint.sh      # php -l on every file (Docker if no local PHP)
 ```
@@ -66,10 +66,10 @@ wrong: [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ## Distribution restriction (v1)
 
-v1 ships to **AIVIS-controlled or AIVIS-operated installs only**. AIVIS API tokens are
-account-scoped: one token grants read access to every business on the account, and a WordPress
-database travels through backups, staging clones and migrations. Customer-managed distribution is
-blocked on business-scoped tokens (API-1). See §00 and §13 of the specification.
+Use a **business-bound** AIVIS API token (created for one business; it reads nothing else) and the
+plugin may run on customer-managed installs. An **account-wide** token reads every business on the
+account, so it belongs only on sites the account holder controls. Settings shows which kind is
+connected. See §00 and §13 of the specification.
 
 ## The screens
 
