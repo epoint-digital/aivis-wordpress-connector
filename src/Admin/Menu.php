@@ -148,6 +148,9 @@ final class Menu {
 				$msg = 'sync_requested';
 				break;
 			case 'sync_run':
+				// An admin asking for a sync wants a complete one: a full inventory
+				// walk, which is also the only walk that brings a retired page back.
+				$this->plugin->options()->patch_sync_state( [ 'force_full' => true ] );
 				$this->plugin->synchronizer()->run();
 				$msg = 'synced';
 				break;

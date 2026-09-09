@@ -41,7 +41,7 @@ final class Conflicts {
 				'label'  => 'Rank Math',
 				'plugin' => 'seo-by-rank-math/rank-math.php',
 				'marker' => 'rank-math-schema',
-				'how'    => __( 'Rank Math → Titles & Meta: disable schema per post type, or Rank Math → Dashboard → deactivate the Schema module.', 'aivis-os' ),
+				'how'    => __( 'Rank Math → Dashboard → Modules: switch off “Schema (Structured Data)”. Only the schema output stops; titles, meta and sitemaps keep working. Per post type instead: Titles & Meta → Schema Type: None.', 'aivis-os' ),
 			],
 			'aioseo'     => [
 				'label'  => 'All in One SEO',
