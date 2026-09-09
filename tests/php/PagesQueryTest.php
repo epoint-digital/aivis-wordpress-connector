@@ -71,6 +71,17 @@ final class PagesQueryTest extends TestCase {
 		self::assertStringContainsString( 'ORDER BY idx ASC, id ASC LIMIT 500 OFFSET 0', end( $GLOBALS['wpdb']->queries ), 'orderby is reduced to lower-case letters and underscores, per-page capped, page floored' );
 	}
 
+	public function test_state_chips_speak_the_status_document_vocabulary(): void {
+		// #71: PagesTable labels rows with StatusDocument::state_of() — published /
+		// holding / inactive / retired — and the chip renderer fell back to "Retired"
+		// for anything it did not know, so every served page read "Retired".
+		foreach ( [ 'published' => 'Active', 'active' => 'Active', 'stale' => 'Stale', 'holding' => 'Holding last good', 'hold' => 'Holding last good', 'suspended' => 'Suspended', 'inactive' => 'Not injected', 'retired' => 'Retired' ] as $state => $label ) {
+			self::assertStringContainsString( '>' . $label . '<', \AivisOS\Admin\StatusPage::chip_for( $state ), $state );
+		}
+		self::assertStringContainsString( '>Active<', \AivisOS\Admin\StatusPage::chip_for( \AivisOS\Rest\StatusDocument::state_of( [ 'retired_at' => null, 'active' => 1, 'suspended_at' => null, 'last_error_code' => null, 'source_stale' => 0 ] ) ), 'a healthy row, end to end' );
+		self::assertStringNotContainsString( 'Retired', \AivisOS\Admin\StatusPage::chip_for( 'something_new' ), 'an unknown state is never called Retired' );
+	}
+
 	public function test_bulk_keys_are_validated_and_capped(): void {
 		$good = str_repeat( 'a', 64 );
 		$keys = PagesQuery::bulk_keys( [ $good, 'not-a-key', $good, str_repeat( 'b', 64 ), "' OR 1=1" ] );

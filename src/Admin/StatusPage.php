@@ -227,13 +227,22 @@ final class StatusPage {
 		return 'active';
 	}
 
+	/**
+	 * The chip for a row state. Accepts both vocabularies in use: this screen's
+	 * (`active`, `hold`) and the status document's (`published`, `holding`,
+	 * `inactive`), which the Pages screen passes. The fallback used to read
+	 * "Retired" — so every healthy page on the Pages screen was labelled
+	 * Retired while it was being served (marketos.ro, 2026-09-09, #71).
+	 */
 	public static function chip_for( string $st ): string {
 		return match ( $st ) {
-			'active'    => '<span class="aivis-chip aivis-chip--ok">' . esc_html__( 'Active', 'aivis-os' ) . '</span>',
-			'stale'     => '<span class="aivis-chip aivis-chip--warn">' . esc_html__( 'Stale', 'aivis-os' ) . '</span>',
-			'hold'      => '<span class="aivis-chip aivis-chip--info">' . esc_html__( 'Holding last good', 'aivis-os' ) . '</span>',
-			'suspended' => '<span class="aivis-chip aivis-chip--bad">' . esc_html__( 'Suspended', 'aivis-os' ) . '</span>',
-			default     => '<span class="aivis-chip">' . esc_html__( 'Retired', 'aivis-os' ) . '</span>',
+			'active', 'published' => '<span class="aivis-chip aivis-chip--ok">' . esc_html__( 'Active', 'aivis-os' ) . '</span>',
+			'stale'               => '<span class="aivis-chip aivis-chip--warn">' . esc_html__( 'Stale', 'aivis-os' ) . '</span>',
+			'hold', 'holding'     => '<span class="aivis-chip aivis-chip--info">' . esc_html__( 'Holding last good', 'aivis-os' ) . '</span>',
+			'suspended'           => '<span class="aivis-chip aivis-chip--bad">' . esc_html__( 'Suspended', 'aivis-os' ) . '</span>',
+			'inactive'            => '<span class="aivis-chip">' . esc_html__( 'Not injected', 'aivis-os' ) . '</span>',
+			'retired'             => '<span class="aivis-chip">' . esc_html__( 'Retired', 'aivis-os' ) . '</span>',
+			default               => '<span class="aivis-chip">' . esc_html( $st ) . '</span>',
 		};
 	}
 
