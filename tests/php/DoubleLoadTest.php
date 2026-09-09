@@ -21,4 +21,15 @@ final class DoubleLoadTest extends TestCase {
 		$result = include $second;
 		self::assertNull( $result, 'a top-level `return;` makes include yield null; running to the end would yield 1' );
 	}
+
+	public function test_boot_registers_once_even_when_an_old_copy_calls_it_again(): void {
+		// An old copy without the file guard still reaches Plugin::boot() through
+		// its own plugins_loaded hook; the second call must be a no-op, or every
+		// admin screen renders twice and every cron hook runs twice (marketos.ro, 2026-09-09).
+		WPStub::reset();
+		\AivisOS\Plugin::boot();
+		self::assertTrue( \AivisOS\Plugin::instance()->booted() );
+		\AivisOS\Plugin::boot();
+		self::assertTrue( \AivisOS\Plugin::instance()->booted(), 'still booted, registered once' );
+	}
 }

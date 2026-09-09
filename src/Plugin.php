@@ -45,8 +45,24 @@ final class Plugin {
 		return self::$instance;
 	}
 
+	private bool $registered = false;
+
+	/**
+	 * Idempotent: a second copy of the plugin in another folder (#70) still
+	 * calls this from its own bootstrap, and the hooks — menu, injector,
+	 * cron, REST — must not be registered twice. The first call wins.
+	 */
 	public static function boot(): void {
-		self::instance()->register();
+		$p = self::instance();
+		if ( $p->registered ) {
+			return;
+		}
+		$p->registered = true;
+		$p->register();
+	}
+
+	public function booted(): bool {
+		return $this->registered;
 	}
 
 	/**
