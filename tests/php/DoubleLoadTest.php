@@ -15,7 +15,8 @@ final class DoubleLoadTest extends TestCase {
 		$second = dirname( __DIR__, 2 ) . '/aivis-os.php';
 		$result = include $second;
 		self::assertNull( $result, 'a top-level `return;` makes include yield null; running to the end would yield 1' );
-		self::assertFalse( defined( 'AIVIS_OS_BASENAME' ), 'the second copy defined nothing' );
-		self::assertFalse( defined( 'AIVIS_OS_URL' ) );
+		// The bootstrap defines the constants the code under test needs; the
+		// plugin file would add AIVIS_OS_URL, which nothing else defines.
+		self::assertFalse( defined( 'AIVIS_OS_URL' ), 'the second copy defined nothing' );
 	}
 }
