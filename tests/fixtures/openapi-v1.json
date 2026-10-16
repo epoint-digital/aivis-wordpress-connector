@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AIVIS Public API",
-    "version": "1.9.0",
-    "description": "Read-only access to the JSON-LD content AIVIS generates for your pages.\n\n**Authentication.** Create an API token on your profile page in AIVIS, then send it on every request:\n\n```\nAuthorization: Bearer aivis_…\n```\n\n**Typical flow for a CMS plugin.** Verify the token with `GET /me`, then fetch structured data per page with `GET /jsonld?url=<permalink>` and cache the result. Browsing (`/businesses` → `/businesses/{businessId}/chains` → `/chains/{chainId}/urls`) is for settings screens and status displays.\n\nAll list endpoints use cursor pagination: pass the previous response's `nextCursor` as `?cursor=` until it is `null`.\n\n**Rate limits.** 600 requests per 60 seconds per token, counted in fixed windows — there is no separate burst figure: the whole window may be used at once, and a new window starts fresh. Requests without a token count against the client address instead (60 per 60 seconds), and a request whose token is rejected is also charged there; the address budget never refuses a request that carries a token. Over the limit you get `429` with code `rate_limited` and a `Retry-After` in seconds, decided before any lookup; every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` (epoch seconds) for the bucket the request was charged to. Enforced per app instance. `GET /changelog` publishes the numbers.\n\n**Conditional requests.** Every 200 carries an `ETag`. Send it back as `If-None-Match` and you get `304 Not Modified` with no body when nothing changed — on the artifact endpoints and on list pages alike. Responses are `Cache-Control: private, no-cache`: cache them yourself, revalidate with the ETag, and expect no intermediary to cache a bearer-authenticated body.\n\n**Errors.** Every non-2xx response is `{ \"error\": { \"code\", \"message\", \"details\"? } }`. `code` is a stable identifier you can branch on; `message` is for humans and may change. New codes may be added within v1 — treat an unknown code like its HTTP status alone.\n\n## Compatibility policy\n\n**Versioning.** The contract version is semver, published as `info.version` and echoed as `X-Aivis-Api-Version` on every response. A minor bump is an additive change, a patch bump is text-only. The major version is the path (`/api/public/v1`).\n\n**Additive within v1** — may appear at any time without notice: new endpoints, new optional or nullable response fields, new query parameters, new response headers, new error codes, and **new values in enum fields** (`state`, `layer`, `captureStatus`, `error.code`, `permissions`). The published schemas allow unknown properties. A consumer must ignore fields it does not know, treat an unknown `error.code` like its HTTP status alone, and treat an unknown enum value conservatively (an unknown `state` is not `ready`; an unknown `captureStatus` means hold).\n\n**Breaking — goes to `/v2`**: removing, renaming or retyping a field; changing a field's meaning or a matching rule; removing an endpoint or an error code; making an optional parameter required. v1 keeps running for at least 6 months after v2 ships, and the retirement is announced in the changelog and by headers.\n\n**Deprecation headers** (RFC 9745 / RFC 8594) on a retiring endpoint or version: `Deprecation: @<unix seconds>` (when it was deprecated), `Sunset: <HTTP-date>` (when it stops answering) and `Link: <changelog url>; rel=\"deprecation\"`. `GET /deprecation-probe` carries them permanently so you can test your handling.\n\n**Minimum client.** Identify your integration as `User-Agent: aivis-os/<semver> (…)`. Every response carries `X-Aivis-Min-Client`; a client below it is answered `426 Upgrade Required` with `error.code` `client_too_old` and an `Upgrade: aivis-os/<minimum>` header. Rely on the status, `error.code` and `X-Aivis-Min-Client`; `Upgrade` is the header RFC 9110 requires on a 426 and an HTTP/2 edge may drop it. Show \"update required\" to the site admin before that happens: a raised minimum is announced ahead of time as `nextMinClient` (version + effective date) in `/changelog`, and only then moved into `X-Aivis-Min-Client`. The documentation routes (`/openapi.json`, `/docs`, `/changelog`) never answer 426, so an outdated client can still read what to do. This is a courtesy signal, not a security control — the user agent is client-controlled.\n\n**Changelog.** Every change is listed below and served as JSON at `/api/public/v1/changelog` together with the current version, minimum client and deprecations.\n\n## Changelog\n\n**1.9.0** (2026-09-08)\n- Rate limits (#271): 600 requests per 60 s per token, counted in fixed windows (no separate burst figure — the whole window may be used at once). Requests without a token count against the client address instead (60 per 60 s); a rejected token is also charged there, but the address budget never refuses a request that carries a token. Over the limit: `429` with code `rate_limited` and `Retry-After` (seconds), decided before any lookup. Every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`. Enforced per app instance; `GET /changelog` publishes the numbers as `rateLimits`.\n\n**1.8.0** (2026-09-08)\n- Conditional requests (#268): every 200 carries a strong `ETag` (SHA-256 of the body); `If-None-Match` (list or `*`, weak comparison) is answered `304 Not Modified` with no body and the same headers — on the artifact endpoints and on list pages alike (a page's ETag changes when any row on it changes). The lookup still runs; the transfer is what is saved.\n- `Cache-Control: private, no-cache` and `Vary: Authorization` on every public response, so no intermediary ever caches a bearer-authenticated body.\n\n**1.7.0** (2026-09-08)\n- Change feed (#270): `/chains/{chainId}/urls?updatedSince=<ISO-8601 instant with a zone>` returns only rows changed strictly after that instant — added, edited (spelling / language / layer), captured or capture-status flipped (incl. a default-version switch), JSON-LD (re)generated / marked stale / deleted, unpublished or republished. Deleted URL rows cannot appear (no tombstone — unpublish when consumers must learn about a withdrawal). Combines with `?url=`; `total` counts the matching rows; a future instant is an empty page; pass your previous run's start minus a few minutes. A filtered page is not an authoritative inventory — keep a periodic full walk.\n- The signed outbound refresh ping (API-6 part 2) is not part of v1 for now: it needs per-business consumer registration and an outbound job, which ADR-0009 keeps out of scope; the change feed already removes the polling cost, and the connector's receiver is planned for its own 1.1.\n\n**1.6.0** (2026-09-08)\n- Per-URL inventory lookup (#269): `GET /urls/{urlId}` returns one inventory row (same shape as an item of `/chains/{chainId}/urls`), and `/chains/{chainId}/urls?url=<page url>` narrows the list to one page (exact + trailing-slash variant). Either answers a single-page refresh in one request, including `captureStatus`.\n- Inventory rows carry `chainId` and `businessId`, so a consumer can pin its business binding without a second request.\n\n**1.5.0** (2026-09-08)\n- Explicit retraction (#266): a page's JSON-LD can be unpublished in AIVIS (per URL or per chain). While unpublished, `GET /urls/{urlId}/jsonld` and `GET /jsonld?url=` answer `410 Gone` with code `withdrawn` — remove the block from the page; once republished they answer as before (200, or 404 `jsonld_not_generated` if no document exists yet). Deleting the URL stays a 404 `url_not_found`, so withdrawal and deletion are distinguishable.\n- Inventory rows carry `jsonLd.suppressedAt` (ISO timestamp, null otherwise) and report `jsonLd.ready: false` while unpublished, so a consumer that only knows `ready` still takes the block down.\n- `/jsonld?url=` leaves unpublished copies out of the freshest-artifact tie-break; when no published copy has a document and any copy is unpublished, the answer is 410 (a published copy without a document never masks a withdrawal).\n\n**1.4.0** (2026-09-08)\n- Chain language (#274): `/businesses/{businessId}/chains` items carry `languageCode` — the one language the chain's URL rows use (ISO 639-1); for a chain with no URLs yet, its single declared language. Null when the rows use more than one language, or when the chain has no URLs yet and was not declared with exactly one language — in both cases ask the site admin which language to assign. Beside it, `urlLanguageCodes` (distinct values present on the rows) and `declaredLanguageCodes` (the set the chain was declared with). Use `languageCode` for an automatic chain → site-language assignment.\n\n**1.3.0** (2026-09-08)\n- Business-scoped tokens (#265): a token can be bound to one business when it is created. `/businesses` then lists only that business and every other endpoint answers 404 outside it, exactly as for another account's data. Existing tokens are unchanged (account-wide).\n- `GET /me` gains `businessId`, `business` (`id`, `name`, `baseUrl`) and `permissions` (`jsonld:read` today; an open enum like the others — ignore values you do not know). For a bound token `email` and `name` are null.\n\n**1.2.0** (2026-09-08)\n- Versioning and compatibility policy published (#275): additive within v1, breaking changes go to `/v2` with at least six months of overlap.\n- `X-Aivis-Api-Version` and `X-Aivis-Min-Client` on every response, including `/openapi.json`, `/docs` and `/changelog`.\n- `426 Upgrade Required` with code `client_too_old` when a client identifying as `aivis-os/<version>` is below the minimum (1.0.0 today).\n- `Deprecation`, `Sunset` and `Link rel=\"deprecation\"` headers on retiring endpoints; `GET /deprecation-probe` is deprecated on purpose so you can test your handling.\n- `GET /changelog` — this changelog, the policy constants and current deprecations as JSON.\n- Enum fields (`state`, `layer`, `captureStatus`, `error.code`) are declared open: new values may be added within v1. The published schemas list the known values in each field's description instead of a closed `enum`.\n- `nextMinClient` in `/changelog` announces a raised minimum client ahead of enforcement (null today).\n\n**1.1.0** (2026-09-08)\n- Every error envelope carries a stable `error.code` (#267). The two 404 causes on `/jsonld` and `/urls/{urlId}/jsonld` are now distinct codes: `url_not_found` vs `jsonld_not_generated`.\n- Published JSON Schemas no longer declare `additionalProperties: false` — additive fields are allowed within v1; consumers must ignore fields they do not know.\n- `500` responses are documented (`internal_error`).\n\n**1.0.0** (2026-07-27)\n- Initial release (#142): `/me`, `/businesses`, `/businesses/{businessId}/chains`, `/chains/{chainId}/urls`, `/urls/{urlId}/jsonld`, `/jsonld?url=`."
+    "version": "1.10.0",
+    "description": "Read-only access to the JSON-LD AIVIS generates for your pages, and to the page markdown its pipeline captured.\n\n**Authentication.** Create an API token on your profile page in AIVIS, then send it on every request:\n\n```\nAuthorization: Bearer aivis_…\n```\n\n**Typical flow for a CMS plugin.** Verify the token with `GET /me`, then fetch structured data per page with `GET /jsonld?url=<permalink>` and cache the result. Browsing (`/businesses` → `/businesses/{businessId}/chains` → `/chains/{chainId}/urls`) is for settings screens and status displays.\n\n**Captured page text.** The markdown the pipeline captured is available per page (`GET /urls/{urlId}/markdown`) and per chain (`GET /chains/{chainId}/markdown`).\n\nAll list endpoints use cursor pagination: pass the previous response's `nextCursor` as `?cursor=` until it is `null`.\n\n**Rate limits.** 600 requests per 60 seconds per token, counted in fixed windows — there is no separate burst figure: the whole window may be used at once, and a new window starts fresh. Requests without a token count against the client address instead (60 per 60 seconds), and a request whose token is rejected is also charged there; the address budget never refuses a request that carries a token. Over the limit you get `429` with code `rate_limited` and a `Retry-After` in seconds, decided before any lookup; every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` (epoch seconds) for the bucket the request was charged to. Enforced per app instance. `GET /changelog` publishes the numbers.\n\n**Conditional requests.** Every 200 carries an `ETag`. Send it back as `If-None-Match` and you get `304 Not Modified` with no body when nothing changed — on the artifact endpoints and on list pages alike. Responses are `Cache-Control: private, no-cache`: cache them yourself, revalidate with the ETag, and expect no intermediary to cache a bearer-authenticated body.\n\n**Errors.** Every non-2xx response is `{ \"error\": { \"code\", \"message\", \"details\"? } }`. `code` is a stable identifier you can branch on; `message` is for humans and may change. New codes may be added within v1 — treat an unknown code like its HTTP status alone.\n\n## Compatibility policy\n\n**Versioning.** The contract version is semver, published as `info.version` and echoed as `X-Aivis-Api-Version` on every response. A minor bump is an additive change, a patch bump is text-only. The major version is the path (`/api/public/v1`).\n\n**Additive within v1** — may appear at any time without notice: new endpoints, new optional or nullable response fields, new query parameters, new response headers, new error codes, and **new values in enum fields** (`state`, `layer`, `captureStatus`, `error.code`, `permissions`). The published schemas allow unknown properties. A consumer must ignore fields it does not know, treat an unknown `error.code` like its HTTP status alone, and treat an unknown enum value conservatively (an unknown `state` is not `ready`; an unknown `captureStatus` means hold).\n\n**Breaking — goes to `/v2`**: removing, renaming or retyping a field; changing a field's meaning or a matching rule; removing an endpoint or an error code; making an optional parameter required. v1 keeps running for at least 6 months after v2 ships, and the retirement is announced in the changelog and by headers.\n\n**Deprecation headers** (RFC 9745 / RFC 8594) on a retiring endpoint or version: `Deprecation: @<unix seconds>` (when it was deprecated), `Sunset: <HTTP-date>` (when it stops answering) and `Link: <changelog url>; rel=\"deprecation\"`. `GET /deprecation-probe` carries them permanently so you can test your handling.\n\n**Minimum client.** Identify your integration as `User-Agent: aivis-os/<semver> (…)`. Every response carries `X-Aivis-Min-Client`; a client below it is answered `426 Upgrade Required` with `error.code` `client_too_old` and an `Upgrade: aivis-os/<minimum>` header. Rely on the status, `error.code` and `X-Aivis-Min-Client`; `Upgrade` is the header RFC 9110 requires on a 426 and an HTTP/2 edge may drop it. Show \"update required\" to the site admin before that happens: a raised minimum is announced ahead of time as `nextMinClient` (version + effective date) in `/changelog`, and only then moved into `X-Aivis-Min-Client`. The documentation routes (`/openapi.json`, `/docs`, `/changelog`) never answer 426, so an outdated client can still read what to do. This is a courtesy signal, not a security control — the user agent is client-controlled.\n\n**Changelog.** Every change is listed below and served as JSON at `/api/public/v1/changelog` together with the current version, minimum client and deprecations.\n\n## Changelog\n\n**1.10.0** (2026-09-26)\n- Captured page markdown (#287): `GET /urls/{urlId}/markdown` returns the markdown the pipeline captured for one page (what its current version holds; main content only — header, navigation and footer are excluded at capture), with `captureStatus`, `versionNo`, `capturedAt` and `contentHash` (SHA-256 of the markdown). A page whose version holds none (never captured, first capture running or failed, captured empty) is a 200 with `markdown: null` — `captureStatus` tells which; during a re-capture, or after one failed, the previous markdown is still served beside `processing` / `failed`. 404 `url_not_found` only outside your scope. Unpublishing a page's JSON-LD does not affect its markdown.\n- `GET /chains/{chainId}/markdown` returns every page of a chain that has markdown, in the list envelope, at most 50 per page — follow `nextCursor`. The cursor is opaque (not a URL id on this endpoint; anything else is 400 `bad_request`) and keeps the walk stable while pages change underneath it. A chain with nothing captured is a 200 with an empty page; 404 `chain_not_found` only outside your scope.\n- `/me` `permissions` gains `markdown:read` — every token holds it (and `jsonld:read`).\n\n**1.9.0** (2026-09-08)\n- Rate limits (#271): 600 requests per 60 s per token, counted in fixed windows (no separate burst figure — the whole window may be used at once). Requests without a token count against the client address instead (60 per 60 s); a rejected token is also charged there, but the address budget never refuses a request that carries a token. Over the limit: `429` with code `rate_limited` and `Retry-After` (seconds), decided before any lookup. Every response carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset`. Enforced per app instance; `GET /changelog` publishes the numbers as `rateLimits`.\n\n**1.8.0** (2026-09-08)\n- Conditional requests (#268): every 200 carries a strong `ETag` (SHA-256 of the body); `If-None-Match` (list or `*`, weak comparison) is answered `304 Not Modified` with no body and the same headers — on the artifact endpoints and on list pages alike (a page's ETag changes when any row on it changes). The lookup still runs; the transfer is what is saved.\n- `Cache-Control: private, no-cache` and `Vary: Authorization` on every public response, so no intermediary ever caches a bearer-authenticated body.\n\n**1.7.0** (2026-09-08)\n- Change feed (#270): `/chains/{chainId}/urls?updatedSince=<ISO-8601 instant with a zone>` returns only rows changed strictly after that instant — added, edited (spelling / language / layer), captured or capture-status flipped (incl. a default-version switch), JSON-LD (re)generated / marked stale / deleted, unpublished or republished. Deleted URL rows cannot appear (no tombstone — unpublish when consumers must learn about a withdrawal). Combines with `?url=`; `total` counts the matching rows; a future instant is an empty page; pass your previous run's start minus a few minutes. A filtered page is not an authoritative inventory — keep a periodic full walk.\n- The signed outbound refresh ping (API-6 part 2) is not part of v1 for now: it needs per-business consumer registration and an outbound job, which ADR-0009 keeps out of scope; the change feed already removes the polling cost, and the connector's receiver is planned for its own 1.1.\n\n**1.6.0** (2026-09-08)\n- Per-URL inventory lookup (#269): `GET /urls/{urlId}` returns one inventory row (same shape as an item of `/chains/{chainId}/urls`), and `/chains/{chainId}/urls?url=<page url>` narrows the list to one page (exact + trailing-slash variant). Either answers a single-page refresh in one request, including `captureStatus`.\n- Inventory rows carry `chainId` and `businessId`, so a consumer can pin its business binding without a second request.\n\n**1.5.0** (2026-09-08)\n- Explicit retraction (#266): a page's JSON-LD can be unpublished in AIVIS (per URL or per chain). While unpublished, `GET /urls/{urlId}/jsonld` and `GET /jsonld?url=` answer `410 Gone` with code `withdrawn` — remove the block from the page; once republished they answer as before (200, or 404 `jsonld_not_generated` if no document exists yet). Deleting the URL stays a 404 `url_not_found`, so withdrawal and deletion are distinguishable.\n- Inventory rows carry `jsonLd.suppressedAt` (ISO timestamp, null otherwise) and report `jsonLd.ready: false` while unpublished, so a consumer that only knows `ready` still takes the block down.\n- `/jsonld?url=` leaves unpublished copies out of the freshest-artifact tie-break; when no published copy has a document and any copy is unpublished, the answer is 410 (a published copy without a document never masks a withdrawal).\n\n**1.4.0** (2026-09-08)\n- Chain language (#274): `/businesses/{businessId}/chains` items carry `languageCode` — the one language the chain's URL rows use (ISO 639-1); for a chain with no URLs yet, its single declared language. Null when the rows use more than one language, or when the chain has no URLs yet and was not declared with exactly one language — in both cases ask the site admin which language to assign. Beside it, `urlLanguageCodes` (distinct values present on the rows) and `declaredLanguageCodes` (the set the chain was declared with). Use `languageCode` for an automatic chain → site-language assignment.\n\n**1.3.0** (2026-09-08)\n- Business-scoped tokens (#265): a token can be bound to one business when it is created. `/businesses` then lists only that business and every other endpoint answers 404 outside it, exactly as for another account's data. Existing tokens are unchanged (account-wide).\n- `GET /me` gains `businessId`, `business` (`id`, `name`, `baseUrl`) and `permissions` (`jsonld:read` today; an open enum like the others — ignore values you do not know). For a bound token `email` and `name` are null.\n\n**1.2.0** (2026-09-08)\n- Versioning and compatibility policy published (#275): additive within v1, breaking changes go to `/v2` with at least six months of overlap.\n- `X-Aivis-Api-Version` and `X-Aivis-Min-Client` on every response, including `/openapi.json`, `/docs` and `/changelog`.\n- `426 Upgrade Required` with code `client_too_old` when a client identifying as `aivis-os/<version>` is below the minimum (1.0.0 today).\n- `Deprecation`, `Sunset` and `Link rel=\"deprecation\"` headers on retiring endpoints; `GET /deprecation-probe` is deprecated on purpose so you can test your handling.\n- `GET /changelog` — this changelog, the policy constants and current deprecations as JSON.\n- Enum fields (`state`, `layer`, `captureStatus`, `error.code`) are declared open: new values may be added within v1. The published schemas list the known values in each field's description instead of a closed `enum`.\n- `nextMinClient` in `/changelog` announces a raised minimum client ahead of enforcement (null today).\n\n**1.1.0** (2026-09-08)\n- Every error envelope carries a stable `error.code` (#267). The two 404 causes on `/jsonld` and `/urls/{urlId}/jsonld` are now distinct codes: `url_not_found` vs `jsonld_not_generated`.\n- Published JSON Schemas no longer declare `additionalProperties: false` — additive fields are allowed within v1; consumers must ignore fields they do not know.\n- `500` responses are documented (`internal_error`).\n\n**1.0.0** (2026-07-27)\n- Initial release (#142): `/me`, `/businesses`, `/businesses/{businessId}/chains`, `/chains/{chainId}/urls`, `/urls/{urlId}/jsonld`, `/jsonld?url=`."
   },
   "servers": [
     {
@@ -13,7 +13,7 @@
   "tags": [
     {
       "name": "Content",
-      "description": "Read-only access to businesses, chains, URLs and JSON-LD."
+      "description": "Read-only access to businesses, chains, URLs, JSON-LD and captured page markdown."
     },
     {
       "name": "Meta",
@@ -182,10 +182,10 @@
                       ]
                     },
                     "permissions": {
-                      "description": "What the token may do. Every token is read-only today: `jsonld:read`.",
+                      "description": "What the token may do. Every token is read-only today and holds both: `jsonld:read` (the JSON-LD endpoints) and `markdown:read` (the markdown endpoints).",
                       "type": "array",
                       "items": {
-                        "description": "A permission of this token. Known values: `jsonld:read`. New values may be added within v1 — treat an unknown value conservatively.",
+                        "description": "A permission of this token. Known values: `jsonld:read`, `markdown:read`. New values may be added within v1 — treat an unknown value conservatively.",
                         "type": "string"
                       }
                     }
@@ -4914,6 +4914,1559 @@
                       "properties": {
                         "code": {
                           "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `withdrawn`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "The client identified itself (`User-Agent: aivis-os/<semver>`) as older than `X-Aivis-Min-Client`. Update the integration. Rely on the status, `error.code` and `X-Aivis-Min-Client`. Codes: `client_too_old`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Upgrade": {
+                "description": "`aivis-os/<minimum version>` — the header RFC 9110 requires on a 426; an HTTP/2 edge may drop it, so do not key on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `client_too_old`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded — 600 requests per 60s for this token, or 60 requests without a token per 60s from this address. Wait `Retry-After` seconds; nothing was looked up. Codes: `rate_limited`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `rate_limited`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error. Safe to retry later. Codes: `internal_error`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `internal_error`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/urls/{urlId}/markdown": {
+      "get": {
+        "operationId": "getUrlMarkdown",
+        "summary": "Get captured markdown by URL id",
+        "description": "The markdown the AIVIS pipeline captured for one page — what its current version holds, main content only (header, navigation and footer are excluded at capture). A page whose version holds no markdown (never captured, first capture still running or failed, or captured empty) is still a 200, with `markdown: null` and `captureStatus` telling which — processing = hold, failed = nothing to wait for. During a re-capture, or after one failed, `captureStatus` is `processing` / `failed` while `markdown` and `capturedAt` still carry the previous successful capture — old content beats none. `contentHash` lets you skip a page you already hold. Unpublishing a page's JSON-LD does not affect its markdown.",
+        "tags": [
+          "Content"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "urlId",
+            "in": "path",
+            "required": true,
+            "description": "URL id from `/chains/{chainId}/urls`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "The `ETag` you received last time (a comma-separated list or `*` also works; weak comparison). Treat the value as opaque and send it back exactly as received — behind a compressing proxy it may arrive as `W/\"…\"`, which still matches. When the body has not changed you get `304 Not Modified` with no body and the same headers — the transfer is saved, not the lookup.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The markdown document (`markdown` is null when the page has none yet).",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator — SHA-256 of the body bytes. Send it back as `If-None-Match` to get a 304 when nothing changed. A list page's ETag changes whenever any row on the page changes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "urlId": {
+                      "type": "string"
+                    },
+                    "chainId": {
+                      "type": "string"
+                    },
+                    "businessId": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "languageCode": {
+                      "description": "ISO 639-1 code.",
+                      "type": "string"
+                    },
+                    "captureStatus": {
+                      "anyOf": [
+                        {
+                          "description": "Status of the current page capture (null when never captured). An unknown value means hold. Known values: `draft`, `processing`, `processed`, `failed`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "versionNo": {
+                      "description": "Capture version the markdown comes from — the URL's current default version. Null when never captured.",
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "capturedAt": {
+                      "description": "When the capture that produced `markdown` finished (ISO-8601). During a re-capture, or after one failed, this is still the previous successful run. Null when the version never finished a capture.",
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contentHash": {
+                      "description": "SHA-256 hex of `markdown` — skip a page whose hash you already hold. Null whenever `markdown` is null.",
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "markdown": {
+                      "description": "The markdown the URL's current version holds — main content only (the site header, navigation and footer are excluded at capture). While a re-capture runs, or after it failed, `captureStatus` is `processing` / `failed` and this is still the previous successful capture (old content beats none). Null only when the version holds none: never captured, first capture still running or failed, or captured empty — `captureStatus` tells which.",
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "urlId",
+                    "chainId",
+                    "businessId",
+                    "url",
+                    "languageCode",
+                    "captureStatus",
+                    "versionNo",
+                    "capturedAt",
+                    "contentHash",
+                    "markdown"
+                  ]
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified — your `If-None-Match` matched the current `ETag`. No body; the headers are the same as on a 200.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator — SHA-256 of the body bytes. Send it back as `If-None-Match` to get a 304 when nothing changed. A list page's ETag changes whenever any row on the page changes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API token. Codes: `missing_token`, `invalid_token`. Generic fallback: `unauthorized`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `missing_token`, `invalid_token`, `unauthorized`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token's account is deactivated. Codes: `account_deactivated`. Generic fallback: `forbidden`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `account_deactivated`, `forbidden`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "URL not found, not yours, or outside the token's business binding. Codes: `url_not_found`. Generic fallback: `not_found`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `url_not_found`, `not_found`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "426": {
+            "description": "The client identified itself (`User-Agent: aivis-os/<semver>`) as older than `X-Aivis-Min-Client`. Update the integration. Rely on the status, `error.code` and `X-Aivis-Min-Client`. Codes: `client_too_old`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Upgrade": {
+                "description": "`aivis-os/<minimum version>` — the header RFC 9110 requires on a 426; an HTTP/2 edge may drop it, so do not key on it.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `client_too_old`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded — 600 requests per 60s for this token, or 60 requests without a token per 60s from this address. Wait `Retry-After` seconds; nothing was looked up. Codes: `rate_limited`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `rate_limited`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error. Safe to retry later. Codes: `internal_error`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `internal_error`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chains/{chainId}/markdown": {
+      "get": {
+        "operationId": "listChainMarkdown",
+        "summary": "List captured markdown of a chain",
+        "description": "Every page of one chain whose current version holds markdown, each in the shape of `/urls/{urlId}/markdown`. Pages without markdown are left out, so a chain with nothing captured yet answers 200 with an empty page — never an error; which pages are missing and why is on `/chains/{chainId}/urls` (`captureStatus`). At most 50 documents per page (each carries a whole page body): follow `nextCursor` until it is null. The walk is stable while pages change underneath it — a page that loses its markdown mid-walk never causes another to be skipped.",
+        "tags": [
+          "Content"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chainId",
+            "in": "path",
+            "required": true,
+            "description": "Chain id from `/businesses/{businessId}/chains`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "`nextCursor` from the previous page, passed back unchanged. Opaque: it is not a URL id on this endpoint. Anything else is a 400.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Default and maximum 50; a larger value is served as 50.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "description": "The `ETag` you received last time (a comma-separated list or `*` also works; weak comparison). Treat the value as opaque and send it back exactly as received — behind a compressing proxy it may arrive as `W/\"…\"`, which still matches. When the body has not changed you get `304 Not Modified` with no body and the same headers — the transfer is saved, not the lookup.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated markdown documents (empty when nothing is captured yet).",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator — SHA-256 of the body bytes. Send it back as `If-None-Match` to get a 304 when nothing changed. A list page's ETag changes whenever any row on the page changes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "urlId": {
+                            "type": "string"
+                          },
+                          "chainId": {
+                            "type": "string"
+                          },
+                          "businessId": {
+                            "type": "string"
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "languageCode": {
+                            "description": "ISO 639-1 code.",
+                            "type": "string"
+                          },
+                          "captureStatus": {
+                            "anyOf": [
+                              {
+                                "description": "Status of the current page capture (null when never captured). An unknown value means hold. Known values: `draft`, `processing`, `processed`, `failed`. New values may be added within v1 — treat an unknown value conservatively.",
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "versionNo": {
+                            "description": "Capture version the markdown comes from — the URL's current default version. Null when never captured.",
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "capturedAt": {
+                            "description": "When the capture that produced `markdown` finished (ISO-8601). During a re-capture, or after one failed, this is still the previous successful run. Null when the version never finished a capture.",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "contentHash": {
+                            "description": "SHA-256 hex of `markdown` — skip a page whose hash you already hold. Null whenever `markdown` is null.",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "markdown": {
+                            "description": "The markdown the URL's current version holds — main content only (the site header, navigation and footer are excluded at capture). While a re-capture runs, or after it failed, `captureStatus` is `processing` / `failed` and this is still the previous successful capture (old content beats none). Null only when the version holds none: never captured, first capture still running or failed, or captured empty — `captureStatus` tells which.",
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "urlId",
+                          "chainId",
+                          "businessId",
+                          "url",
+                          "languageCode",
+                          "captureStatus",
+                          "versionNo",
+                          "capturedAt",
+                          "contentHash",
+                          "markdown"
+                        ]
+                      }
+                    },
+                    "nextCursor": {
+                      "description": "Pass as `?cursor=` to fetch the next page. Null on the last page.",
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    },
+                    "total": {
+                      "description": "Total row count across all pages.",
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "nextCursor",
+                    "hasMore",
+                    "total"
+                  ]
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not modified — your `If-None-Match` matched the current `ETag`. No body; the headers are the same as on a 200.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "ETag": {
+                "description": "Strong validator — SHA-256 of the body bytes. Send it back as `If-None-Match` to get a 304 when nothing changed. A list page's ETag changes whenever any row on the page changes.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`cursor` is not a `nextCursor` returned by this endpoint. Codes: `bad_request`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `bad_request`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API token. Codes: `missing_token`, `invalid_token`. Generic fallback: `unauthorized`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `missing_token`, `invalid_token`, `unauthorized`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The token's account is deactivated. Codes: `account_deactivated`. Generic fallback: `forbidden`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `account_deactivated`, `forbidden`. New values may be added within v1 — treat an unknown value conservatively.",
+                          "type": "string"
+                        },
+                        "message": {
+                          "description": "Human-readable explanation; may change.",
+                          "type": "string"
+                        },
+                        "details": {}
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Chain not found, not yours, or outside the token's business binding. Codes: `chain_not_found`. Generic fallback: `not_found`.",
+            "headers": {
+              "X-Aivis-Api-Version": {
+                "description": "Contract version of this API (semver). Also `info.version`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Aivis-Min-Client": {
+                "description": "Oldest supported client version. A `User-Agent: aivis-os/<semver>` below it is answered 426.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "`private, no-cache` — never cached by an intermediary; revalidate with `If-None-Match`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "description": "`Authorization` — the body depends on the token.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Requests allowed per window for the bucket this request was charged to (#271): the token's when a bearer was presented, else the address's.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests left in the current window.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Epoch seconds at which the current window ends.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "description": "Stable machine-readable error code. Branch on this, not on `message`. Known values: `chain_not_found`, `not_found`. New values may be added within v1 — treat an unknown value conservatively.",
                           "type": "string"
                         },
                         "message": {

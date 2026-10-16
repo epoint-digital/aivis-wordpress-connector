@@ -26,3 +26,5 @@ CODE_OF_CONDUCT.md
 SECURITY.md
 *.zip
 .DS_Store
+.phpunit.cache
+.phpunit.result.cache

@@ -84,6 +84,7 @@ await test('/me returns tokenName, businessId, business and permissions', async 
   assert(r.status === 200, `status ${r.status}`);
   for (const f of ['email', 'name', 'tokenName', 'businessId', 'business', 'permissions']) assert(f in r.body, `missing ${f}`);
   assert(Array.isArray(r.body.permissions), 'permissions is not an array');
+  assert(r.body.permissions.includes('jsonld:read'), 'jsonld:read is what the connector needs; 1.10.0 adds markdown:read beside it');
   return `token "${r.body.tokenName}" — ${r.body.businessId ? 'bound to ' + r.body.businessId : 'account-wide'}`;
 });
 await test('an account-wide token has an email and no business', async () => {
@@ -487,7 +488,7 @@ await test('enums are open: the document lists known values in descriptions, not
 
 await test('the mock serves exactly the operations the document declares', async () => {
   const declared = specOperations(SPEC);
-  eq(declared.length, 9, 'operation count');
+  eq(declared.length, 11, 'operation count');
   for (const op of declared) {
     const [, tpl] = op.split(' ');
     const concrete = tpl
@@ -509,6 +510,8 @@ await test('every 200 body conforms to its declared schema', async () => {
   await api('/changelog', { auth: null });
   await api('/deprecation-probe');
   await api('/urls/u_home');
+  await api('/urls/u_home/markdown');
+  await api('/chains/chain_core/markdown');
   await api('/jsonld?url=' + encodeURIComponent('https://example.com/'));
   await api('/urls/u_home/jsonld');
   const bad = observed.filter(o => o.errors.length);

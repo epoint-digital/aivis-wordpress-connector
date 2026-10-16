@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import { businesses, chains, urls, tokens } from './data.js';
 
 const PREFIX = 'aivis_';
-export const API_VERSION = '1.9.0';
+export const API_VERSION = '1.10.0';
 export const MIN_CLIENT = '1.0.0';
 export const RATE_LIMIT = { perToken: { limit: 600, windowSeconds: 60 }, perIp: { limit: 60, windowSeconds: 60 } };
 const DEPRECATED_SINCE = '2026-09-08';
@@ -136,6 +136,21 @@ const inventoryRow = u => ({
   },
 });
 
+// Captured markdown of a page (contract 1.10.0, #287). The mock derives a
+// document from the row; a page never captured holds nulls.
+const markdownRow = u => {
+  const captured = u.artifact && u.captureStatus !== 'processing' || (u.artifact && u.id !== 'u_pending');
+  const md = captured ? `# ${u.artifact ? (u.artifact.jsonLd.name || u.url) : u.url}\n\nCaptured main content of ${u.url}.` : null;
+  return {
+    urlId: u.id, chainId: u.chainId, businessId: u.businessId, url: u.url, languageCode: u.languageCode,
+    captureStatus: u.captureStatus,
+    versionNo: md ? 1 : null,
+    capturedAt: md ? (u.artifact ? u.artifact.generatedAt : u.updatedAt) : null,
+    contentHash: md ? createHash('sha256').update(md).digest('hex') : null,
+    markdown: md,
+  };
+};
+
 // Chain language fields derived from the rows (contract 1.4.0, #274).
 const chainItem = c => {
   const rows = visibleUrls().filter(u => u.chainId === c.id);
@@ -153,6 +168,7 @@ const changelog = () => ({
   rateLimits: RATE_LIMIT,
   deprecations: [{ path: '/deprecation-probe', since: DEPRECATED_SINCE, sunset: SUNSET, reason: 'Test endpoint — deprecated by design so integrations can verify their deprecation handling.' }],
   entries: [
+    { version: '1.10.0', date: '2026-09-26', notes: ['Captured page markdown (#287): GET /urls/{urlId}/markdown and GET /chains/{chainId}/markdown; permissions gain markdown:read.'] },
     { version: '1.9.0', date: '2026-09-08', notes: ['Rate limits (#271).'] },
     { version: '1.8.0', date: '2026-09-08', notes: ['Conditional requests (#268).'] },
     { version: '1.7.0', date: '2026-09-08', notes: ['Change feed (#270).'] },
@@ -224,7 +240,7 @@ export function createServer() {
         tokenName: tok.name,
         businessId: tok.businessId,
         business: b ? { id: b.id, name: b.name, baseUrl: b.baseUrl } : null,
-        permissions: ['jsonld:read'],
+        permissions: ['jsonld:read', 'markdown:read'],
       });
     }
 
@@ -277,6 +293,23 @@ export function createServer() {
       const u = visibleUrls().find(x => x.id === m[1]);
       if (!u || !inScope(u.businessId)) return fail(req, res, 404, 'url_not_found', 'URL not found');
       return send(req, res, 200, inventoryRow(u));
+    }
+
+    // Captured markdown (contract 1.10.0): one page, or a chain's pages that have any, ≤ 50 per page.
+    m = route.match(/^\/urls\/([^/]+)\/markdown$/);
+    if (m) {
+      const u = visibleUrls().find(x => x.id === m[1]);
+      if (!u || !inScope(u.businessId)) return fail(req, res, 404, 'url_not_found', 'URL not found');
+      return send(req, res, 200, markdownRow(u));
+    }
+    m = route.match(/^\/chains\/([^/]+)\/markdown$/);
+    if (m) {
+      const owner = Object.keys(chains).find(b => chains[b].some(c => c.id === m[1]));
+      if (!owner || !inScope(owner)) return fail(req, res, 404, 'chain_not_found', 'Chain not found');
+      if (q.get('limit') && parseInt(q.get('limit'), 10) > 50) q.set('limit', '50');
+      const rows = visibleUrls().filter(u => u.chainId === m[1]).map(markdownRow).filter(r => r.markdown !== null);
+      const r = paginate(rows.map(r => ({ ...r, id: r.urlId })), q);
+      return send(req, res, 200, { ...r, items: r.items.map(({ id, ...rest }) => rest) });
     }
 
     m = route.match(/^\/urls\/([^/]+)\/jsonld$/);

@@ -6,6 +6,12 @@ All notable changes to this project are recorded here. The format follows
 is the single source of truth for the version — CI fails a release if this
 file, `readme.txt` and the git tag do not agree with it.
 
+## [Unreleased]
+
+### Fixed
+- Release ZIP no longer picks up a local `.phpunit.cache` directory.
+- Vendored OpenAPI document and mock at contract 1.10.0 (additive: markdown endpoints, `markdown:read` permission); the nightly drift job is green again. No connector change needed.
+
 ## [1.0.0] - 2026-10-16
 
 First release. Piloted on marketos.ro since 2026-09-09 against AIVIS API
