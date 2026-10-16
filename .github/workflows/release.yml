@@ -6,7 +6,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*.*.*']
+    tags: ['v*.*.*', 'v*.*.*-*']
 
 permissions:
   contents: write
@@ -49,8 +49,13 @@ jobs:
 
       - name: Publish GitHub Release
         env: { GH_TOKEN: '${{ github.token }}' }
+        # A tag with a suffix (v1.0.0-rc.1) is a pre-release: GitHub's "latest"
+        # keeps pointing at the newest plain release, so sites on the stable
+        # channel never see it; the prerelease channel (AIVIS_OS_UPDATE_CHANNEL)
+        # does — see src/Update/GitHubReleases.php.
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          case "${GITHUB_REF_NAME}" in *-*) PRE="--prerelease" ;; *) PRE="--latest" ;; esac
+          gh release create "${GITHUB_REF_NAME}" $PRE \
             --title "AIVIS OS ${GITHUB_REF_NAME}" \
             --notes-file dist/NOTES.md \
             dist/aivis-os.zip dist/SHA-256SUMS

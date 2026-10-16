@@ -6,7 +6,10 @@ All notable changes to this project are recorded here. The format follows
 is the single source of truth for the version — CI fails a release if this
 file, `readme.txt` and the git tag do not agree with it.
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-10-16
+
+First release. Piloted on marketos.ro since 2026-09-09 against AIVIS API
+contract 1.9.0 (#18).
 
 ### Added
 - Background sync of AIVIS-generated JSON-LD into a local table; injection at
