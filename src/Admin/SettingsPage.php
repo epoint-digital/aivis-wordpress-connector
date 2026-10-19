@@ -496,6 +496,30 @@ final class SettingsPage {
 		};
 	}
 
+	/**
+	 * #73 — after a successful connection test, bind the one business whose
+	 * domain is this site without waiting for a second Save (the Business box
+	 * is empty until the token is verified, so the first Save posts no id).
+	 * Two candidates still wait for the admin; none is reported by the box.
+	 *
+	 * @return string|null The bound business's name, or null when nothing was bound.
+	 */
+	public function auto_bind(): ?string {
+		$o = $this->plugin->options();
+		if ( '' !== $o->business()['business_id'] ) {
+			return null;
+		}
+		$host     = $o->site_host();
+		$matching = array_values( array_filter( $this->businesses(), fn( array $b ): bool => $this->host_eq( (string) wp_parse_url( (string) ( $b['baseUrl'] ?? '' ), PHP_URL_HOST ), $host ) ) );
+		if ( 1 !== count( $matching ) ) {
+			return null;
+		}
+		$b = $matching[0];
+		$o->set_business( (string) $b['id'], (string) $b['name'], (string) $b['baseUrl'], [] );
+		Scheduler::request_sync_now();
+		return (string) $b['name'];
+	}
+
 	/** @return list<array<string,mixed>> cached briefly; this is admin-only. */
 	private function businesses(): array {
 		$o = $this->plugin->options();

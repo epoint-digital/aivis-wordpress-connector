@@ -3,7 +3,7 @@
  * Plugin Name:       AIVIS OS
  * Plugin URI:        https://github.com/epoint-digital/aivis-wordpress-connector
  * Description:       Delivers the structured data AIVIS generates for this site into its pages — synced locally, injected in the head, never fetched on a public request.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Author:            epoint.digital
@@ -56,7 +56,7 @@ if ( defined( 'AIVIS_OS_FILE' ) ) {
 // The header above is the single source of truth for the version. This
 // constant is derived from it so the two cannot disagree; CI additionally
 // verifies the git tag and CHANGELOG match (scripts/version-check.mjs).
-define( 'AIVIS_OS_VERSION', '1.0.0' );
+define( 'AIVIS_OS_VERSION', '1.0.1' );
 define( 'AIVIS_OS_FILE', __FILE__ );
 define( 'AIVIS_OS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AIVIS_OS_URL', plugin_dir_url( __FILE__ ) );

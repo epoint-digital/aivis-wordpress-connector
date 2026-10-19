@@ -51,7 +51,30 @@ final class Scheduler {
 	}
 
 	/** Re-arm the sync clock for a new interval; 0 = manual only. */
+	/**
+	 * The custom recurrences must be known to WordPress before an event uses
+	 * them. Plugin::register() adds this filter on plugins_loaded, but the
+	 * activation request has already passed that hook when the activation
+	 * callback runs — wp_schedule_event() then refuses the unknown recurrence
+	 * and no sync is ever scheduled (#72). add_filter() is idempotent.
+	 */
+	public static function register_schedules(): void {
+		add_filter( 'cron_schedules', [ self::class, 'add_schedules' ] );
+	}
+
+	/**
+	 * Self-heal (#72): an interval is set but no recurring event exists —
+	 * every install activated before the fix. Runs on init; one option read.
+	 */
+	public static function ensure(): void {
+		$seconds = ( new Options() )->sync_interval();
+		if ( $seconds > 0 && ! wp_next_scheduled( self::HOOK_SYNC ) ) {
+			self::reschedule_sync( $seconds );
+		}
+	}
+
 	public static function reschedule_sync( int $seconds ): void {
+		self::register_schedules();
 		wp_clear_scheduled_hook( self::HOOK_SYNC );
 		if ( $seconds <= 0 ) {
 			return;

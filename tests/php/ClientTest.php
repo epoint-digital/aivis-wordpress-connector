@@ -34,7 +34,7 @@ final class ClientTest extends TestCase {
 		self::assertSame( 1048576, $args['limit_response_size'] );
 		self::assertStringStartsWith( 'Bearer aivis_', $args['headers']['Authorization'] );
 		self::assertSame( 'application/json', $args['headers']['Accept'] );
-		self::assertStringStartsWith( 'aivis-os/1.0.0', $args['user-agent'] );
+		self::assertStringStartsWith( 'aivis-os/' . AIVIS_OS_VERSION, $args['user-agent'] );
 	}
 
 	public function test_lookup_sends_permalink_unmodified(): void {

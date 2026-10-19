@@ -83,6 +83,9 @@ final class SiteHealth {
 		if ( 0 === $iv ) {
 			return $this->result( 'recommended', 'AIVIS OS syncs manually only', 'A page unpublished in AIVIS keeps being served until you sync. Set an interval, or sync from a system cron / WP-CLI.' );
 		}
+		if ( ! \AivisOS\Sync\Scheduler::next_sync() ) {
+			return $this->result( 'critical', 'AIVIS OS sync is not scheduled', sprintf( 'An interval of %d minutes is set, but WordPress has no recurring event for it, so nothing refreshes on its own. The plugin re-creates the event on the next page load; if this persists, WP-Cron is disabled on this host — point a system cron at wp-cron.php.', (int) ( $iv / 60 ) ) );
+		}
 		if ( ! $last ) {
 			return $this->result( 'recommended', 'AIVIS OS has not completed a sync yet', 'Run one from the Status screen, or wait for the next cron tick.' );
 		}

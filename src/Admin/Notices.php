@@ -48,6 +48,7 @@ final class Notices {
 				'connected'      => $ts['bound']
 					? sprintf( /* translators: 1: host, 2: business name */ __( 'Connected to %1$s. The token is valid and bound to %2$s.', 'aivis-os' ), esc_html( (string) wp_parse_url( $o->api_base(), PHP_URL_HOST ) ), esc_html( $ts['business_name'] ) )
 					: sprintf( /* translators: %s: host */ __( 'Connected to %s. The token is valid (account-wide).', 'aivis-os' ), esc_html( (string) wp_parse_url( $o->api_base(), PHP_URL_HOST ) ) ),
+				'connected_bound' => sprintf( /* translators: 1: host, 2: business name */ __( 'Connected to %1$s. Bound to %2$s — the business whose domain is this site. A first sync is requested; chains are assigned under Languages & chains where that is unambiguous.', 'aivis-os' ), esc_html( (string) wp_parse_url( $o->api_base(), PHP_URL_HOST ) ), esc_html( $o->business()['business_name'] ) ),
 				'no_token'       => __( 'Add an API token first.', 'aivis-os' ),
 				'token_format'   => __( 'That is not an AIVIS token — tokens start with aivis_. Nothing was saved.', 'aivis-os' ),
 				'auth_failed'    => sprintf( /* translators: 1: host, 2: detail */ __( '%1$s rejected the token (%2$s). Tokens are issued per instance — one created on Test does not work on Production and vice versa — and may have been revoked. Create one on this instance and paste it again.', 'aivis-os' ), esc_html( $f['host'] ), esc_html( $f['detail'] ?: '401' ) ),

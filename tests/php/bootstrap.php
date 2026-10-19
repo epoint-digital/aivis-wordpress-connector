@@ -11,7 +11,7 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
-define( 'AIVIS_OS_VERSION', '1.0.0' );
+define( 'AIVIS_OS_VERSION', '1.0.1' );
 define( 'AIVIS_OS_BASENAME', 'aivis-os/aivis-os.php' );
 define( 'AIVIS_OS_DIR', dirname( __DIR__, 2 ) . '/' );
 define( 'AIVIS_OS_URL', 'https://example.com/wp-content/plugins/aivis-os/' );
@@ -196,7 +196,13 @@ function is_customize_preview(): bool { return WPStub::$flags['customize'] ?? fa
 function is_favicon(): bool { return WPStub::$flags['favicon'] ?? false; }
 
 function wp_next_scheduled( string $hook, array $args = [] ): int|false { return WPStub::$scheduled[ $hook ][0] ?? false; }
-function wp_schedule_event( int $ts, string $rec, string $hook, array $args = [] ): bool { WPStub::$scheduled[ $hook ] = [ $ts, $rec ]; return true; }
+function wp_schedule_event( int $ts, string $rec, string $hook, array $args = [] ): bool|WP_Error {
+	// Like WordPress: an unknown recurrence is refused. Custom ones exist only through the cron_schedules filter (#72).
+	$known = [ 'hourly' => 1, 'twicedaily' => 1, 'daily' => 1, 'weekly' => 1 ];
+	foreach ( WPStub::$filters as $f ) { if ( 'cron_schedules' === $f[0] && is_callable( $f[1] ) ) { $known = (array) call_user_func( $f[1], $known ); } }
+	if ( ! isset( $known[ $rec ] ) ) { return new WP_Error( 'invalid_schedule', 'Event schedule does not exist.' ); }
+	WPStub::$scheduled[ $hook ] = [ $ts, $rec ]; return true;
+}
 function wp_schedule_single_event( int $ts, string $hook, array $args = [] ): bool { WPStub::$scheduled[ $hook . ':' . md5( serialize( $args ) ) ] = [ $ts, 'single' ]; return true; }
 function wp_clear_scheduled_hook( string $hook, array $args = [] ): int { unset( WPStub::$scheduled[ $hook ] ); return 1; }
 

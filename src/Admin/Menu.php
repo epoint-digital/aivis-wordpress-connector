@@ -138,10 +138,16 @@ final class Menu {
 				$msg = ( new SettingsPage( $this->plugin ) )->save( $_POST );
 				if ( 'save_and_test' === $do && ! in_array( $msg, [ 'token_format', 'auth_failed' ], true ) ) {
 					$msg = $this->test_connection();
+					if ( 'connected' === $msg && null !== ( new SettingsPage( $this->plugin ) )->auto_bind() ) {
+						$msg = 'connected_bound'; // #73
+					}
 				}
 				break;
 			case 'test_connection':
 				$msg = $this->test_connection();
+				if ( 'connected' === $msg && null !== ( new SettingsPage( $this->plugin ) )->auto_bind() ) {
+					$msg = 'connected_bound';
+				}
 				break;
 			case 'sync_now':
 				Scheduler::request_sync_now();

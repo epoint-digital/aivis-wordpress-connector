@@ -6,9 +6,19 @@ All notable changes to this project are recorded here. The format follows
 is the single source of truth for the version — CI fails a release if this
 file, `readme.txt` and the git tag do not agree with it.
 
-## [Unreleased]
+## [1.0.1] - 2026-10-19
 
 ### Fixed
+- The recurring sync was never scheduled on activation (#72): the plugin's
+  own cron recurrences were not registered yet in the activation request, so
+  WordPress refused the event and only the manual *Sync now* ever synced.
+  The scheduler now registers them itself, re-creates a missing event on
+  every page load while an interval is set (installs already out there heal
+  on their next request), and Site Health reports a missing event as critical.
+- *Save & test connection* left the site unbound when exactly one business
+  matched its domain (#73): the first Save posts no business because the box
+  is empty until the token is verified. A successful test now binds that one
+  business at once and requests a sync; two candidates still wait for a choice.
 - Release ZIP no longer picks up a local `.phpunit.cache` directory.
 - Vendored OpenAPI document and mock at contract 1.10.0 (additive: markdown endpoints, `markdown:read` permission); the nightly drift job is green again. No connector change needed.
 

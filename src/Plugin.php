@@ -112,6 +112,7 @@ final class Plugin {
 
 		// Background clocks.
 		add_filter( 'cron_schedules', [ Scheduler::class, 'add_schedules' ] );
+		add_action( 'init', [ Scheduler::class, 'ensure' ], 2 );
 		add_action( 'aivis_os_sync', [ $this->synchronizer(), 'run' ] );
 		add_action( 'aivis_os_gc', [ $this->gc(), 'run' ] );
 		add_action( 'aivis_os_verify', [ $this->verifier(), 'daily' ] );
