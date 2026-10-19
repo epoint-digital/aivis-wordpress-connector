@@ -5,7 +5,7 @@ description: Install, connect and verify the AIVIS OS WordPress plugin (slug aiv
 
 # Install AIVIS OS on a WordPress site
 
-The plugin syncs the JSON-LD that AIVIS generates for a business's pages into the site and prints it in each page's `<head>`. Rendering never calls AIVIS. Full operator guide: `docs/INSTALL.md` in the connector repository; failure drills: `docs/RUNBOOK.md`.
+The plugin syncs the JSON-LD that AIVIS generates for a business's pages into the site and prints it in each page's `<head>`. Rendering never calls AIVIS. Start with `docs/ONBOARDING.md` in the connector repository (where to get everything, steps, pitfalls); full operator guide: `docs/INSTALL.md`; failure drills: `docs/RUNBOOK.md`.
 
 ## Before you start — ask the human for these, in this order
 

@@ -39,6 +39,7 @@ docs/         SPECIFICATION · API-REQUIREMENTS · INSTALL · RUNBOOK · KNOWN-I
 
 | Document | Purpose |
 |---|---|
+| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Start here to deploy the connector on a site: where to get everything, the steps, and the pitfalls seen in real installs |
 | [docs/SPECIFICATION.md](docs/SPECIFICATION.md) | The source of truth — invariants, API contract, data model, retraction, delivery, acceptance criteria |
 | [docs/API-REQUIREMENTS.md](docs/API-REQUIREMENTS.md) | Extensions requested from the AIVIS platform team |
 | [docs/api-requirements.html](docs/api-requirements.html) | The requirements document handed to the AIVIS platform team — call patterns, load profile, and the eight asks. Published at [claude.ai/code/artifact/cfbb429c](https://claude.ai/code/artifact/cfbb429c-6415-497d-8d55-669fd0f8b5ef) |
