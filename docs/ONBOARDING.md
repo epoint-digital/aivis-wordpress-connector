@@ -143,6 +143,7 @@ in `wp-config.php`; leave that to pilot sites. The release lookup is cached for 
 | *Connected* but Status says *not bound* for days | The first Save posts no business; the test alone did not bind (before 1.0.1) | Click **Save changes** once more, or update |
 | *Next sync: manual only* although an interval is set | Recurring cron never scheduled on activation (before 1.0.1) | Update, or re-save the interval once |
 | Admin screens rendered twice, "constant already defined" warnings | Two copies installed (`aivis-os` and `aivis-wordpress-connector-main`) | Delete the `-main` copy |
+| Only the **Status** screen rendered twice, no warnings | Plugin bug before 1.0.2 (two callbacks on one page hook) | Update |
 | Nothing injected, Languages says *no chain* | Chain language in AIVIS differs from the site language, so nothing was assigned | Assign the chain under Languages & chains |
 | Many pages *no json* in AIVIS and missing on the site | AIVIS has not generated JSON-LD for them | Rerun the JSON-LD step in AIVIS; nothing to do in WordPress |
 | Page shows two JSON-LD blocks | The SEO plugin still emits its own | Step 6 |

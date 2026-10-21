@@ -39,7 +39,11 @@ final class Menu {
 	public function menu(): void {
 		$cap = self::capability();
 		add_menu_page( 'AIVIS OS', 'AIVIS OS', $cap, self::SLUG_STATUS, [ new StatusPage( $this->plugin ), 'render' ], 'dashicons-networking', 81 );
-		add_submenu_page( self::SLUG_STATUS, __( 'Status', 'aivis-os' ), __( 'Status', 'aivis-os' ), $cap, self::SLUG_STATUS, [ new StatusPage( $this->plugin ), 'render' ] );
+		// The first submenu re-uses the top-level slug so the menu reads "Status"
+		// instead of repeating "AIVIS OS". It must NOT carry a callback: WordPress
+		// resolves both registrations to the same page hook, and a second callable
+		// on it renders the screen twice (#74). The top-level callback serves it.
+		add_submenu_page( self::SLUG_STATUS, __( 'Status', 'aivis-os' ), __( 'Status', 'aivis-os' ), $cap, self::SLUG_STATUS );
 		$pages = add_submenu_page( self::SLUG_STATUS, __( 'Pages', 'aivis-os' ), __( 'Pages', 'aivis-os' ), $cap, self::SLUG_PAGES, [ new PagesPage( $this->plugin ), 'render' ] );
 		add_submenu_page( self::SLUG_STATUS, __( 'Settings', 'aivis-os' ), __( 'Settings', 'aivis-os' ), $cap, self::SLUG_SETTINGS, [ new SettingsPage( $this->plugin ), 'render' ] );
 		if ( is_string( $pages ) && '' !== $pages ) {

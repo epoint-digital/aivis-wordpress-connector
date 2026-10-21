@@ -11,7 +11,7 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
-define( 'AIVIS_OS_VERSION', '1.0.1' );
+define( 'AIVIS_OS_VERSION', '1.0.2' );
 define( 'AIVIS_OS_BASENAME', 'aivis-os/aivis-os.php' );
 define( 'AIVIS_OS_DIR', dirname( __DIR__, 2 ) . '/' );
 define( 'AIVIS_OS_URL', 'https://example.com/wp-content/plugins/aivis-os/' );
@@ -233,3 +233,6 @@ if ( ! function_exists( 'esc_js' ) ) { function esc_js( string $t ): string { re
 if ( ! function_exists( '_e' ) ) { function _e( string $t, string $d = 'default' ): void { echo $t; } }
 if ( ! function_exists( 'plugin_basename' ) ) { function plugin_basename( string $f ): string { return basename( dirname( $f ) ) . '/' . basename( $f ); } }
 if ( ! function_exists( 'load_plugin_textdomain' ) ) { function load_plugin_textdomain( string $d, mixed $a = false, mixed $p = false ): bool { return true; } }
+/* ── admin menu registration, recorded for assertions (#74) ─────────────── */
+if ( ! function_exists( 'add_menu_page' ) ) { function add_menu_page( string $pt, string $mt, string $cap, string $slug, mixed $cb = '', string $icon = '', mixed $pos = null ): string { WPStub::$flags['menu'][] = [ 'top', $slug, $cb ]; return 'toplevel_page_' . $slug; } }
+if ( ! function_exists( 'add_submenu_page' ) ) { function add_submenu_page( string $parent, string $pt, string $mt, string $cap, string $slug, mixed $cb = '', mixed $pos = null ): string { WPStub::$flags['menu'][] = [ 'sub', $slug, $cb ]; return ( $slug === $parent ? 'toplevel' : $parent ) . '_page_' . $slug; } }

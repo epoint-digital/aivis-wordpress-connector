@@ -6,6 +6,13 @@ All notable changes to this project are recorded here. The format follows
 is the single source of truth for the version — CI fails a release if this
 file, `readme.txt` and the git tag do not agree with it.
 
+## [1.0.2] - 2026-10-21
+
+### Fixed
+- The Status screen rendered twice (#74): the top-level menu and its "Status"
+  submenu share one slug and both carried a render callback, so WordPress
+  fired two callables on the same page hook. The submenu now carries none.
+
 ## [1.0.1] - 2026-10-19
 
 ### Fixed
