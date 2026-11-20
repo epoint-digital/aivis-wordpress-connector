@@ -73,7 +73,7 @@ final class Injector {
 	/**
 	 * §05 on-demand miss path — opt-in, default off. When a page renders before
 	 * inventory has reached it, schedule one background lookup, deduplicated per
-	 * URL for 15 minutes and skipped entirely for URLs AIVIS already said it
+	 * URL for 15 minutes and skipped entirely for URLs Aivis-OS already said it
 	 * does not know (the 6-hour miss cache). This is the ONLY write the public
 	 * path may make (WP-I2), and it is a transient plus a cron event, never a
 	 * network call.

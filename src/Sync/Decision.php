@@ -21,7 +21,7 @@ final class Decision {
 	/**
 	 * R-01 / R-01a / R-01b — what a single refresh attempt does to a stored row.
 	 * `$api_reachable` must be confirmed within the same run; without it a 404
-	 * proves nothing. A 410 `withdrawn` needs no such proof: only AIVIS emits
+	 * proves nothing. A 410 `withdrawn` needs no such proof: only Aivis-OS emits
 	 * that code, and it is the explicit retraction signal (API-2).
 	 *
 	 * @return array{action:string, rule:?string, kind:string, needs_confirmation:bool}
@@ -36,7 +36,7 @@ final class Decision {
 				: self::d( Action::HOLD, 'R-01', $kind ),
 			// The page still exists; only the artifact is missing. Never deactivate.
 			'not_generated'  => self::d( Action::HOLD, 'R-01a', $kind ),
-			// Unpublished in AIVIS: take the block down now, keep the row, keep polling.
+			// Unpublished in Aivis-OS: take the block down now, keep the row, keep polling.
 			'withdrawn'      => self::d( Action::DEACTIVATE, 'R-01b', $kind ),
 			// A signal we cannot read is not evidence. Keep serving, confirm later.
 			'unreadable'     => self::d( Action::HOLD, 'R-01a', $kind, true ),
@@ -80,7 +80,7 @@ final class Decision {
 				'missing_runs' => 0,
 			];
 		}
-		// Unpublished in AIVIS (suppressedAt, contract ≥ 1.5.0): down, whatever the capture is doing.
+		// Unpublished in Aivis-OS (suppressedAt, contract ≥ 1.5.0): down, whatever the capture is doing.
 		if ( ! empty( $row['jsonLd']['suppressedAt'] ) ) {
 			return [
 				'action'       => Action::DEACTIVATE,

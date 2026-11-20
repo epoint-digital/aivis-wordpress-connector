@@ -2,10 +2,10 @@
 /**
  * URL ↔ WordPress object, as a fact (§05 object reference).
  *
- * Identity stays the exact AIVIS URL. The object reference is a secondary
+ * Identity stays the exact Aivis-OS URL. The object reference is a secondary
  * key the plugin records because only the site can know it: it lets the
  * edit screens show what is delivered, and it lets the daily check notice
- * that a page's address changed since AIVIS crawled it (§11 "moved").
+ * that a page's address changed since Aivis-OS crawled it (§11 "moved").
  * Nothing here decides anything.
  *
  * @package AivisOS
@@ -81,7 +81,7 @@ final class ObjectResolver {
 		return is_string( $u ) && '' !== $u ? $u : null;
 	}
 
-	/** Same page modulo the trailing slash — the one variant AIVIS also treats as equal. */
+	/** Same page modulo the trailing slash — the one variant Aivis-OS also treats as equal. */
 	public static function same_url( string $a, string $b ): bool {
 		return rtrim( $a, '/' ) === rtrim( $b, '/' );
 	}

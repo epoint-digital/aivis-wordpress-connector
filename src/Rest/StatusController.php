@@ -1,13 +1,13 @@
 <?php
 /**
- * §11a — the read-only status endpoint AIVIS fetches. Nothing is pushed.
+ * §11a — the read-only status endpoint Aivis-OS fetches. Nothing is pushed.
  *
  *   GET /wp-json/aivis-os/v1/status
  *   GET /wp-json/aivis-os/v1/status/urls?cursor=<id>&limit=<n>
  *   Authorization: Bearer aivis_status_…
  *
- * The key is issued by this site (Settings → Status for AIVIS), entered in
- * AIVIS by the admin, and reaches nothing but this document. It is compared
+ * The key is issued by this site (Settings → Status for Aivis-OS), entered in
+ * Aivis-OS by the admin, and reaches nothing but this document. It is compared
  * in constant time, accepted only from the Authorization header — never a
  * query parameter — and the responses are marked no-store.
  *
@@ -59,7 +59,7 @@ final class StatusController {
 	public function permission( \WP_REST_Request $request ): bool|\WP_Error {
 		$key = $this->plugin->options()->status_key();
 		if ( '' === $key ) {
-			return new \WP_Error( 'aivis_status_disabled', 'The AIVIS OS status endpoint is disabled on this site.', [ 'status' => 404 ] );
+			return new \WP_Error( 'aivis_status_disabled', 'The Aivis-OS status endpoint is disabled on this site.', [ 'status' => 404 ] );
 		}
 		$given = self::bearer( (string) $request->get_header( 'authorization' ) );
 		if ( '' === $given || ! hash_equals( $key, $given ) ) {

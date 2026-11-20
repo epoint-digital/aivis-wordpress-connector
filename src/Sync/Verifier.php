@@ -37,9 +37,9 @@ final class Verifier {
 	}
 
 	/**
-	 * §11 — pages whose address changed since AIVIS crawled them. A fact for
+	 * §11 — pages whose address changed since Aivis-OS crawled them. A fact for
 	 * the Status screen, Site Health and the status document; nothing is
-	 * decided here. The row stays keyed to the URL AIVIS has, and AIVIS
+	 * decided here. The row stays keyed to the URL Aivis-OS has, and Aivis-OS
 	 * decides whether to re-crawl, redirect or retire.
 	 *
 	 * @return array{checked:int, moved:int}
@@ -63,7 +63,7 @@ final class Verifier {
 		$this->options->patch_sync_state( [ 'moved' => $moved, 'moved_checked_at' => time(), 'moved_checked' => count( $rows ) ] );
 		$new = array_diff_key( $moved, $prev );
 		if ( $new ) {
-			$this->options->record( ErrorCode::URL_MOVED, sprintf( '%d page(s) changed address since AIVIS crawled them; AIVIS still has the old URL', count( $new ) ), (string) reset( $new )['from'] );
+			$this->options->record( ErrorCode::URL_MOVED, sprintf( '%d page(s) changed address since Aivis-OS crawled them; Aivis-OS still has the old URL', count( $new ) ), (string) reset( $new )['from'] );
 		}
 		return [ 'checked' => count( $rows ), 'moved' => count( $moved ) ];
 	}
@@ -151,13 +151,13 @@ final class Verifier {
 		}
 		$served = Markup::serves( (string) wp_remote_retrieve_body( $res ), (string) $row['json_ld'] );
 		if ( ! $served['present'] ) {
-			return $this->done( 'marker-missing', $target, 'page served without a live AIVIS block — the page cache may not be purged, or the theme does not call wp_head()' );
+			return $this->done( 'marker-missing', $target, 'page served without a live Aivis-OS block — the page cache may not be purged, or the theme does not call wp_head()' );
 		}
 		if ( ! $served['current'] ) {
-			return $this->done( 'stale-on-page', $target, 'AIVIS block present but its content differs from the stored artifact — cache not yet purged' );
+			return $this->done( 'stale-on-page', $target, 'Aivis-OS block present but its content differs from the stored artifact — cache not yet purged' );
 		}
 		$this->repository->mark_verified( (string) $row['url_key'], (string) $row['content_hash'] );
-		return $this->done( 'live', $target, 'live AIVIS block with the current content' );
+		return $this->done( 'live', $target, 'live Aivis-OS block with the current content' );
 	}
 
 	/**

@@ -1,4 +1,4 @@
-<title>AIVIS Public API Requirements</title>
+<title>Aivis-OS Public API Requirements</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&display=swap">
@@ -129,14 +129,14 @@
 <article itemscope itemtype="https://schema.org/TechArticle">
 
 <header class="masthead">
-  <p class="eyebrow">Requirements · AIVIS Public API v1.0.0</p>
+  <p class="eyebrow">Requirements · Aivis-OS Public API v1.0.0</p>
   <h1 itemprop="headline">What the WordPress connector needs from the Public API</h1>
   <p class="standfirst" itemprop="abstract">The connector is being built against the API as it stands today — no work is
   blocked. Two gaps change what it can <em>promise</em> a customer, and one of them decides whether
-  the plugin can ever be handed to someone outside AIVIS.</p>
+  the plugin can ever be handed to someone outside Aivis-OS.</p>
 
   <dl class="meta">
-    <div><dt>Audience</dt><dd>AIVIS platform team</dd></div>
+    <div><dt>Audience</dt><dd>Aivis-OS platform team</dd></div>
     <div><dt>From</dt><dd>aivis-wordpress-connector</dd></div>
     <div><dt>Verified against</dt><dd class="mono">e96b89c · 2026-08-11 — <strong>all eleven shipped</strong> as contract 1.1.0 → 1.9.0 on 2026-09-08; adopted by the connector 2026-09-09</dd></div>
     <div><dt>Date</dt><dd><time itemprop="dateModified" datetime="2026-09-05">5 September 2026</time></dd></div>
@@ -149,7 +149,7 @@
   <p class="prose">Three call patterns, on three different clocks. The one that matters most for capacity
   planning is the third: <strong>rendering a page makes no API call at all.</strong> The plugin serves
   structured data from a local table, so your API sits on the sync path, never on a visitor's
-  critical path — an AIVIS outage costs freshness, not uptime.</p>
+  critical path — an Aivis-OS outage costs freshness, not uptime.</p>
 
   <figure class="scroll">
     <svg viewBox="0 0 920 380" role="img" aria-label="Three call patterns: a one-time connection sequence, a fifteen-minute sync loop, and a page render that makes no API call.">
@@ -215,7 +215,7 @@
       <line x1="414" y1="295" x2="436" y2="317" stroke="#A6382C" stroke-width="2"/>
       <line x1="436" y1="295" x2="414" y2="317" stroke="#A6382C" stroke-width="2"/>
       <rect x="300" y="322" width="250" height="34" fill="none" stroke="currentColor" stroke-width="1" opacity=".4"/>
-      <text x="425" y="343" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".6">AIVIS Public API</text>
+      <text x="425" y="343" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor" opacity=".6">Aivis-OS Public API</text>
       <text x="570" y="339" font-family="IBM Plex Sans, sans-serif" font-size="12" font-weight="500" fill="#A6382C">never called on the render path</text>
       <text x="570" y="354" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="currentColor" opacity=".6">an outage costs freshness, not uptime</text>
 
@@ -488,16 +488,16 @@
     <div class="body">
       <h3>Fetch the connector's publishing status</h3>
       <dl>
-        <div><dt>Current behaviour</dt><dd>AIVIS has no visibility into connected sites — whether they sync, which
+        <div><dt>Current behaviour</dt><dd>Aivis-OS has no visibility into connected sites — whether they sync, which
         version they run, what is actually published on which page, whether purges confirm, and whether <strong>other
         plugins are also emitting structured data</strong> on the same pages. <code>ApiToken.lastUsedAt</code> is the
         only signal.</dd></div>
         <div><dt>Why it matters</dt><dd class="serif">The connector knows all of it and keeps it in the plugin. It
-        <strong>never pushes</strong> — decided 2026-09-06, replacing the earlier POST design. AIVIS fetches the status
+        <strong>never pushes</strong> — decided 2026-09-06, replacing the earlier POST design. Aivis-OS fetches the status
         when it wants it: nothing about a site is emitted on a schedule the site does not control, a switched-off site
         simply stops answering, and the connector's outbound traffic is reads of this API and nothing else.</dd></div>
         <div><dt>What the site serves</dt><dd>WordPress REST, read-only, GET only, gated by a <em>status key</em> the
-        site issues and the admin enters in AIVIS. <code>GET {baseUrl}/wp-json/aivis-os/v1/status</code> and
+        site issues and the admin enters in Aivis-OS. <code>GET {baseUrl}/wp-json/aivis-os/v1/status</code> and
         <code>…/status/urls?cursor&amp;limit</code>, <code>Authorization: Bearer aivis_status_…</code>.
 <pre>{ "connector": "aivis-os", "version": "1.0.0", "schema": 1, "site": "example.com", "businessId": "…",
   "sync": { "lastCompleteAt": "…", "authoritative": true, "counts": { "active": 312, "suspended": 0, … } },
@@ -513,11 +513,11 @@
         <code>state</code> ∈ published · stale · holding · suspended · retired · inactive. <code>publishedAt</code> is when
         what the page serves last changed; <code>verifiedAt</code> is when the site last fetched the page itself and found
         those bytes in it. Nothing about people.</dd></div>
-        <div><dt>What AIVIS needs to add</dt><dd>A per-business field for the status key; a fetcher (on demand from the
+        <div><dt>What Aivis-OS needs to add</dt><dd>A per-business field for the status key; a fetcher (on demand from the
         business screen and/or on a schedule) that reads <code>/status</code> and walks <code>/status/urls</code>; optionally a
         per-page comparison of <code>contentHash</code> with the current artifact.</dd></div>
         <div><dt>Unlocks</dt><dd>A connected-sites view per business — last seen, version, sync health, per-page publication —
-        and the conversation with a customer whose SEO plugin is fighting AIVIS for the same node.</dd></div>
+        and the conversation with a customer whose SEO plugin is fighting Aivis-OS for the same node.</dd></div>
       </dl>
     </div>
   </div>
@@ -527,7 +527,7 @@
     <div class="body">
       <h3>Language on the chain resource</h3>
       <dl>
-        <div><dt>Current behaviour</dt><dd>A chain is one language in AIVIS — intents and forensic prompts are bound
+        <div><dt>Current behaviour</dt><dd>A chain is one language in Aivis-OS — intents and forensic prompts are bound
         per language — but the API exposes language only per <strong>URL</strong> row (<code>languageCode</code> on
         <code>/chains/{id}/urls</code> and on the artifact envelope). <code>GET /businesses/{id}/chains</code> items carry
         no language at all.</dd></div>
@@ -542,7 +542,7 @@
 <pre>{ "items": [ { "id": "chain_de", "name": "Deutsch", "languageCode": "de", "state": "ready", … } ] }</pre></dd></div>
         <div><dt>Unlocks</dt><dd>Exact automatic assignment (chain language == site language) instead of a sampled guess;
         an authoritative Site Health warning when a chain's language and its assignment disagree; one request per site
-        instead of one per chain. <strong>Answered 2026-09-06:</strong> AIVIS collects a chain's URLs by following links or by manual
+        instead of one per chain. <strong>Answered 2026-09-06:</strong> Aivis-OS collects a chain's URLs by following links or by manual
         entry — no host or subdomain concept, and no correlation between the URLs of different languages. The connector
         matches every page by exact URL; a separate domain per language is a separate business and a separate site.</dd></div>
       </dl>
@@ -561,7 +561,7 @@
         <div><dt>Why it matters</dt><dd class="serif">Every other item here changes the API; this one says how a change reaches a
         plugin installed on sites nobody redeploys. Today the connector pins v1, tolerates unknown fields, holds last-known-good
         when a response stops validating, and learns of drift from a nightly CI job. That fails safe for the customer's pages and
-        silently for AIVIS. There is no runtime version negotiation at all.</dd></div>
+        silently for Aivis-OS. There is no runtime version negotiation at all.</dd></div>
         <div><dt>Proposed contract</dt><dd>
           <strong>1.</strong> Additive within <code>/v1</code>; breaking changes go to <code>/v2</code> with v1 kept running in parallel for a stated period.
           <strong>2.</strong> Say what "compatible" means for strict validators: consumers must tolerate unknown fields, and either drop
@@ -569,14 +569,14 @@
           <strong>3.</strong> Decide whether new enum values (<code>state</code>, <code>layer</code>, <code>captureStatus</code>) are breaking, or declare the enums open.
           <strong>4.</strong> <code>Deprecation</code> and <code>Sunset</code> headers (RFC 9745 / 8594) on retiring endpoints and versions.
           <strong>5.</strong> Bump <code>info.version</code> on every change, publish a changelog, echo it as <code>X-Aivis-Api-Version</code>.
-          <strong>6.</strong> Minimum client: AIVIS sees <code>aivis-os/1.0.0</code> in the user agent — answer with
+          <strong>6.</strong> Minimum client: Aivis-OS sees <code>aivis-os/1.0.0</code> in the user agent — answer with
           <code>X-Aivis-Min-Client</code>, and <code>426 Upgrade Required</code> (code <code>client_too_old</code>) once a version is unsupported.
 <pre>HTTP/1.1 200 OK
 X-Aivis-Api-Version: 1.2.0
 X-Aivis-Min-Client: 1.1.0
 Deprecation: @1767225600          ← only on retiring endpoints
 Sunset: Wed, 01 Jul 2026 00:00:00 GMT
-Link: &lt;https://app.aivis-os.com/api/public/changelog#v1-jsonld&gt;; rel="deprecation"</pre></dd></div>
+Link: &lt;/api/public/changelog#v1-jsonld&gt;; rel="deprecation"</pre></dd></div>
         <div><dt>Unlocks</dt><dd>Every other change on this page shipping without breaking an installed site; "update required" in
         Site Health before the break instead of a silent hold after it; a connector that can tell the platform team exactly
         which client versions are still out there.</dd></div>
@@ -615,7 +615,7 @@ Link: &lt;https://app.aivis-os.com/api/public/changelog#v1-jsonld&gt;; rel="depr
   <table class="sheet">
     <thead><tr><th>Gap</th><th>Interim behaviour</th></tr></thead>
     <tbody>
-      <tr><td class="mono">API-1</td><td>v1 restricted to AIVIS-controlled installs. Token preferentially in <code>wp-config.php</code>, not the database. Mandatory <code>businessId</code> equality on every artifact, plus <code>chainId</code> membership when inventory context exists.</td></tr>
+      <tr><td class="mono">API-1</td><td>v1 restricted to installs controlled by Aivis-OS. Token preferentially in <code>wp-config.php</code>, not the database. Mandatory <code>businessId</code> equality on every artifact, plus <code>chainId</code> membership when inventory context exists.</td></tr>
       <tr><td class="mono">API-2</td><td>Withdrawal inferred from the 404 body plus an authoritative inventory pass. Worst-case latency: one sync interval.</td></tr>
       <tr><td class="mono">API-3</td><td>Defensive string match on the 404 message, conservative fallback on anything unrecognised.</td></tr>
       <tr><td class="mono">API-4</td><td>Full-payload polling at a 15-minute default.</td></tr>
@@ -646,7 +646,7 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
 
 <footer>
   <p><strong>Verified against</strong> the live OpenAPI at
-  <code>aivis-new.dev.onepoint.ro/api/public/v1/openapi.json</code> and the merged implementation on
+  <code>/api/public/v1/openapi.json</code> on the Test instance and the merged implementation on
   <code>epoint-digital/aivis@e96b89c</code>, both read 5 September 2026. Field names, status codes, error
   messages and the tenancy filter quoted here come from that source, not from the earlier specification —
   which asserted several things about this API that were never checked.</p>
@@ -661,16 +661,16 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
 {
   "@context": "https://schema.org",
   "@type": "TechArticle",
-  "name": "AIVIS Public API Requirements",
+  "name": "Aivis-OS Public API Requirements",
   "headline": "What the WordPress connector needs from the Public API",
-  "abstract": "Eleven requirements the AIVIS WordPress Connector places on the AIVIS Public API v1.0.0, with the call patterns that motivate them. API-1 (business-scoped tokens) is the only hard blocker.",
+  "abstract": "Eleven requirements Aivis-OS JSON-LD Delivery for WordPress places on the Aivis-OS Public API v1.0.0, with the call patterns that motivate them. API-1 (business-scoped tokens) is the only hard blocker.",
   "datePublished": "2026-09-05",
   "dateModified": "2026-09-06",
   "inLanguage": "en",
-  "audience": { "@type": "Audience", "audienceType": "AIVIS platform engineering team" },
-  "about": { "@type": "WebAPI", "name": "AIVIS Public API", "version": "1.0.0",
-             "documentation": "https://aivis-new.dev.onepoint.ro/api/public/v1/docs" },
-  "isBasedOn": "https://aivis-new.dev.onepoint.ro/api/public/v1/openapi.json",
+  "audience": { "@type": "Audience", "audienceType": "Aivis-OS platform engineering team" },
+  "about": { "@type": "WebAPI", "name": "Aivis-OS Public API", "version": "1.0.0",
+             "documentation": "/api/public/v1/docs" },
+  "isBasedOn": "/api/public/v1/openapi.json",
   "hasPart": [
     { "@type": "WebPageElement", "identifier": "API-1", "name": "Business-scoped read-only tokens" },
     { "@type": "WebPageElement", "identifier": "API-2", "name": "An explicit retraction signal" },
@@ -694,10 +694,10 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
   "date": "2026-09-06",
   "consumer": "aivis-wordpress-connector",
   "api": {
-    "name": "AIVIS Public API",
+    "name": "Aivis-OS Public API",
     "version": "1.0.0",
     "basePath": "/api/public/v1",
-    "verifiedAgainst": { "commit": "e96b89c", "date": "2026-08-11", "openapi": "https://aivis-new.dev.onepoint.ro/api/public/v1/openapi.json" }
+    "verifiedAgainst": { "commit": "e96b89c", "date": "2026-08-11", "openapi": "/api/public/v1/openapi.json" }
   },
   "loadProfilePerSite": {
     "assumptions": { "urls": 3000, "chains": 2, "syncIntervalMinutes": 15 },
@@ -709,7 +709,7 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
       "currentBehaviour": "ApiToken carries only userId; no scope, expiry or revokedAt. Every route scopes by userId.",
       "proposedContract": "Nullable ApiToken.businessId; when set, all endpoints resolve only within that business. Permission flags jsonld:read and events:write. GET /me reports the binding.",
       "unlocks": ["customer-managed installs", "WordPress.org distribution"],
-      "blocking": true, "interim": "v1 restricted to AIVIS-controlled installs; token preferentially in wp-config.php; mandatory businessId equality check." },
+      "blocking": true, "interim": "v1 restricted to installs controlled by Aivis-OS; token preferentially in wp-config.php; mandatory businessId equality check." },
     { "id": "API-2", "title": "An explicit retraction signal", "priority": "high", "status": "shipped 1.5.0 — adopted (R-01b, R-02a)",
       "currentBehaviour": "No suppressedAt, publication state or tombstone. Withdrawal is a hard delete of the Url row, cascading to the artifact.",
       "proposedContract": "UrlJsonLdArtifact.suppressedAt set by an Unpublish action; lookup returns 410 Gone with code 'withdrawn'; inventory row reports jsonLd.suppressedAt.",
@@ -740,24 +740,24 @@ reqs.filter(r =&gt; r.priority === 'blocker');   // [ { id: "API-1", … } ]</pr
       "proposedContract": "Document intended per-token limits; return 429 with Retry-After when introduced.",
       "unlocks": ["a real budget to throttle against"],
       "blocking": false, "interim": "Self-imposed cap of 20 artifact requests per job." },
-    { "id": "API-9", "title": "Fetch the connector's publishing status", "priority": "medium", "status": "shipped AIVIS-side (aivis#286): status fetcher with a sealed key",
+    { "id": "API-9", "title": "Fetch the connector's publishing status", "priority": "medium", "status": "shipped on the Aivis-OS side (aivis#286): status fetcher with a sealed key",
       "direction": "pull",
-      "currentBehaviour": "AIVIS has no visibility into connected sites; ApiToken.lastUsedAt is the only signal. The connector never pushes.",
-      "proposedContract": "AIVIS-side: a per-business status key field and a fetcher for GET {baseUrl}/wp-json/aivis-os/v1/status and /status/urls?cursor&limit (Authorization: Bearer aivis_status_...). The site serves connector, version, schema, sync, delivery, cache, languages, conflicts, and per page url, urlId, chainId, state (published|stale|holding|suspended|retired|inactive), contentHash, publishedAt, lastSyncedAt, verifiedAt, verifiedHash, errorCode. Nothing about people.",
-      "unlocks": ["connected-sites view per business", "per-page publication status against the current artifact", "visibility of SEO plugins competing with AIVIS for the same nodes"],
-      "blocking": false, "interim": "The site already serves the document, key-gated. Conflicts are also flagged inside WordPress; the plugin sends no email (notification policy is AIVIS's)." },
+      "currentBehaviour": "Aivis-OS has no visibility into connected sites; ApiToken.lastUsedAt is the only signal. The connector never pushes.",
+      "proposedContract": "On the Aivis-OS side: a per-business status key field and a fetcher for GET {baseUrl}/wp-json/aivis-os/v1/status and /status/urls?cursor&limit (Authorization: Bearer aivis_status_...). The site serves connector, version, schema, sync, delivery, cache, languages, conflicts, and per page url, urlId, chainId, state (published|stale|holding|suspended|retired|inactive), contentHash, publishedAt, lastSyncedAt, verifiedAt, verifiedHash, errorCode. Nothing about people.",
+      "unlocks": ["connected-sites view per business", "per-page publication status against the current artifact", "visibility of SEO plugins competing with Aivis-OS for the same nodes"],
+      "blocking": false, "interim": "The site already serves the document, key-gated. Conflicts are also flagged inside WordPress; the plugin sends no email (notification policy is Aivis-OS's)." },
     { "id": "API-10", "title": "Language on the chain resource", "priority": "medium", "status": "shipped 1.4.0 — adopted; sampling removed",
       "currentBehaviour": "A chain is one language, but languageCode is exposed only per URL row; chain items carry no language.",
       "proposedContract": "languageCode (ISO 639-1, optional region) on every item of GET /businesses/{id}/chains. Additive.",
       "unlocks": ["exact chain-to-language assignment in the connector", "authoritative language-mismatch warnings", "one request per site instead of one per chain"],
-      "answered": "AIVIS collects URLs by following links or by manual entry; no host/subdomain concept; no correlation between the URLs of different languages.",
+      "answered": "Aivis-OS collects URLs by following links or by manual entry; no host/subdomain concept; no correlation between the URLs of different languages.",
       "blocking": false, "interim": "Five inventory rows sampled per chain as a hint (cached 15 min); automatic assignment only when unambiguous; disagreements reported, never acted on." },
     { "id": "API-11", "title": "Versioning and compatibility policy", "priority": "high", "status": "shipped 1.2.0 — adopted (headers, 426, /changelog, Site Health)",
       "currentBehaviour": "Path-versioned /v1 with info.version 1.0.0 and nothing else: no compatibility policy, no deprecation signalling, no changelog, no minimum-client signal. additionalProperties:false on every object makes additive changes break the published contract.",
       "proposedContract": "Additive within /v1, breaking changes under /v2 with parallel v1; declare that consumers must tolerate unknown fields (relax additionalProperties or accept validator alarms); decide whether new enum values are breaking; Deprecation + Sunset headers on retiring endpoints; bump info.version per change with a changelog and an X-Aivis-Api-Version header; X-Aivis-Min-Client header and 426 client_too_old once a client version is unsupported.",
       "unlocks": ["every other change shipping without breaking installed sites", "update-required warning in Site Health before a break", "knowing which client versions are still in service"],
       "blocking": false, "interim": "v1 pinned in the path; unknown fields tolerated; strict on required fields; last-known-good on validation failure; nightly OpenAPI drift job; no runtime version negotiation yet." },
-    { "id": "API-8", "title": "Host-level URL equivalence", "priority": "filed", "status": "declined by AIVIS (ADR); the connector keeps exact matching",
+    { "id": "API-8", "title": "Host-level URL equivalence", "priority": "filed", "status": "declined by Aivis-OS (ADR); the connector keeps exact matching",
       "currentBehaviour": "Matching is exact plus a trailing-slash variant, deliberately.",
       "position": "We agree with the current behaviour. Filed for the record, not requested as a change.",
       "proposedContract": "Host-level www equivalence only, resolved against the business baseUrl. Scheme, case and query handling stay strict.",

@@ -1,4 +1,4 @@
-# Driving wp-admin in a browser to install AIVIS OS
+# Driving wp-admin in a browser to install Aivis-OS
 
 For an agent with browser tools (a page reader, click, type, screenshot). Written against WordPress 6.5–7.1 and plugin 1.0.0. Element ids and names below come from the plugin's own templates; WordPress core screens are named by their visible labels, which are stable across these versions.
 
@@ -26,19 +26,19 @@ Conventions: `→` means click or navigate; *italics* are visible labels; `code`
 1. File input `#pluginzip` → choose `aivis-os.zip`.
 2. `#install-plugin-submit` (*Install Now*).
 3. On the result page → *Activate Plugin*. If WordPress offers *Replace current with uploaded* (an upgrade), take it, then activate from the Plugins list.
-4. ✱ `→ <site>/wp-admin/plugins.php` — confirm **AIVIS OS** is listed as active with *Version 1.0.0*. The menu now shows **AIVIS OS** (network icon) near the bottom.
+4. ✱ `→ <site>/wp-admin/plugins.php` — confirm **Aivis-OS JSON-LD Delivery** is listed as active with *Version 1.0.0*. The menu now shows **Aivis-OS** (network icon) near the bottom.
 
-Activation makes no network request and needs no token. If the site is not on HTTPS you will see nothing special yet, but the connector requires HTTPS to talk to AIVIS.
+Activation makes no network request and needs no token. If the site is not on HTTPS you will see nothing special yet, but the connector requires HTTPS to talk to Aivis-OS.
 
 ## 3. Open Settings
 
 `→ <site>/wp-admin/admin.php?page=aivis-os-settings`
 
-The page has these boxes in order: **Connection**, **Business**, **Languages & chains**, **Delivery**, **Structured data sources**, **Status for AIVIS**, **Page cache**. It is **one form**: every button on it (*Save & test connection*, *Scan pages now*, the status-key buttons, *Save changes*, *Disconnect*) submits the whole page with its own action.
+The page has these boxes in order: **Connection**, **Business**, **Languages & chains**, **Delivery**, **Structured data sources**, **Status for Aivis-OS**, **Page cache**. It is **one form**: every button on it (*Save & test connection*, *Scan pages now*, the status-key buttons, *Save changes*, *Disconnect*) submits the whole page with its own action.
 
 ### Connection
 
-- **Environment** select `#aivis_env` (`environment`): *Production — app.aivis-os.com* or *Test — aivis-new.dev.onepoint.ro*. Ask the human which instance this site belongs to **before** anything else: a token from one instance does not work on the other, and switching later unbinds the business and stops serving what came from the other instance. If `wp-config.php` defines `AIVIS_API_BASE_URL` the select is replaced by a note and cannot be changed here. As of September 2026 Production has no DNS record; pilots run on Test.
+- **Environment** select `#aivis_env` (`environment`): *Production* or *Test*. Ask the human which instance this site belongs to **before** anything else: a token from one instance does not work on the other, and switching later unbinds the business and stops serving what came from the other instance. If `wp-config.php` defines `AIVIS_API_BASE_URL` the select is replaced by a note and cannot be changed here. As of September 2026 Production is not in service; pilots run on Test.
 - If `wp-config.php` defines the token you see `AIVIS_API_TOKEN is defined in wp-config.php` with a green *Recommended* chip. Good.
 - Otherwise there is a password field `#aivis_token`. **The human types the token.** Leave it there — the next button saves it.
 - Click **Save & test connection** (`button[name=do][value=save_and_test]`, right under the token field). It saves the page — environment and token included — then verifies the token against the selected instance. Expected: a green chip *Connected — bound to <business>* (business-bound token) or *Connected as <email>* (account-wide), and a notice naming the host. A red chip names the failure: *Token rejected by <host>* (wrong, revoked or issued on the other instance — ask the human; do not retry in a loop), *Could not reach <host>* (the environment: switch to Test while Production has no DNS record, or the host blocks outbound requests), *Plugin update required* (stop and report).
@@ -50,7 +50,7 @@ One of three states:
 
 - *Matched automatically* (green chip) with the business name: nothing to choose. A hidden field `business_id` is already set.
 - Radio buttons named `business_id`, one per business on this domain, each with creation date and chain count: **ask the human which one is live** before selecting. Do not guess.
-- *No business on this account uses <host>*: **stop**. Report that the business's base URL in AIVIS must be this domain. Businesses on other domains are deliberately not offered.
+- *No business on this account uses <host>*: **stop**. Report that the business's base URL in Aivis-OS must be this domain. Businesses on other domains are deliberately not offered.
 
 Field `#aivis_hosts` (`allowed_hosts`): leave empty unless the human names alias hosts. The site's own host and `www` twin are always included; language subdomains are added automatically.
 
@@ -59,23 +59,23 @@ Field `#aivis_hosts` (`allowed_hosts`): leave empty unless the human names alias
 Text at the top says which languages the site publishes in and which plugin manages them (*WordPress core (one language)* if none).
 
 - Single-language site: usually nothing to do; chains are assigned automatically on the first sync. If the table is already there, every row's select `chain_lang[<chainId>]` should show the site language.
-- Multilingual site: the table lists each chain with *AIVIS reports* (the language AIVIS sees on its pages) and a select *Serves WordPress language*. Set each chain to the language the human named. A select left on *— not assigned (not synced) —* means that chain is skipped. Rows marked *suggested from what AIVIS reports — save to confirm* are pre-filled guesses; confirm them with the human when the language plugin and AIVIS disagree.
+- Multilingual site: the table lists each chain with *Aivis-OS reports* (the language Aivis-OS sees on its pages) and a select *Serves WordPress language*. Set each chain to the language the human named. A select left on *— not assigned (not synced) —* means that chain is skipped. Rows marked *suggested from what Aivis-OS reports — save to confirm* are pre-filled guesses; confirm them with the human when the language plugin and Aivis-OS disagree.
 - Below the table: green chips *<Language> — N chains*, or a red chip *<Language> — no chain: nothing is injected on these pages*. A red chip is a decision for the human, not something to paper over.
-- If the box says *AIVIS could not be reached*, wait a minute and reload; do not save.
+- If the box says *Aivis-OS could not be reached*, wait a minute and reload; do not save.
 
 ### Delivery
 
-- Checkbox `injection` (*Add AIVIS structured data to pages on this site*): on.
+- Checkbox `injection` (*Add Aivis-OS structured data to pages on this site*): on.
 - Checkbox `on_demand`: leave off unless asked.
 - Select `#aivis_interval` (`interval`): *Every 15 minutes (recommended)*. Choose *Every 5 minutes* only if the human confirmed a real system cron.
 
 ### Structured data sources
 
-Read-only list. If another emitter is listed (Yoast, Rank Math, …), note it for the report with the *How to switch it off there* text. **Do not go and change that plugin.** Publishing continues either way. There is no email setting: who gets told is AIVIS's decision.
+Read-only list. If another emitter is listed (Yoast, Rank Math, …), note it for the report with the *How to switch it off there* text. **Do not go and change that plugin.** Publishing continues either way. There is no email setting: who gets told is Aivis-OS's decision.
 
-### Status for AIVIS
+### Status for Aivis-OS
 
-Shows the endpoint URL and the **status key** (`aivis_status_…`). Tell the human: "Copy the status key from this box into AIVIS for this business." Do not read it out, do not paste it anywhere. Do not click *Regenerate* or *Disable*.
+Shows the endpoint URL and the **status key** (`aivis_status_…`). Tell the human: "Copy the status key from this box into Aivis-OS for this business." Do not read it out, do not paste it anywhere. Do not click *Regenerate* or *Disable*.
 
 ### Page cache
 
@@ -95,7 +95,7 @@ Select `#aivis_cache` (`cache_adapter`): leave on *Detect automatically (current
 3a. Read the **Needs attention** box. *Nothing needs you* is the goal. Every listed item links to the filtered Pages view; put the counts in the report, do not work through the list.
 4. The **Languages** box: every language with chains and counts; a red *no chain* means step 3 is incomplete.
 5. The **Pipelines** box: each chain with its language; *not assigned — not synced* is a warning.
-5a. A **Moved pages** box appears only when pages changed address since AIVIS crawled them. Read it, put it in the report, change nothing — AIVIS re-crawls.
+5a. A **Moved pages** box appears only when pages changed address since Aivis-OS crawled them. Read it, put it in the report, change nothing — Aivis-OS re-crawls.
 6. ✱ Screenshot the Status page for the report.
 
 If *Sync now* results in *Last sync incomplete* or a notice about no chain assigned, go back to Languages & chains.
@@ -108,22 +108,22 @@ On the **Pages** screen, search for a page (search box, top right) that shows *A
 <script type="application/ld+json" data-aivis="1" data-aivis-hash="…">{…}</script>
 ```
 
-Any post or term edit screen also shows a read-only **AIVIS OS** box with the same facts for that object.
+Any post or term edit screen also shows a read-only **Aivis-OS** box with the same facts for that object.
 
-Also run the plugin's own check: `→ <site>/wp-admin/site-health.php` → *Status* tab → look for tests labelled **AIVIS OS:** — token custody, sync is running, cache purge is confirmable, storage, single source of structured data, every language has a chain. All should be green or *recommended*; any *critical* one is a finding.
+Also run the plugin's own check: `→ <site>/wp-admin/site-health.php` → *Status* tab → look for tests labelled **Aivis-OS:** — token custody, sync is running, cache purge is confirmable, storage, single source of structured data, every language has a chain. All should be green or *recommended*; any *critical* one is a finding.
 
 If the marker is missing on the public page but Status says *Active*: the page cache has not dropped the page. Check the **Pages** box header chip — *Purge confirmed*, *Purge requested, not confirmed* (LiteSpeed; usually live within seconds) or *Manual purge required* (purge in the cache plugin, or ask the human).
 
 ## 6. Hand-offs to the human
 
-- Copy the **status key** into AIVIS (step 3, Status for AIVIS).
+- Copy the **status key** into Aivis-OS (step 3, Status for Aivis-OS).
 - Set up a **system cron** if Site Health says syncs are overdue or if the 5-minute interval is wanted: INSTALL.md → *Cron*.
 - Decide on any **other structured-data emitters** flagged red.
 - Decide on any **language without a chain**.
 
 ## What never to click
 
-*Disconnect and remove local data* (purges everything and empties the table), *Regenerate* / *Disable* under Status for AIVIS, *Disable here* on a page row, *Override* on the conflict warning — unless the human asked for exactly that in this conversation.
+*Disconnect and remove local data* (purges everything and empties the table), *Regenerate* / *Disable* under Status for Aivis-OS, *Disable here* on a page row, *Override* on the conflict warning — unless the human asked for exactly that in this conversation.
 
 ## URL map
 
@@ -131,8 +131,8 @@ If the marker is missing on the public page but Status says *Active*: the page c
 |---|---|
 | Upload plugin | `/wp-admin/plugin-install.php?tab=upload` |
 | Plugins list | `/wp-admin/plugins.php` |
-| AIVIS OS → Status | `/wp-admin/admin.php?page=aivis-os` |
-| AIVIS OS → Pages (list; `&state=attention` etc.) | `/wp-admin/admin.php?page=aivis-os-pages` |
-| AIVIS OS → Settings | `/wp-admin/admin.php?page=aivis-os-settings` |
+| Aivis-OS → Status | `/wp-admin/admin.php?page=aivis-os` |
+| Aivis-OS → Pages (list; `&state=attention` etc.) | `/wp-admin/admin.php?page=aivis-os-pages` |
+| Aivis-OS → Settings | `/wp-admin/admin.php?page=aivis-os-settings` |
 | Site Health status / info | `/wp-admin/site-health.php` · `/wp-admin/site-health.php?tab=debug` |
-| Status document (needs the key; for AIVIS, not for you) | `/wp-json/aivis-os/v1/status` |
+| Status document (needs the key; for Aivis-OS, not for you) | `/wp-json/aivis-os/v1/status` |

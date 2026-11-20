@@ -1,5 +1,5 @@
 # Throwaway WordPress for verifying the plugin's admin screens against the real
-# AIVIS instances (the prototype in docs/admin-ui.html is not WordPress).
+# Aivis-OS instances (the prototype in docs/admin-ui.html is not WordPress).
 #
 #   docker compose -f scripts/wp-dev/docker-compose.yml up -d
 #   docker compose -f scripts/wp-dev/docker-compose.yml run --rm cli wp core install \

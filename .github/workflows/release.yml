@@ -56,6 +56,6 @@ jobs:
         run: |
           case "${GITHUB_REF_NAME}" in *-*) PRE="--prerelease" ;; *) PRE="--latest" ;; esac
           gh release create "${GITHUB_REF_NAME}" $PRE \
-            --title "AIVIS OS ${GITHUB_REF_NAME}" \
+            --title "Aivis-OS JSON-LD Delivery ${GITHUB_REF_NAME}" \
             --notes-file dist/NOTES.md \
             dist/aivis-os.zip dist/SHA-256SUMS

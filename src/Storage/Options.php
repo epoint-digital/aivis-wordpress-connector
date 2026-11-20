@@ -18,7 +18,7 @@ final class Options {
 	public const DEFAULT_API_BASE = 'https://app.aivis-os.com';
 
 	/**
-	 * The two AIVIS instances a site may talk to (Q-01). A closed list on
+	 * The two Aivis-OS instances a site may talk to (Q-01). A closed list on
 	 * purpose: the bearer token goes to whichever is selected and nowhere
 	 * else, so this is a switch, never a free URL field.
 	 */
@@ -188,7 +188,7 @@ final class Options {
 		return defined( 'AIVIS_API_BASE_URL' ) && is_string( AIVIS_API_BASE_URL ) && '' !== AIVIS_API_BASE_URL ? 'constant' : 'setting';
 	}
 
-	/** 'production' | 'test' — the selected AIVIS instance (Settings → Connection). */
+	/** 'production' | 'test' — the selected Aivis-OS instance (Settings → Connection). */
 	public function environment(): string {
 		$e = (string) get_option( 'aivis_os_environment', 'production' );
 		return isset( self::ENVIRONMENTS[ $e ] ) ? $e : 'production';
@@ -206,6 +206,30 @@ final class Options {
 
 	public static function environment_host( string $environment ): string {
 		return (string) wp_parse_url( self::ENVIRONMENTS[ $environment ] ?? self::DEFAULT_API_BASE, PHP_URL_HOST );
+	}
+
+	/**
+	 * How an API host is named in anything a person reads (§11). The two
+	 * Aivis-OS instances are named by their environment, never by address;
+	 * the addresses live in ENVIRONMENTS and nowhere in the interface. A
+	 * custom host set through AIVIS_API_BASE_URL is the site's own and is shown.
+	 */
+	public static function instance_label( string $host ): string {
+		foreach ( self::ENVIRONMENTS as $key => $url ) {
+			if ( '' !== $host && 0 === strcasecmp( (string) wp_parse_url( $url, PHP_URL_HOST ), $host ) ) {
+				return 'test' === $key ? __( 'the Test environment', 'aivis-os' ) : __( 'the Production environment', 'aivis-os' );
+			}
+		}
+		return $host;
+	}
+
+	/** The same rule for free text: transport errors echo the address they could not reach. */
+	public static function name_instances( string $text ): string {
+		foreach ( self::ENVIRONMENTS as $url ) {
+			$host = (string) wp_parse_url( $url, PHP_URL_HOST );
+			$text = str_ireplace( [ $url, $host ], self::instance_label( $host ), $text );
+		}
+		return $text;
 	}
 
 	/* ── business binding (§06, §07) ─────────────────────────────────── */
@@ -241,7 +265,7 @@ final class Options {
 	/* ── §07a chain → language assignment ───────────────────────────── */
 
 	/**
-	 * Each chain is one language in AIVIS. This is the admin's statement of
+	 * Each chain is one language in Aivis-OS. This is the admin's statement of
 	 * which WordPress language each chain's pages are in.
 	 *
 	 * @return array<string,string> chain_id => language code (normalised)
@@ -298,7 +322,7 @@ final class Options {
 	public function allowed_hosts(): array {
 		$biz   = $this->business();
 		$hosts = $biz['allowed_hosts'];
-		// This site's own hosts, and the bound business's host as AIVIS knows it —
+		// This site's own hosts, and the bound business's host as Aivis-OS knows it —
 		// with the www/non-www twin of each, the one variant that arises from
 		// ordinary WordPress configuration rather than from a different page.
 		foreach ( [ home_url(), site_url(), $biz['base_url'] ] as $u ) {
@@ -462,13 +486,13 @@ final class Options {
 	}
 
 
-	/* ── status for AIVIS (§11a) — fetched, never pushed ─────────────── */
+	/* ── status for Aivis-OS (§11a) — fetched, never pushed ─────────────── */
 
 	public const STATUS_KEY_PREFIX = 'aivis_status_';
 
 	/**
-	 * The read-only key AIVIS presents to fetch this site's publishing status.
-	 * Issued here, entered in AIVIS by the admin. Empty = endpoint disabled.
+	 * The read-only key Aivis-OS presents to fetch this site's publishing status.
+	 * Issued here, entered in Aivis-OS by the admin. Empty = endpoint disabled.
 	 * It is not the API token and reaches nothing but the status document.
 	 */
 	public function status_key(): string {

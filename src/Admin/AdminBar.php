@@ -40,7 +40,7 @@ final class AdminBar {
 		if ( $counts['suspended'] > 0 ) {
 			$problems[] = sprintf(
 				/* translators: %d: pages */
-				_n( '%d page withdrawn in AIVIS', '%d pages withdrawn in AIVIS', $counts['suspended'], 'aivis-os' ),
+				_n( '%d page withdrawn in Aivis-OS', '%d pages withdrawn in Aivis-OS', $counts['suspended'], 'aivis-os' ),
 				$counts['suspended']
 			);
 		}
@@ -50,9 +50,9 @@ final class AdminBar {
 		$bar->add_node(
 			[
 				'id'    => 'aivis-os-warning',
-				'title' => '<span class="ab-icon dashicons dashicons-warning" style="color:#f0b849"></span> AIVIS OS: ' . esc_html( implode( ' · ', $problems ) ),
+				'title' => '<span class="ab-icon dashicons dashicons-warning" style="color:#f0b849"></span> Aivis-OS: ' . esc_html( implode( ' · ', $problems ) ),
 				'href'  => admin_url( 'admin.php?page=' . Menu::SLUG_STATUS ),
-				'meta'  => [ 'title' => __( 'AIVIS OS needs attention', 'aivis-os' ) ],
+				'meta'  => [ 'title' => __( 'Aivis-OS needs attention', 'aivis-os' ) ],
 			]
 		);
 	}

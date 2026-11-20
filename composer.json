@@ -1,6 +1,6 @@
 {
   "name": "epoint-digital/aivis-wordpress-connector",
-  "description": "AIVIS OS — delivers AIVIS-generated JSON-LD into WordPress pages.",
+  "description": "Publishes the JSON-LD that Aivis-OS has prepared for this domain. GET requests only; no visitor data.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",
   "require": { "php": ">=8.1" },

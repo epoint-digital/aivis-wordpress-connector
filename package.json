@@ -2,7 +2,7 @@
   "name": "aivis-wordpress-connector-dev",
   "private": true,
   "type": "module",
-  "description": "Dev tooling for the AIVIS WordPress Connector. The plugin itself is PHP; this holds the mock AIVIS API and the contract suite.",
+  "description": "Dev tooling for Aivis-OS JSON-LD Delivery for WordPress. The plugin itself is PHP; this holds the mock Aivis-OS API and the contract suite.",
   "scripts": {
     "test": "npm run test:unit --silent && npm run test:serializer --silent && npm run test:contract --silent",
     "test:unit": "node tests/unit/run.mjs",
@@ -10,6 +10,7 @@
     "test:live": "node tests/contract/run.mjs --live",
     "check:docs": "node tests/docs/check-embedded-json.mjs",
     "check:skills": "node tests/docs/check-skills-in-sync.mjs",
+    "check:copy": "node tests/docs/check-copy.mjs",
     "check:drift": "node tests/fixtures/refresh.mjs --check",
     "mock": "node tests/mock/server.js",
     "vendor:openapi": "node tests/fixtures/refresh.mjs",

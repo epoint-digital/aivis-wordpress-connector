@@ -1,7 +1,7 @@
 <?php
 /**
  * The canonical permalink of the page being rendered — in the exact form the
- * site itself would emit as rel=canonical. This is what goes to AIVIS
+ * site itself would emit as rel=canonical. This is what goes to Aivis-OS
  * unmodified (§07) and what the local key is derived from.
  *
  * @package AivisOS

@@ -72,8 +72,8 @@ export function decideFromLookup({ status, body, apiReachable }) {
                                  : { action: Action.HOLD,    rule: 'R-01',  kind };
     // The page still exists; only the artifact is missing. Never deactivate.
     case 'not_generated': return { action: Action.HOLD,    rule: 'R-01a',   kind };
-    // Unpublished in AIVIS (410, API-2): take the block down now, keep the row, keep polling.
-    // Only AIVIS emits the code, so no reachability proof is needed.
+    // Unpublished in Aivis-OS (410, API-2): take the block down now, keep the row, keep polling.
+    // Only Aivis-OS emits the code, so no reachability proof is needed.
     case 'withdrawn':     return { action: Action.DEACTIVATE, rule: 'R-01b', kind };
     // A signal we cannot read is not evidence. Keep serving, confirm later.
     case 'unreadable':    return { action: Action.HOLD,    rule: 'R-01a',   kind, needsInventoryConfirmation: true };
@@ -103,7 +103,7 @@ export function decideFromInventory({ authoritative, row, missingCompleteRuns, c
     return { action: chainIdle ? Action.SUSPEND : Action.HOLD, rule: 'R-02', missingCompleteRuns: runs };
   }
   if (row.jsonLd && row.jsonLd.ready) return { action: Action.SERVE, rule: null, missingCompleteRuns: 0 };
-  // Unpublished in AIVIS (suppressedAt, contract >= 1.5.0): down, whatever the capture is doing.
+  // Unpublished in Aivis-OS (suppressedAt, contract >= 1.5.0): down, whatever the capture is doing.
   if (row.jsonLd && row.jsonLd.suppressedAt) return { action: Action.DEACTIVATE, rule: 'R-02a', missingCompleteRuns: 0 };
   // ready:false — regeneration in flight is not a withdrawal, and neither is a
   // captureStatus this connector does not know (open enum: unknown means hold).
@@ -172,7 +172,7 @@ const slashAliases = raw => raw.endsWith('/') ? [raw, raw.replace(/\/+$/, '')] :
 
 /**
  * §07 — the local index key. NOT what goes on the wire: outbound lookups send
- * the permalink unmodified, because AIVIS applies no normalization on purpose.
+ * the permalink unmodified, because Aivis-OS applies no normalization on purpose.
  */
 const TRACKING = [/^utm_/i, /^gclid$/i, /^fbclid$/i, /^msclkid$/i, /^_ga$/i];
 

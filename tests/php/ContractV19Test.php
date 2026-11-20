@@ -19,7 +19,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The connector against AIVIS Public API contract 1.9.0 (#20, #54, #69):
+ * The connector against Aivis-OS Public API contract 1.9.0 (#20, #54, #69):
  * error codes, version headers and 426, 410 withdrawn, rate-limit headroom,
  * business pinning on inventory rows, the change feed, the per-URL refresh,
  * business-bound tokens, and a connection test that says what failed where.
@@ -280,7 +280,7 @@ final class ContractV19Test extends TestCase {
 		$deactivated = array_filter( $GLOBALS['wpdb']->writes, static fn( array $w ): bool => 'update' === $w[0] && 0 === ( $w[1]['active'] ?? 1 ) && 'AIVIS_RETRACTED' === ( $w[1]['last_error_code'] ?? '' ) );
 		self::assertNotEmpty( $deactivated, 'suppressedAt wins over a processing capture' );
 		$msgs = array_column( WPStub::$options['aivis_os_diagnostics'], 'message' );
-		self::assertNotEmpty( array_filter( $msgs, static fn( string $m ): bool => str_contains( $m, 'unpublished in AIVIS' ) ) );
+		self::assertNotEmpty( array_filter( $msgs, static fn( string $m ): bool => str_contains( $m, 'unpublished in Aivis-OS' ) ) );
 	}
 
 	/* ── Refresh one URL through the inventory (API-5) ────────────────── */
@@ -320,15 +320,17 @@ final class ContractV19Test extends TestCase {
 		self::assertSame( 'transport', $f['kind'] );
 		self::assertSame( 'app.aivis-os.com', $f['host'], 'the production default, which is what the admin must learn' );
 		self::assertStringContainsString( 'Could not resolve host', $f['detail'] );
+		self::assertStringNotContainsString( 'app.aivis-os.com', $f['detail'], 'the transport error names the environment, not the address' );
+		self::assertStringContainsString( 'the Production environment', $f['detail'] );
 		self::assertFalse( $o->token_status()['valid'] );
-		self::assertStringContainsString( 'Could not reach app.aivis-os.com', SettingsPage::failure_label( $f ) );
+		self::assertSame( 'Could not reach the Production environment', SettingsPage::failure_label( $f ) );
 
 		WPStub::queue( 401, self::err( 'invalid_token', 'Invalid API token' ) );
 		self::assertSame( 'auth_failed', $menu->test_connection() );
 		$f = $o->token_status()['failure'];
 		self::assertSame( 'auth', $f['kind'] );
 		self::assertSame( 'invalid_token — Invalid API token', $f['detail'] );
-		self::assertSame( 'Token rejected by app.aivis-os.com', SettingsPage::failure_label( $f ) );
+		self::assertSame( 'Token rejected by the Production environment', SettingsPage::failure_label( $f ) );
 
 		WPStub::queue( 426, self::err( 'client_too_old' ), [ 'x-aivis-min-client' => '9.0.0' ] );
 		self::assertSame( 'client_too_old', $menu->test_connection() );
@@ -418,7 +420,8 @@ final class ContractV19Test extends TestCase {
 			$c->connection( [ 'test' ] );
 			self::fail( 'a rejected token must stop the command' );
 		} catch ( WP_CLI_Stop $e ) {
-			self::assertStringContainsString( 'Token rejected by app.aivis-os.com', $e->getMessage() );
+			self::assertStringContainsString( 'Token rejected by the Production environment', $e->getMessage() );
+			self::assertStringNotContainsString( 'app.aivis-os.com', $e->getMessage() );
 			self::assertStringContainsString( 'invalid_token', $e->getMessage() );
 		}
 	}

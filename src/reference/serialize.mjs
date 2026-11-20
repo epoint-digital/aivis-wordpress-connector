@@ -2,7 +2,7 @@
 //
 // The plugin never echoes the API's raw response substring into the page. It
 // re-serializes the parsed value itself, with escaping that makes a <script>
-// breakout impossible regardless of what AIVIS sent. This is the one function
+// breakout impossible regardless of what Aivis-OS sent. This is the one function
 // in the connector where a mistake is a stored-XSS on a customer's site, so it
 // is written out explicitly rather than assembled from string replacements.
 //

@@ -1,14 +1,14 @@
-# AIVIS Public API — extension requirements
+# Aivis-OS Public API — extension requirements
 
-**Audience:** the AIVIS platform team (`epoint-digital/aivis`)
-**Requested by:** the AIVIS WordPress Connector (`aivis-wordpress-connector`) and, where noted, the
+**Audience:** the Aivis-OS platform team (`epoint-digital/aivis`)
+**Requested by:** Aivis-OS JSON-LD Delivery for WordPress (`aivis-wordpress-connector`) and, where noted, the
 Cloudflare Edge Connector
-**Status (2026-09-09): all eleven shipped.** AIVIS released them as contract 1.1.0 → 1.9.0 on
+**Status (2026-09-09): all eleven shipped.** Aivis-OS released them as contract 1.1.0 → 1.9.0 on
 2026-09-08 (aivis#264 and sub-issues); the connector adopted them on 2026-09-09 (spec 1.1.0, #20,
 #54). The table below records what shipped and how the connector uses it; the sections that follow
 are the original asks, kept as the record of *why*
-**Verified against:** `origin/main` @ `e96b89c` (2026-08-11) and the live OpenAPI at
-`https://aivis-new.dev.onepoint.ro/api/public/v1/openapi.json`, both read 2026-09-05
+**Verified against:** `origin/main` @ `e96b89c` (2026-08-11) and the live OpenAPI document of the Test
+instance (`/api/public/v1/openapi.json`), both read 2026-09-05
 
 ---
 
@@ -31,7 +31,7 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | **API-6** | Change feed / push | Medium |
 | **API-7** | Documented rate limits + `Retry-After` | Low |
 | **API-8** | Server-side URL normalization | Low, and contested — see the note |
-| **API-9** | Fetch the connector's publishing status (site-served, key-gated) | Medium — AIVIS-side fetcher; the connector pushes nothing |
+| **API-9** | Fetch the connector's publishing status (site-served, key-gated) | Medium — fetcher on the Aivis-OS side; the connector pushes nothing |
 | **API-10** | `languageCode` on the chain resource | Medium — makes chain → language assignment exact instead of sampled |
 | **API-11** | Versioning and compatibility policy | **High** — nothing else in this list can ship safely without it |
 
@@ -47,12 +47,12 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | API-6 | 1.7.0 — `?updatedSince=` change feed (no tombstones; ping declined for v1) | Incremental walks between full walks (every 6 h); an unpublish arrives within one interval |
 | API-7 | 1.9.0 — 600/60 s per token, `429 rate_limited` + `Retry-After`, `X-RateLimit-*` | The tick yields on 429 and below 20 remaining requests |
 | API-8 | Declined (ADR) — exact + trailing-slash matching stays | Unchanged |
-| API-9 | AIVIS-side fetcher (aivis#286) with a sealed per-business key | The site-issued status key and `/wp-json/aivis-os/v1/status` are unchanged |
+| API-9 | fetcher on the Aivis-OS side (aivis#286) with a sealed per-business key | The site-issued status key and `/wp-json/aivis-os/v1/status` are unchanged |
 | API-10 | 1.4.0 — chain `languageCode`, `urlLanguageCodes`, `declaredLanguageCodes` | Automatic assignment uses the chain's language; row sampling removed; a mixed chain waits for the admin |
 | API-11 | 1.2.0 — semver headers, 426 `client_too_old`, `/changelog` with `nextMinClient`, deprecation headers | Headers remembered per response; 426 stops syncing and is shown on Status, in Site Health and as a notice; `/changelog` read on every connection test |
 
-**Open product caveat.** Chains are many-to-many with languages in AIVIS's schema; the connector's
-one-chain-one-language model is the recommended shape, not an enforced one. A chain AIVIS reports
+**Open product caveat.** Chains are many-to-many with languages in Aivis-OS's schema; the connector's
+one-chain-one-language model is the recommended shape, not an enforced one. A chain Aivis-OS reports
 as mixed (`languageCode: null`) is left to the admin to assign or split.
 
 ---
@@ -90,7 +90,7 @@ site or its host. Today, one such token grants **read access to every business o
 so an agency account with 30 client businesses exposes all 30 through any one client's WordPress
 install.
 
-The connector therefore ships v1 restricted to AIVIS-controlled or AIVIS-operated installs, with
+The connector therefore ships v1 restricted to installs controlled or operated by Aivis-OS, with
 the token preferentially held in `wp-config.php` rather than the database. Customer-managed
 distribution stays blocked until this lands.
 
@@ -239,7 +239,7 @@ sets the practical polling floor and scales with catalogue size rather than with
 
 1. An `updatedSince` query parameter on `/chains/{id}/urls`, returning only rows whose artifact or
    capture state changed after that timestamp. Cheap, and removes most of the waste.
-2. The HMAC-signed outbound refresh ping already sketched as the edge connector's V-03: AIVIS calls
+2. The HMAC-signed outbound refresh ping already sketched as the edge connector's V-03: Aivis-OS calls
    a consumer-registered endpoint after a generate or retract. This is what would make retraction
    near-instant on WordPress, where — unlike the edge worker — there is no CDN purge hook to
    piggyback on.
@@ -285,11 +285,11 @@ genuinely different page. Scheme, case and query-string handling should stay str
 
 **Priority: medium.** *Rewritten 2026-09-06 — the connector never pushes.*
 
-AIVIS has no visibility into connected sites: whether they sync, which plugin
+Aivis-OS has no visibility into connected sites: whether they sync, which plugin
 version they run, whether their cache purges confirm, what is actually
 published on which page, and whether **other plugins are also emitting
 structured data** on the same pages. The connector knows all of that and keeps
-it in the plugin. **AIVIS fetches it** — the connector sends nothing.
+it in the plugin. **Aivis-OS fetches it** — the connector sends nothing.
 
 **What the site serves** (WordPress REST, read-only, GET only, key-gated):
 
@@ -327,35 +327,35 @@ Per page (`/status/urls`, paged by row id):
 
 `state` ∈ `published | stale | holding | suspended | retired | inactive`. `objectType`/`objectId`
 name the WordPress object the URL resolved to; `currentUrl` is set when that object's address
-differs from the URL AIVIS has (the page moved — AIVIS decides what to do). `publishedAt` is when
+differs from the URL Aivis-OS has (the page moved — Aivis-OS decides what to do). `publishedAt` is when
 what the page serves last changed; `verifiedAt` / `verifiedHash` is when the site last fetched
 the page over loopback and found those bytes in it. `contentHash` is the SHA-256 of the exact
-bytes injected, so AIVIS can compare it with its own artifact. **Nothing about people.**
+bytes injected, so Aivis-OS can compare it with its own artifact. **Nothing about people.**
 
-**What AIVIS needs to add**
+**What Aivis-OS needs to add**
 
 1. Per business, a field for the site's **status key** (the admin copies it from the plugin's
    Settings screen). No discovery step: the endpoint path is fixed under the business's
    `baseUrl`.
-2. A fetcher — on demand from the business screen, and/or on a schedule AIVIS chooses — that
+2. A fetcher — on demand from the business screen, and/or on a schedule Aivis-OS chooses — that
    reads `/status` and, when wanted, walks `/status/urls`, and stores the result.
 3. Optionally, compare `contentHash` per `urlId` with the current artifact to show "published /
    behind / not yet" per page.
 
 **Why pull rather than push.** Nothing about the site is emitted on a schedule the site does not
-control; a switched-off site simply stops answering; AIVIS decides when to look; and the
+control; a switched-off site simply stops answering; Aivis-OS decides when to look; and the
 connector's outbound traffic is reads of the Public API and nothing else — which is what the
 WordPress spec's WP-I9 now says literally.
 
 **Unlocks:** a "connected sites" view per business (last seen, version, sync health, per-page
-publication), and the product conversation with a customer whose Yoast is fighting AIVIS for the
+publication), and the product conversation with a customer whose Yoast is fighting Aivis-OS for the
 same `Organization` node.
 
 ## API-10 — Language on the chain resource
 
 ### Current behaviour
 
-A chain is one language in AIVIS — intents and forensic prompts are bound per language — but the
+A chain is one language in Aivis-OS — intents and forensic prompts are bound per language — but the
 API exposes language only per **URL** row (`languageCode` on `/chains/{id}/urls` and on the
 artifact envelope). `GET /businesses/{id}/chains` items carry `id`, `name`, `description`,
 `state`, `currentStep`, `knowledgeGraphReady`, `graphScore`, `urlCount`, `createdAt` — no
@@ -386,7 +386,7 @@ ignores unknown fields today, so this ships without a version bump.
 
 ### Answered (2026-09-06)
 
-AIVIS collects a chain's URLs by following links or by manual entry. There is no host or
+Aivis-OS collects a chain's URLs by following links or by manual entry. There is no host or
 subdomain concept and **no correlation between the URLs of different languages**. The connector
 therefore matches every page by its exact URL; language subdomains are an allowed-hosts matter on
 the WordPress side only, and a separate domain per language is a separate business and a separate
@@ -411,7 +411,7 @@ API-10 assume is harmless, technically breaks the contract as written.
 
 The connector pins v1 in the path, tolerates fields it does not know, and is strict on the eight
 envelope fields (ZT-02). If a response stops validating, it holds last-known-good and records
-`AIVIS_SCHEMA_INVALID` — pages stay correct, but the failure is silent toward AIVIS and visible only
+`AIVIS_SCHEMA_INVALID` — pages stay correct, but the failure is silent toward Aivis-OS and visible only
 in the plugin's diagnostics. Its only early warning is a nightly CI job comparing the live
 `openapi.json` with the vendored copy. There is no runtime version negotiation at all. A plugin
 version on a customer site can stay in service for years; the API must be able to say, in-band,
@@ -432,7 +432,7 @@ version on a customer site can stay in service for years; the API must be able t
    endpoints and versions being retired, with a `Link rel="deprecation"` to the notice.
 5. **A visible version.** Bump `info.version` on every change, publish a changelog next to the
    OpenAPI document, and echo the version in a response header (`X-Aivis-Api-Version`).
-6. **Minimum client.** AIVIS already sees `aivis-os/1.0.0 (WordPress/7.1; …)` in the user agent.
+6. **Minimum client.** Aivis-OS already sees `aivis-os/1.0.0 (WordPress/7.1; …)` in the user agent.
    A response header naming the minimum supported connector version (`X-Aivis-Min-Client: 1.3.0`)
    — and, once a version is actually unsupported, `426 Upgrade Required` with the API-3 code
    `client_too_old` — lets the plugin show "update required" in Site Health before the break.
@@ -449,13 +449,13 @@ surfaces them in Site Health is planned on the connector side and lands the day 
 
 - **API-10:** samples the first five inventory rows of each chain for a language hint (cached
   15 minutes), assigns automatically only when unambiguous, and reports — never acts on — a
-  disagreement between AIVIS's per-URL `languageCode` and the admin's assignment.
+  disagreement between Aivis-OS's per-URL `languageCode` and the admin's assignment.
 
 For the record, so the platform team can see what is being worked around rather than waited on:
 
 | Gap | Interim behaviour |
 |---|---|
-| API-1 | v1 restricted to AIVIS-controlled/operated installs. Token preferentially in `wp-config.php`, not the DB. Mandatory `businessId` equality check on every artifact, plus `chainId` membership when inventory context exists |
+| API-1 | v1 restricted to installs controlled or operated by Aivis-OS. Token preferentially in `wp-config.php`, not the DB. Mandatory `businessId` equality check on every artifact, plus `chainId` membership when inventory context exists |
 | API-2 | Retraction inferred from the 404 body plus an authoritative inventory pass; worst-case latency one sync interval |
 | API-3 | Defensive string-match on the 404 message, conservative fallback on anything unrecognised |
 | API-4 | Full-payload polling at a 15-minute default |
@@ -463,5 +463,5 @@ For the record, so the platform team can see what is being worked around rather 
 | API-6 | Interval polling only |
 | API-7 | Self-imposed 20 artifact requests per job |
 | API-8 | Outbound lookups send the site permalink unmodified; normalization is applied only to the plugin's local index key |
-| API-9 | The status document is already served (`/wp-json/aivis-os/v1/status`, key-gated). Until AIVIS fetches it, conflicts are flagged inside WordPress only |
+| API-9 | The status document is already served (`/wp-json/aivis-os/v1/status`, key-gated). Until Aivis-OS fetches it, conflicts are flagged inside WordPress only |
 | API-11 | v1 pinned in the path; unknown fields tolerated; strict on required fields; last-known-good on validation failure; nightly OpenAPI drift job. No runtime version negotiation yet |

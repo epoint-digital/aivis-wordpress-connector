@@ -45,6 +45,8 @@ jobs:
         run: npm run check:docs
       - name: Install skill copies (Claude Code, Codex) are identical
         run: npm run check:skills
+      - name: Word mark and instance addresses
+        run: npm run check:copy
 
   php:
     name: php ${{ matrix.php }}

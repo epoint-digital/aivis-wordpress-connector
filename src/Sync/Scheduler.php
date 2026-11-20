@@ -24,11 +24,11 @@ final class Scheduler {
 	public static function add_schedules( array $schedules ): array {
 		$schedules['aivis_os_5min']  = [
 			'interval' => 5 * MINUTE_IN_SECONDS,
-			'display'  => __( 'Every 5 minutes (AIVIS OS)', 'aivis-os' ),
+			'display'  => __( 'Every 5 minutes (Aivis-OS)', 'aivis-os' ),
 		];
 		$schedules['aivis_os_15min'] = [
 			'interval' => 15 * MINUTE_IN_SECONDS,
-			'display'  => __( 'Every 15 minutes (AIVIS OS)', 'aivis-os' ),
+			'display'  => __( 'Every 15 minutes (Aivis-OS)', 'aivis-os' ),
 		];
 		return $schedules;
 	}

@@ -11,7 +11,7 @@ use AivisOS\Sync\Verifier;
 use PHPUnit\Framework\TestCase;
 
 /**
- * §11a — status is stored in the plugin and fetched by AIVIS. Never pushed.
+ * §11a — status is stored in the plugin and fetched by Aivis-OS. Never pushed.
  */
 final class StatusEndpointTest extends TestCase {
 
@@ -176,7 +176,7 @@ final class StatusEndpointTest extends TestCase {
 			self::assertSame( 'GET', $r['methods'] );
 			self::assertIsCallable( $r['permission_callback'] );
 		}
-		self::assertFalse( method_exists( \AivisOS\Api\Client::class, 'post' ), 'the connector only ever reads from AIVIS' );
+		self::assertFalse( method_exists( \AivisOS\Api\Client::class, 'post' ), 'the connector only ever reads from Aivis-OS' );
 		self::assertFalse( method_exists( \AivisOS\Api\Client::class, 'report_status' ) );
 		self::assertSame( '', StatusController::bearer( 'Basic abc' ) );
 		self::assertSame( 'k', StatusController::bearer( 'BEARER  k ' ) );

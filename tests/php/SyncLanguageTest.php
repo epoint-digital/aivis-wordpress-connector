@@ -126,7 +126,7 @@ final class SyncLanguageTest extends TestCase {
 		$r = $this->sync()->refresh_url( 'https://example.com/en/about/' );
 		self::assertSame( 'serve', $r['action'] );
 
-		// No chain of the page's language holds it: AIVIS answered, so R-01 suspends (nothing local: a miss).
+		// No chain of the page's language holds it: Aivis-OS answered, so R-01 suspends (nothing local: a miss).
 		WPStub::queue( 200, self::list( [] ) );
 		$r = $this->sync()->refresh_url( 'https://example.com/en/nowhere/' );
 		self::assertSame( 'suspend', $r['action'] );

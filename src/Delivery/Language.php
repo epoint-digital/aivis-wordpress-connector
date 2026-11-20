@@ -11,7 +11,7 @@
  *
  * Codes are normalised to lower-case BCP-47-ish strings as the provider gives
  * them (`de`, `en`, `pt-br`); a bare locale (`de_DE`) becomes its primary
- * subtag. Matching against AIVIS's `languageCode` compares primary subtags.
+ * subtag. Matching against Aivis-OS's `languageCode` compares primary subtags.
  *
  * @package AivisOS
  */

@@ -1,13 +1,13 @@
 <?php
 /**
- * Plugin Name:       AIVIS OS
+ * Plugin Name:       Aivis-OS JSON-LD Delivery
  * Plugin URI:        https://github.com/epoint-digital/aivis-wordpress-connector
- * Description:       Delivers the structured data AIVIS generates for this site into its pages — synced locally, injected in the head, never fetched on a public request.
+ * Description:       Publishes the JSON-LD that Aivis-OS has prepared for this domain. Sends only GET requests, carrying your API token. Collects no visitor data.
  * Version:           1.0.2
  * Requires at least: 6.5
  * Requires PHP:      8.1
- * Author:            epoint.digital
- * Author URI:        https://epoint.ro
+ * Author:            epoint
+ * Author URI:        https://epoint.at
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       aivis-os
@@ -42,7 +42,7 @@ if ( defined( 'AIVIS_OS_FILE' ) ) {
 			echo esc_html(
 				sprintf(
 					/* translators: 1: this copy's plugin file, 2: the copy that is loaded */
-					__( 'AIVIS OS is installed twice. This copy (%1$s) is not loaded — deactivate and delete it under Plugins, and keep %2$s.', 'aivis-os' ),
+					__( 'Aivis-OS is installed twice. This copy (%1$s) is not loaded — deactivate and delete it under Plugins, and keep %2$s.', 'aivis-os' ),
 					plugin_basename( __FILE__ ),
 					plugin_basename( AIVIS_OS_FILE )
 				)
@@ -69,7 +69,7 @@ if ( PHP_VERSION_ID < 80100 ) {
 		'admin_notices',
 		static function (): void {
 			echo '<div class="notice notice-error"><p>';
-			echo esc_html__( 'AIVIS OS requires PHP 8.1 or newer. The plugin is installed but inactive.', 'aivis-os' );
+			echo esc_html__( 'Aivis-OS requires PHP 8.1 or newer. The plugin is installed but inactive.', 'aivis-os' );
 			echo '</p></div>';
 		}
 	);

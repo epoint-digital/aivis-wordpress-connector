@@ -1,6 +1,6 @@
 <?php
 /**
- * Read-only box on post and term edit screens (§11): what AIVIS delivers
+ * Read-only box on post and term edit screens (§11): what Aivis-OS delivers
  * for this object, and nothing to click. Facts only — state, hash, times,
  * whether the page has moved — with a link to the Status screen.
  *
@@ -27,7 +27,7 @@ final class ObjectBox {
 	}
 
 	public function add_boxes(): void {
-		add_meta_box( 'aivis-os', 'AIVIS OS', [ $this, 'post_box' ], array_values( (array) get_post_types( [ 'public' => true ] ) ), 'side', 'default' );
+		add_meta_box( 'aivis-os', 'Aivis-OS', [ $this, 'post_box' ], array_values( (array) get_post_types( [ 'public' => true ] ) ), 'side', 'default' );
 	}
 
 	/** @param mixed $post */
@@ -43,22 +43,22 @@ final class ObjectBox {
 		if ( ! $term instanceof \WP_Term ) {
 			return;
 		}
-		echo '<tr><th scope="row">AIVIS OS</th><td>' . $this->render( ObjectResolver::TERM, (string) $term->term_id ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in render().
+		echo '<tr><th scope="row">Aivis-OS</th><td>' . $this->render( ObjectResolver::TERM, (string) $term->term_id ) . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped in render().
 	}
 
 	public function render( string $type, string $id ): string {
 		$row = $this->plugin->repository()->find_by_object( $type, $id );
 		if ( null === $row ) {
-			return '<p class="description">' . esc_html( sprintf( 'Not managed by AIVIS: no structured data has been synced for this %s, so nothing is injected here.', ObjectResolver::label( $type ) ) ) . '</p>';
+			return '<p class="description">' . esc_html( sprintf( 'Not managed by Aivis-OS: no structured data has been synced for this %s, so nothing is injected here.', ObjectResolver::label( $type ) ) ) . '</p>';
 		}
 		$state  = StatusDocument::state_of( $row );
 		$moved  = (array) ( $this->plugin->options()->sync_state()['moved'] ?? [] );
 		$status = admin_url( 'admin.php?page=' . Menu::SLUG_STATUS );
 		$label  = match ( $state ) {
 			'published' => 'Injected',
-			'stale'     => 'Injected (source changed; regeneration pending in AIVIS)',
+			'stale'     => 'Injected (source changed; regeneration pending in Aivis-OS)',
 			'holding'   => 'Holding last good',
-			'suspended' => 'Suspended (withdrawn in AIVIS)',
+			'suspended' => 'Suspended (withdrawn in Aivis-OS)',
 			'retired'   => 'Retired',
 			default     => 'Not injected',
 		};
@@ -66,9 +66,9 @@ final class ObjectBox {
 		$h .= '<code>' . esc_html( substr( (string) $row['content_hash'], 0, 12 ) ) . '…</code></p>';
 		$h .= '<p class="description">' . esc_html( sprintf( 'Generated %s · published %s · last seen on the page %s', self::when( $row['source_generated_at'] ?? null ), self::when( $row['published_at'] ?? null ), self::when( $row['verified_at'] ?? null ) ) ) . '</p>';
 		if ( isset( $moved[ (string) $row['url_key'] ] ) ) {
-			$h .= '<p class="description"><strong>' . esc_html( 'This page moved since AIVIS crawled it.' ) . '</strong> ' . esc_html( 'AIVIS still has the old address; the structured data stays with the old URL until AIVIS re-crawls.' ) . '</p>';
+			$h .= '<p class="description"><strong>' . esc_html( 'This page moved since Aivis-OS crawled it.' ) . '</strong> ' . esc_html( 'Aivis-OS still has the old address; the structured data stays with the old URL until Aivis-OS re-crawls.' ) . '</p>';
 		}
-		$h .= '<p><a href="' . esc_url( $status ) . '">' . esc_html( 'Open AIVIS OS status' ) . '</a></p>';
+		$h .= '<p><a href="' . esc_url( $status ) . '">' . esc_html( 'Open Aivis-OS status' ) . '</a></p>';
 		return $h;
 	}
 

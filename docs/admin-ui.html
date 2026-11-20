@@ -1,4 +1,4 @@
-<title>AIVIS OS Plugin Screens</title>
+<title>Aivis-OS Plugin Screens</title>
 <style>
   /* WordPress admin is the design system this plugin has to live inside, so
      these are wp-admin's own tokens rather than an invented palette. Committed
@@ -166,9 +166,9 @@
     <option value="unconfigured">No token yet</option>
     <option value="ambiguous">Two businesses share this domain</option>
     <option value="nomatch">No business matches this domain</option>
-    <option value="suspended">A page was withdrawn in AIVIS</option>
+    <option value="suspended">A page was withdrawn in Aivis-OS</option>
     <option value="nocache">Cache plugin not supported</option>
-    <option value="outage">AIVIS unreachable</option>
+    <option value="outage">Aivis-OS unreachable</option>
   </select>
   <span class="hint" id="stateHint"></span>
 </div>
@@ -188,7 +188,7 @@
       <li><a href="#"><span class="ico">◑</span><span>Tools</span></a></li>
       <li><a href="#"><span class="ico">⚒</span><span>Settings</span></a></li>
       <li class="sep"></li>
-      <li class="current"><a href="#"><span class="ico">◆</span><span>AIVIS OS</span></a></li>
+      <li class="current"><a href="#"><span class="ico">◆</span><span>Aivis-OS</span></a></li>
     </ul>
     <ul class="submenu">
       <li class="current" data-nav="status"><a href="#"><span>Status</span></a></li>
@@ -231,7 +231,7 @@ const baseUrls = () => ([
   { url:'https://example.com/',                 lang:'de', layer:'structural_core', chain:'Structural core', state:'active',  generated:'1 Sep 2026, 12:00', note:'' },
   { url:'https://example.com/services/',        lang:'de', layer:'editorial',       chain:'Editorial',       state:'active',  generated:'4 Sep 2026, 12:00', note:'' },
   { url:'https://example.com/ueber-uns/',       lang:'de', layer:'structural_core', chain:'Structural core', state:'stale',   generated:'20 Aug 2026, 09:14', note:'Source page changed after generation — still served' },
-  { url:'https://example.com/kontakt/',         lang:'de', layer:'structural_core', chain:'Structural core', state:'hold',    generated:'—',                  note:'Not generated yet in AIVIS — nothing injected, nothing removed' },
+  { url:'https://example.com/kontakt/',         lang:'de', layer:'structural_core', chain:'Structural core', state:'hold',    generated:'—',                  note:'Not generated yet in Aivis-OS — nothing injected, nothing removed' },
   { url:'https://example.com/altes-angebot/',   lang:'de', layer:'editorial',       chain:'Editorial',       state:'active',  generated:'15 Aug 2026, 10:00', note:'' },
   { url:'https://example.com/alte-aktion/',     lang:'de', layer:'editorial',       chain:'Editorial',       state:'retired', generated:'2 Jul 2026, 08:30',  note:'Absent from two authoritative syncs — kept 24 more days for rollback' },
 ]);
@@ -243,7 +243,7 @@ const STATE_HINTS = {
   nomatch:'the token reaches no business for this domain',
   suspended:'R-01: withdrawal detected, injection stopped, awaiting confirmation',
   nocache:'WP-I10: never claim "live" without confirmation',
-  outage:'AIVIS down — last known good keeps serving',
+  outage:'Aivis-OS down — last known good keeps serving',
 };
 
 let S = {};
@@ -269,9 +269,9 @@ function reset(mode){
   if (mode === 'suspended') {
     const u = S.urls.find(u => u.url.includes('altes-angebot'));
     u.state = 'suspended';
-    u.note = 'AIVIS returned "URL not found in your businesses" — injection stopped, cache purged, awaiting inventory confirmation';
+    u.note = 'Aivis-OS returned "URL not found in your businesses" — injection stopped, cache purged, awaiting inventory confirmation';
   }
-  if (mode === 'outage') S.urls.forEach(u => { if (u.state === 'active') u.note = 'Serving last known good — AIVIS unreachable since 09:42'; });
+  if (mode === 'outage') S.urls.forEach(u => { if (u.state === 'active') u.note = 'Serving last known good — Aivis-OS unreachable since 09:42'; });
 }
 
 /* ── helpers ─────────────────────────────────────────────── */
@@ -304,15 +304,15 @@ const CACHES = {
 function notices(){
   const n = [];
   if (!S.connected && S.mode === 'unconfigured')
-    n.push(['warning','<strong>AIVIS OS is not connected yet.</strong> Add an API token below to start delivering structured data. Nothing is injected until a business is bound.']);
+    n.push(['warning','<strong>Aivis-OS is not connected yet.</strong> Add an API token below to start delivering structured data. Nothing is injected until a business is bound.']);
   if (S.mode === 'ambiguous')
-    n.push(['warning',`<strong>Two AIVIS businesses use ${SITE_HOST}.</strong> Pick the one this site should serve. Binding the wrong one would publish another business&rsquo;s structured data on these pages, with no visible error.`]);
+    n.push(['warning',`<strong>Two Aivis-OS businesses use ${SITE_HOST}.</strong> Pick the one this site should serve. Binding the wrong one would publish another business&rsquo;s structured data on these pages, with no visible error.`]);
   if (S.mode === 'nomatch')
-    n.push(['error',`<strong>No AIVIS business matches ${SITE_HOST}.</strong> This token reaches ${BUSINESSES.length} businesses, none of them for this domain. Businesses on other domains are not offered — binding one would serve another site&rsquo;s data here.`]);
+    n.push(['error',`<strong>No Aivis-OS business matches ${SITE_HOST}.</strong> This token reaches ${BUSINESSES.length} businesses, none of them for this domain. Businesses on other domains are not offered — binding one would serve another site&rsquo;s data here.`]);
   if (S.mode === 'outage')
-    n.push(['warning','<strong>AIVIS has been unreachable since 09:42.</strong> Every page keeps serving its last known good structured data. Nothing is removed while the API is unreachable — an outage costs freshness, never coverage.']);
+    n.push(['warning','<strong>Aivis-OS has been unreachable since 09:42.</strong> Every page keeps serving its last known good structured data. Nothing is removed while the API is unreachable — an outage costs freshness, never coverage.']);
   if (S.mode === 'suspended')
-    n.push(['error','<strong>One page was withdrawn in AIVIS.</strong> Injection stopped for <code>/altes-angebot/</code> and its cache was purged. The row is kept until the next complete sync confirms the removal, in case the cause was a changed business selection rather than a withdrawal.']);
+    n.push(['error','<strong>One page was withdrawn in Aivis-OS.</strong> Injection stopped for <code>/altes-angebot/</code> and its cache was purged. The row is kept until the next complete sync confirms the removal, in case the cause was a changed business selection rather than a withdrawal.']);
   if (S.mode === 'nocache')
     n.push(['warning','<strong>No supported cache plugin detected.</strong> Changed structured data is written locally, but the plugin cannot confirm your cache was purged, so it will not claim pages are live. Purge manually after a change, or use WP-CLI.']);
   if (S.connected && !S.injection)
@@ -338,9 +338,9 @@ function allPages(){
       generated: state === 'hold' ? '—' : `${day} Sep 2026, ${String(8 + i % 10).padStart(2,'0')}:${String((i * 7) % 60).padStart(2,'0')}`,
       published: state === 'hold' ? '—' : `${day} Sep 2026`,
       seen: state === 'active' && i % 4 === 0 ? 'today' : state === 'active' ? 'yesterday' : '—',
-      note: state === 'hold' ? 'Not generated yet in AIVIS — nothing injected, nothing removed'
+      note: state === 'hold' ? 'Not generated yet in Aivis-OS — nothing injected, nothing removed'
           : state === 'stale' ? 'Source page changed after generation — still served'
-          : state === 'suspended' ? 'AIVIS returned "URL not found in your businesses" — injection stopped, cache purged, awaiting inventory confirmation'
+          : state === 'suspended' ? 'Aivis-OS returned "URL not found in your businesses" — injection stopped, cache purged, awaiting inventory confirmation'
           : state === 'retired' ? 'Absent from two authoritative syncs — kept 30 days for rollback' : '',
     });
   }
@@ -379,9 +379,9 @@ function statusScreen(){
   const missingLangs = LANGS.filter(l => !CHAINS.some(ch => ch.lang === l.code));
   const unassigned   = CHAINS.filter(ch => !ch.lang);
   const items = [
-    [c.suspended, 'pages suspended — withdrawn in AIVIS, awaiting confirmation', 'suspended', 'c-susp'],
-    [c.hold,      'pages holding last good — AIVIS has not generated them yet, or was unreachable', 'hold', 'c-hold'],
-    [c.moved,     'pages moved since AIVIS crawled them — AIVIS needs to re-crawl', 'moved', 'c-stale'],
+    [c.suspended, 'pages suspended — withdrawn in Aivis-OS, awaiting confirmation', 'suspended', 'c-susp'],
+    [c.hold,      'pages holding last good — Aivis-OS has not generated them yet, or was unreachable', 'hold', 'c-hold'],
+    [c.moved,     'pages moved since Aivis-OS crawled them — Aivis-OS needs to re-crawl', 'moved', 'c-stale'],
     [c.conflict,  'pages carry other JSON-LD — switch it off in that plugin', 'conflict', 'c-susp'],
     [missingLangs.length, 'languages without a chain — assign under Settings', 'settings', 'c-susp'],
     [unassigned.length,   'chains not assigned to a language — not synced', 'settings', 'c-stale'],
@@ -397,7 +397,7 @@ function statusScreen(){
         : '<span class="chip c-susp"><span class="dot"></span>Unreachable</span>'}</h2>
       <div class="inside">
         <dl class="kv">
-          <dt>Environment</dt><dd>Production <code>app.aivis-os.com</code></dd>
+          <dt>Environment</dt><dd>Production</dd>
           <dt>Business</dt><dd>${b ? esc(b.name) : '<span class="muted">not bound</span>'}</dd>
           <dt>Domain</dt><dd><code>${SITE_HOST}</code> matched to <code>${b ? esc(host(b.baseUrl)) : '—'}</code></dd>
           <dt>Languages</dt><dd>${LANGS.map(l => { const ch = CHAINS.filter(x => x.lang === l.code).map(x => x.name);
@@ -413,10 +413,10 @@ function statusScreen(){
     <div class="postbox">
       <h2>Withdrawal latency</h2>
       <div class="inside">
-        <p style="margin:0 0 8px">If a page is unpublished in AIVIS, it stops being served here within:</p>
+        <p style="margin:0 0 8px">If a page is unpublished in Aivis-OS, it stops being served here within:</p>
         <div style="font-size:24px;font-variant-numeric:tabular-nums">${S.interval} min <span class="muted" style="font-size:14px">+ cache purge</span></div>
         <p class="description">Worst case with an idle pipeline and no backlog: the sync interval plus the time your cache
-        takes to drop the page. While a chain is rebuilding in AIVIS it can take two intervals. Shorten the interval under
+        takes to drop the page. While a chain is rebuilding in Aivis-OS it can take two intervals. Shorten the interval under
         Settings if this site publishes offers or prices that must be withdrawable quickly.</p>
       </div>
     </div>
@@ -427,7 +427,7 @@ function statusScreen(){
     <div class="tiles">
       ${tile('active', c.active, 'Injected', 'ok')}
       ${tile('stale', c.stale, 'Stale but served', 'warn')}
-      ${tile('hold', c.hold, 'Awaiting AIVIS')}
+      ${tile('hold', c.hold, 'Awaiting Aivis-OS')}
       ${tile('suspended', c.suspended, 'Suspended', 'bad')}
       ${tile('retired', c.retired, 'Retired')}
       ${tile('conflict', c.conflict, 'Other JSON-LD found')}
@@ -451,7 +451,7 @@ function statusScreen(){
     <div class="inside">
       ${items.length === 0
         ? `<p style="margin:0"><span class="chip c-active"><span class="dot"></span>Nothing needs you</span>
-           <span class="muted"> ${c.active + c.stale} pages are delivered as AIVIS generated them. <a href="#" ${goPages('')}>Find a page</a></span></p>`
+           <span class="muted"> ${c.active + c.stale} pages are delivered as Aivis-OS generated them. <a href="#" ${goPages('')}>Find a page</a></span></p>`
         : `<ul style="margin:0;padding-left:0;list-style:none;display:grid;gap:6px">${items.map(([n, text, state, cls]) =>
             `<li><span class="chip ${cls}"><span class="dot"></span>${n}</span> ${text} — <a href="#" ${state === 'settings' ? 'data-tab="settings"' : goPages(state)}>show</a></li>`).join('')}</ul>`}
       <p class="description" style="margin-top:8px">The full list — paginated, searchable, filterable by state, language and chain — is under
@@ -481,9 +481,9 @@ function statusScreen(){
   ${c.moved ? `
   <div class="postbox">
     <h2>Moved pages <span class="chip c-stale"><span class="dot"></span>${c.moved}</span></h2>
-    <div class="inside"><p class="description" style="margin:0">These pages changed their address since AIVIS crawled them. The structured
-    data stays with the URL AIVIS has, so the new address gets nothing until AIVIS re-crawls. Nothing is changed here — this is a fact
-    for AIVIS, and it is in the status document. <a href="#" ${goPages('moved')}>List them</a></p></div>
+    <div class="inside"><p class="description" style="margin:0">These pages changed their address since Aivis-OS crawled them. The structured
+    data stays with the URL Aivis-OS has, so the new address gets nothing until Aivis-OS re-crawls. Nothing is changed here — this is a fact
+    for Aivis-OS, and it is in the status document. <a href="#" ${goPages('moved')}>List them</a></p></div>
   </div>` : ''}
 
   <div class="postbox">
@@ -519,7 +519,7 @@ function statusScreen(){
           <dt><code>AIVIS_RETRACTED</code></dt><dd><code>/altes-angebot/</code> withdrawn upstream at 11:20 — injection stopped, cache purged</dd>
         </dl>`
       : `<dl class="kv">
-          <dt><code>AIVIS_URL_MOVED</code></dt><dd>2 min ago — 2 page(s) changed address since AIVIS crawled them; AIVIS still has the old URL (https://example.com/ueber-uns/)</dd>
+          <dt><code>AIVIS_URL_MOVED</code></dt><dd>2 min ago — 2 page(s) changed address since Aivis-OS crawled them; Aivis-OS still has the old URL (https://example.com/ueber-uns/)</dd>
         </dl>`}
     </div>
   </div>`;
@@ -565,7 +565,7 @@ function pagesScreen(){
   </p>
   <div class="tablenav top">
     <div class="alignleft actions bulkactions">
-      <select aria-label="Bulk action"><option>Bulk actions</option><option>Refresh from AIVIS now</option><option>Disable here</option><option>Restore</option></select>
+      <select aria-label="Bulk action"><option>Bulk actions</option><option>Refresh from Aivis-OS now</option><option>Disable here</option><option>Restore</option></select>
       <button class="button action">Apply</button>
     </div>
     <div class="alignleft actions">
@@ -583,7 +583,7 @@ function pagesScreen(){
       <th>${sortLink('generated', 'Generated')}</th><th>Published</th><th>Seen on page</th>
     </tr></thead>
     <tbody>${slice.length === 0 ? `<tr><td colspan="8" class="muted">${q.state === 'attention'
-        ? 'Nothing needs you. Every page is either injected as AIVIS generated it, or retired on purpose.' : 'No pages match.'}</td></tr>`
+        ? 'Nothing needs you. Every page is either injected as Aivis-OS generated it, or retired on purpose.' : 'No pages match.'}</td></tr>`
       : slice.map(p => `
       <tr>
         <td class="check-column"><input type="checkbox"></td>
@@ -615,14 +615,14 @@ function settingsScreen(){
   const m = matching(), cache = CACHES[S.cache];
   let selector;
   if (!S.connected && S.mode === 'unconfigured') {
-    selector = '<p class="description" style="margin:0">Add a valid token first — the list of businesses comes from AIVIS.</p>';
+    selector = '<p class="description" style="margin:0">Add a valid token first — the list of businesses comes from Aivis-OS.</p>';
   } else if (m.length === 0) {
     selector = `<p style="margin:0">No business on this account uses <code>${SITE_HOST}</code>.</p>
-      <p class="description">A business has exactly one domain in AIVIS. Create one for this site, or correct its
+      <p class="description">A business has exactly one domain in Aivis-OS. Create one for this site, or correct its
       base URL there, then test the connection again.</p>`;
   } else if (m.length === 1) {
     selector = `<p style="margin:0"><strong>${esc(m[0].name)}</strong> <span class="chip c-active"><span class="dot"></span>Matched automatically</span></p>
-      <p class="description">The only AIVIS business whose domain is <code>${SITE_HOST}</code>. Nothing to choose.</p>`;
+      <p class="description">The only Aivis-OS business whose domain is <code>${SITE_HOST}</code>. Nothing to choose.</p>`;
   } else {
     selector = `<div style="display:grid;gap:8px">${m.map(b => `
       <label class="check">
@@ -647,10 +647,10 @@ function settingsScreen(){
           <th scope="row"><label for="env">Environment</label></th>
           <td>
             <select id="env">
-              <option>Production — app.aivis-os.com</option>
-              <option>Test — aivis-new.dev.onepoint.ro</option>
+              <option>Production</option>
+              <option>Test</option>
             </select>
-            <p class="description">Only these two AIVIS instances can be chosen; the token is sent to the selected one and
+            <p class="description">Only these two Aivis-OS instances can be chosen; the token is sent to the selected one and
             nowhere else. A token issued on the test instance works only there. Switching unbinds the business, stops serving
             everything synced from the other instance, purges the affected pages and needs a fresh connection test and sync.</p>
           </td>
@@ -671,7 +671,7 @@ function settingsScreen(){
             <p style="margin-top:10px">
               <button class="button" data-act="test" ${S.testing ? 'disabled' : ''}>${S.testing ? 'Testing&hellip;' : 'Save &amp; test connection'}</button>
               ${S.testResult === 'ok' ? '<span class="chip c-active" style="margin-left:8px"><span class="dot"></span>Connected — bound to Example GmbH</span>' : ''}
-              ${S.testResult === 'fail' ? '<span class="chip c-susp" style="margin-left:8px"><span class="dot"></span>Token rejected by aivis-new.dev.onepoint.ro</span>' : ''}
+              ${S.testResult === 'fail' ? '<span class="chip c-susp" style="margin-left:8px"><span class="dot"></span>Token rejected by the Test environment</span>' : ''}
             </p>
             <p class="description">Saves everything on this page, then verifies the token against the selected instance.</p>
           </td>
@@ -711,16 +711,16 @@ function settingsScreen(){
     <h2>Languages &amp; chains</h2>
     <div class="inside">
       <p>This site publishes in <strong>${LANGS.map(l=>`${l.name} (${l.code})${l.def?' · default':''}`).join(', ')}</strong> — managed by ${PROVIDER}.</p>
-      <p class="description">Each chain is one language in AIVIS — intents and forensic prompts are bound per language. Assign every chain
+      <p class="description">Each chain is one language in Aivis-OS — intents and forensic prompts are bound per language. Assign every chain
       to the WordPress language its pages are in. A language without a chain receives no structured data; a chain without a language is
-      not synced. Language subdomains are fine; a separate domain per language needs its own AIVIS business and its own site.</p>
+      not synced. Language subdomains are fine; a separate domain per language needs its own Aivis-OS business and its own site.</p>
       <table class="widefat striped">
-        <thead><tr><th>Chain</th><th>Language in AIVIS</th><th>Serves WordPress language</th><th>Pages</th></tr></thead>
+        <thead><tr><th>Chain</th><th>Language in Aivis-OS</th><th>Serves WordPress language</th><th>Pages</th></tr></thead>
         <tbody>${CHAINS.map(c=>`<tr>
           <td><strong>${esc(c.name)}</strong><br><span class="muted"><code>${c.id}</code> · ${c.state.replace('_',' ')} · ${c.urlCount} URLs</span></td>
           <td><code>${c.hint}</code></td>
           <td><select><option value="">— not assigned (not synced) —</option>${LANGS.map(l=>`<option value="${l.code}" ${(c.lang||c.hint)===l.code?'selected':''}>${l.name} (${l.code})</option>`).join('')}</select>
-          ${!c.lang?'<br><span class="muted">suggested from what AIVIS reports — save to confirm</span>':''}</td>
+          ${!c.lang?'<br><span class="muted">suggested from what Aivis-OS reports — save to confirm</span>':''}</td>
           <td>${c.lang?`${c.urlCount-1} injected · 1 holding`:'—'}</td></tr>`).join('')}</tbody>
       </table>
       <p style="margin-top:10px">${LANGS.map(l=>{const n=CHAINS.filter(c=>c.lang===l.code).length;return n
@@ -732,26 +732,26 @@ function settingsScreen(){
   <div class="postbox" id="aivis-sources">
     <h2>Structured data sources</h2>
     <div class="inside">
-      <p class="description" style="margin-top:0">AIVIS is the primary source of structured data on this site. Anything else that emits JSON-LD is
+      <p class="description" style="margin-top:0">Aivis-OS is the primary source of structured data on this site. Anything else that emits JSON-LD is
       flagged here and in the admin bar. The connector never changes another plugin&rsquo;s behaviour — it tells you where to switch that
       output off. Publishing continues either way.</p>
       <p style="margin:0"><span class="chip c-active"><span class="dot"></span>No other emitter detected</span> <span class="muted">10 pages scanned 3 hours ago</span></p>
       <p style="margin-top:10px"><button class="button">Scan pages now</button></p>
-      <p class="description">Nothing is sent from here — not to AIVIS, not by email. AIVIS fetches this site&rsquo;s publishing status, conflicts
-      included, and decides who is told (see Status for AIVIS below).</p>
+      <p class="description">Nothing is sent from here — not to Aivis-OS, not by email. Aivis-OS fetches this site&rsquo;s publishing status, conflicts
+      included, and decides who is told (see Status for Aivis-OS below).</p>
     </div>
   </div>
 
   <div class="postbox" id="aivis-status-key">
-    <h2>Status for AIVIS</h2>
+    <h2>Status for Aivis-OS</h2>
     <div class="inside">
-      <p>This plugin never sends anything to AIVIS. It keeps the status of publishing here — per page: what is published, with which
-      content, since when, and when this site last saw it on the page — and AIVIS can fetch it from the endpoint below, presenting the key.</p>
+      <p>This plugin never sends anything to Aivis-OS. It keeps the status of publishing here — per page: what is published, with which
+      content, since when, and when this site last saw it on the page — and Aivis-OS can fetch it from the endpoint below, presenting the key.</p>
       <table class="form-table">
         <tr><th scope="row">Endpoint</th><td><code>https://example.com/wp-json/aivis-os/v1/status</code><br>
           <span class="muted">Per-page detail at …/status/urls, paged by cursor. Read-only; GET only.</span></td></tr>
         <tr><th scope="row">Status key</th><td><code>aivis_status_k9Qw2…hT7</code>
-          <p class="description">Enter this in AIVIS for this business. It is not the API token: it reaches nothing but the status document,
+          <p class="description">Enter this in Aivis-OS for this business. It is not the API token: it reaches nothing but the status document,
           which names this site&rsquo;s pages and their publishing state and never the token.</p>
           <p><button class="button">Regenerate</button> <button class="button button-link-delete">Disable</button></p></td></tr>
       </table>
@@ -767,7 +767,7 @@ function settingsScreen(){
           <td>
             <label class="check">
               <input type="checkbox" ${S.injection ? 'checked' : ''} data-act="inject">
-              <span>Add AIVIS structured data to pages on this site
+              <span>Add Aivis-OS structured data to pages on this site
               <div class="description" style="margin-top:2px">One
               <code>&lt;script type="application/ld+json" data-aivis="1"&gt;</code> in the page head. Existing
               structured data from your theme or SEO plugin is never read or changed.</div></span>
@@ -775,7 +775,7 @@ function settingsScreen(){
           </td>
         </tr>
         <tr>
-          <th scope="row"><label for="iv">Check AIVIS for changes</label></th>
+          <th scope="row"><label for="iv">Check Aivis-OS for changes</label></th>
           <td>
             <select id="iv" data-act="interval">
               <option value="5"  ${S.interval == 5  ? 'selected' : ''}>Every 5 minutes</option>
@@ -785,8 +785,8 @@ function settingsScreen(){
             </select>
             <p class="description">
               ${S.interval == 0
-                ? 'With manual syncing, a page unpublished in AIVIS keeps being served here until you sync. Only choose this if you sync from WP-CLI or a system cron.'
-                : `A page unpublished in AIVIS stops being served here within <strong>${S.interval} minutes plus your cache purge</strong>
+                ? 'With manual syncing, a page unpublished in Aivis-OS keeps being served here until you sync. Only choose this if you sync from WP-CLI or a system cron.'
+                : `A page unpublished in Aivis-OS stops being served here within <strong>${S.interval} minutes plus your cache purge</strong>
                    while its pipeline is idle — up to ${S.interval * 2} minutes while a chain is rebuilding — plus any sync backlog shown on Status.
                    ${S.interval == 5 ? 'Five minutes needs a real system cron — WordPress&rsquo;s built-in cron only runs when someone visits the site.' : ''}`}
             </p>
@@ -827,10 +827,10 @@ function settingsScreen(){
 function render(){
   const app = document.getElementById('app');
   app.innerHTML = `
-    <h1 class="wp-heading">${S.tab === 'pages' ? 'AIVIS OS — Pages' : 'AIVIS OS'}</h1>
+    <h1 class="wp-heading">${S.tab === 'pages' ? 'Aivis-OS — Pages' : 'Aivis-OS'}</h1>
     <p class="subtitle">${S.tab === 'pages'
-      ? 'You do not have to read this list. "Needs attention" shows the pages that want a decision; search finds one page. Everything else is AIVIS delivering as generated.'
-      : 'Delivers the structured data AIVIS generates for this site into its pages.'}</p>
+      ? 'You do not have to read this list. "Needs attention" shows the pages that want a decision; search finds one page. Everything else is Aivis-OS delivering as generated.'
+      : 'Publishes the structured data (JSON-LD) that Aivis-OS has prepared for this domain.'}</p>
     <nav class="nav-tab-wrapper">
       <button class="nav-tab ${S.tab === 'status' ? 'nav-tab-active' : ''}" data-tab="status">Status</button>
       <button class="nav-tab ${S.tab === 'pages' ? 'nav-tab-active' : ''}" data-tab="pages">Pages</button>
@@ -872,8 +872,8 @@ document.addEventListener('click', e => {
   }
   if (act === 'sync')    { S.lastSync = 'just now'; S.authoritative = true; return render(); }
   if (act === 'refresh') { const u = S.urls[i];
-    if (u.state === 'suspended') { u.note = 'Re-checked just now — still withdrawn in AIVIS'; }
-    else if (u.state === 'hold') { u.note = 'Re-checked just now — AIVIS has not generated this page yet'; }
+    if (u.state === 'suspended') { u.note = 'Re-checked just now — still withdrawn in Aivis-OS'; }
+    else if (u.state === 'hold') { u.note = 'Re-checked just now — Aivis-OS has not generated this page yet'; }
     else { u.state = 'active'; u.generated = 'just now'; u.note = ''; }
     return render(); }
   if (act === 'toggle')  { const u = S.urls[i];

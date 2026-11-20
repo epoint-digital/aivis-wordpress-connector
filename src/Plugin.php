@@ -75,14 +75,14 @@ final class Plugin {
 			// than half-supported.
 			deactivate_plugins( AIVIS_OS_BASENAME, true, true );
 			wp_die(
-				esc_html__( 'AIVIS OS does not support network activation in this version. Activate it per site.', 'aivis-os' ),
+				esc_html__( 'Aivis-OS does not support network activation in this version. Activate it per site.', 'aivis-os' ),
 				'',
 				[ 'back_link' => true ]
 			);
 		}
 		( new Schema() )->install();
 		Scheduler::register_events();
-		// §11a — issue the read-only status key AIVIS will present.
+		// §11a — issue the read-only status key Aivis-OS will present.
 		self::instance()->options()->ensure_status_key();
 	}
 
@@ -127,7 +127,7 @@ final class Plugin {
 		// Warnings reach a logged-in admin on the front end too (§09a).
 		( new AdminBar( $this ) )->register();
 
-		// §11a — the status document AIVIS fetches. Read-only, key-gated, never pushed.
+		// §11a — the status document Aivis-OS fetches. Read-only, key-gated, never pushed.
 		( new \AivisOS\Rest\StatusController( $this ) )->register();
 
 		if ( is_admin() ) {

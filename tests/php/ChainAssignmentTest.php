@@ -68,7 +68,7 @@ final class ChainAssignmentTest extends TestCase {
 		self::assertCount( 1, WPStub::$http_log, 'the chain catalogue carries the language: no sampling requests' );
 		self::assertTrue( $r['catalog_ok'] );
 		self::assertSame( [ 'chain_core' => 'de', 'chain_edit' => 'de' ], $r['map'] );
-		self::assertSame( [ 'chain_en' ], $r['unresolved'], 'a chain AIVIS reports as another language is never guessed' );
+		self::assertSame( [ 'chain_en' ], $r['unresolved'], 'a chain Aivis-OS reports as another language is never guessed' );
 		self::assertSame( [ 'chain_core' => 'de', 'chain_edit' => 'de' ], $this->o->chain_languages(), 'persisted' );
 	}
 

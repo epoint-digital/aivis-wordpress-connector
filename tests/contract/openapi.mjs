@@ -1,8 +1,8 @@
-// Validates responses against the vendored AIVIS OpenAPI document.
+// Validates responses against the vendored Aivis-OS OpenAPI document.
 //
 // Why this exists: the contract suite asserts against a hand-written mock. If
 // the mock is shaped wrong, every test passes and the plugin still breaks
-// against the real API. Checking each response against AIVIS's own published
+// against the real API. Checking each response against Aivis-OS's own published
 // description makes the spec the arbiter instead of our memory of it.
 //
 // Deliberately small — it supports exactly the JSON Schema keywords this

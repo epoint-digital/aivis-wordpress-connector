@@ -38,9 +38,9 @@ final class Menu {
 
 	public function menu(): void {
 		$cap = self::capability();
-		add_menu_page( 'AIVIS OS', 'AIVIS OS', $cap, self::SLUG_STATUS, [ new StatusPage( $this->plugin ), 'render' ], 'dashicons-networking', 81 );
+		add_menu_page( 'Aivis-OS', 'Aivis-OS', $cap, self::SLUG_STATUS, [ new StatusPage( $this->plugin ), 'render' ], 'dashicons-networking', 81 );
 		// The first submenu re-uses the top-level slug so the menu reads "Status"
-		// instead of repeating "AIVIS OS". It must NOT carry a callback: WordPress
+		// instead of repeating "Aivis-OS". It must NOT carry a callback: WordPress
 		// resolves both registrations to the same page hook, and a second callable
 		// on it renders the screen twice (#74). The top-level callback serves it.
 		add_submenu_page( self::SLUG_STATUS, __( 'Status', 'aivis-os' ), __( 'Status', 'aivis-os' ), $cap, self::SLUG_STATUS );
@@ -257,14 +257,14 @@ final class Menu {
 			default          => ErrorCode::HTTP_ERROR,
 		};
 		if ( 'client_too_old' !== $kind ) {
-			$o->record( $code, "connection test against {$host}: {$detail}" );
+			$o->record( $code, sprintf( 'connection test against %s: %s', \AivisOS\Storage\Options::instance_label( $host ), $detail ) );
 		}
 		return match ( $kind ) {
 			'auth'           => 'auth_failed',
 			'account'        => 'account_disabled',
 			'client_too_old' => 'client_too_old',
 			'throttled'      => 'throttled',
-			// No HTTP status at all: DNS, TLS, timeout, host pin. A 5xx did reach AIVIS.
+			// No HTTP status at all: DNS, TLS, timeout, host pin. A 5xx did reach Aivis-OS.
 			'transport'      => 0 === $r->status ? 'unreachable' : 'api_error',
 			default          => 'api_error',
 		};

@@ -1,6 +1,6 @@
 <?php
 /**
- * §09a — AIVIS is the primary source of structured data.
+ * §09a — Aivis-OS is the primary source of structured data.
  *
  * Any other JSON-LD on a page (SEO plugins, the theme, hand-written blocks)
  * is a conflict: it is identified, attributed to its source where a marker

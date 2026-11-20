@@ -125,7 +125,7 @@ final class Repository {
 
 	/**
 	 * Active rows with an object reference — the daily "moved" check compares
-	 * each object's current address with the URL AIVIS crawled (§11).
+	 * each object's current address with the URL Aivis-OS crawled (§11).
 	 *
 	 * @return list<array<string,mixed>>
 	 */
@@ -147,7 +147,7 @@ final class Repository {
 	}
 
 	/**
-	 * §11a — the per-page publishing status AIVIS fetches, paged by id so a
+	 * §11a — the per-page publishing status Aivis-OS fetches, paged by id so a
 	 * consumer can walk the whole table without offsets drifting.
 	 *
 	 * @return list<array<string,mixed>>
@@ -279,7 +279,7 @@ final class Repository {
 	}
 
 	/**
-	 * A chain that disappeared from AIVIS's own listing took its pages with it
+	 * A chain that disappeared from Aivis-OS's own listing took its pages with it
 	 * (#56): retire every row of those chains now — kept 30 days for rollback,
 	 * never injected — and return the URLs for the cache purge.
 	 *

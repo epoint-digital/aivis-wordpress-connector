@@ -1,7 +1,7 @@
-// Contract suite: the AIVIS Public API over real HTTP.
+// Contract suite: the Aivis-OS Public API over real HTTP.
 //
 //   node tests/contract/run.mjs                 # against the built-in mock
-//   AIVIS_API_BASE=https://aivis-new.dev.onepoint.ro \
+//   AIVIS_API_BASE=<base URL of an instance, see src/Storage/Options.php> \
 //   AIVIS_API_TOKEN=aivis_… node tests/contract/run.mjs --live
 //
 // Pure logic lives in tests/unit — everything here crosses the wire. In --live
@@ -399,7 +399,7 @@ await test('withdrawn: 410 on both artifact routes deactivates at once (R-01b, A
   const byId = await api('/urls/u_retract/jsonld');
   eq(byId.status, 410); eq(coded(byId), CODE.WITHDRAWN, 'code by id');
   const d = decideFromLookup({ ...byUrl, apiReachable: false });
-  eq(d.action, Action.DEACTIVATE, 'no reachability proof needed — only AIVIS emits the code');
+  eq(d.action, Action.DEACTIVATE, 'no reachability proof needed — only Aivis-OS emits the code');
   eq(d.rule, 'R-01b', 'rule');
   const row = (await api('/chains/chain_core/urls')).body.items.find(x => x.url === RETRACTED);
   eq(row.jsonLd.ready, false, 'ready false while unpublished');

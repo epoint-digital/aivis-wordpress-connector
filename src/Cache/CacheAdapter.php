@@ -1,6 +1,6 @@
 <?php
 /**
- * §10 — the cache adapter contract. Adapters never see AIVIS credentials.
+ * §10 — the cache adapter contract. Adapters never see Aivis-OS credentials.
  *
  * @package AivisOS
  */

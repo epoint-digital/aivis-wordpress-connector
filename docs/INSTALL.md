@@ -1,7 +1,7 @@
-# Installing AIVIS OS
+# Installing Aivis-OS
 
-This guide is for the people who operate a site — in v1 that means AIVIS or a
-partner acting for AIVIS (see *Who may install this* below). Fifteen minutes,
+This guide is for the people who operate a site — in v1 that means Aivis-OS or a
+partner acting for Aivis-OS (see *Who may install this* below). Fifteen minutes,
 most of it waiting for the first sync.
 
 ## Let an agent do it
@@ -15,7 +15,7 @@ language assignment without the Settings screen.
 
 ## Who may install this
 
-**Use a business-bound token.** When you create the API token in AIVIS
+**Use a business-bound token.** When you create the API token in Aivis-OS
 (profile → API tokens), pick the business this site is: the token then reads
 that business and nothing else, and the plugin may run on a customer-managed
 site. An **account-wide** token reads *every* business on the account — and a
@@ -37,9 +37,9 @@ Strongly recommended: a real system cron (below) and one of the supported page
 caches (WP Super Cache, W3 Total Cache, LiteSpeed Cache, WP Rocket). Cloudflare
 in front of the site is detected and named; the connector cannot purge it.
 
-## 1. Create an API token in AIVIS
+## 1. Create an API token in Aivis-OS
 
-In AIVIS, open your profile → **API tokens** → create one named for this site
+In Aivis-OS, open your profile → **API tokens** → create one named for this site
 (e.g. `wordpress-example.com`). Copy it now; it is shown once.
 
 ## 2. Put the token in `wp-config.php`
@@ -53,9 +53,9 @@ define( 'AIVIS_API_TOKEN', 'aivis_…' );
 This keeps the token out of the database. The plugin will accept a token
 entered in Settings instead, but says so on every screen and in Site Health.
 
-There are two AIVIS instances: **Production** (`app.aivis-os.com`) and
-**Test** (`aivis-new.dev.onepoint.ro`). Pick the one this site talks to under
-AIVIS OS → **Settings → Connection → Environment** (or `wp aivis environment
+There are two Aivis-OS instances: **Production** and **Test**. The plugin knows
+both addresses and shows neither; you choose by name. Pick the one this site talks to under
+Aivis-OS → **Settings → Connection → Environment** (or `wp aivis environment
 test`). Production is the default. A token issued on one instance does not
 work on the other, and switching unbinds the business, stops serving everything
 synced from the other instance and purges the affected pages — so choose before
@@ -66,7 +66,7 @@ bearer token. A custom host for development can still be fixed in
 `wp-config.php`, which overrides and disables the switch:
 
 ```php
-define( 'AIVIS_API_BASE_URL', 'https://aivis-new.dev.onepoint.ro' );
+define( 'AIVIS_API_BASE_URL', 'https://aivis.example.test' );
 ```
 
 ## 3. Install the plugin
@@ -92,34 +92,34 @@ makes no network request and needs no token.
 
 ## 4. Connect and bind the business
 
-AIVIS OS → **Settings**: choose the **Environment**, paste the token (unless it
+Aivis-OS → **Settings**: choose the **Environment**, paste the token (unless it
 is in `wp-config.php`) and click **Save & test connection** — it saves the page,
 then verifies the token against the selected instance. On success the chip
 reads *Connected — bound to <business>* (or *Connected as <email>* for an
 account-wide token) and the business whose domain matches this site is bound
-automatically. A failure says which host answered and why — *Could not reach
-app.aivis-os.com (…)* is the environment, *… rejected the token (invalid_token)*
-is the token.
+automatically. A failure says which environment answered and why — *Could not reach
+the Production environment (…)* is the environment, *The token was rejected by …
+(invalid_token)* is the token.
 
 ![Settings screen](screenshots/settings.png)
 
 If **two** businesses on the account share this domain (a live one and a
 rebuild, typically), the plugin will not guess — pick the right one. If **none**
 matches, the plugin refuses to bind: create the business for this domain in
-AIVIS, or correct its base URL there. Businesses on other domains are never
+Aivis-OS, or correct its base URL there. Businesses on other domains are never
 offered.
 
 ## 4a. Assign chains to languages
 
-AIVIS OS has no multilingual model: **each chain is one language** (intents
+Aivis-OS has no multilingual model: **each chain is one language** (intents
 and forensic prompts are bound per language). The connector therefore expects
 one chain per WordPress language, and syncs only chains that are assigned to
 one.
 
 On a **single-language site** with matching chains, this happens by itself on
-the first sync — nothing to do. Otherwise open AIVIS OS → **Settings →
+the first sync — nothing to do. Otherwise open Aivis-OS → **Settings →
 Languages & chains**: every chain of the business is listed with the language
-AIVIS reports for its pages; pick the WordPress language each chain serves and
+Aivis-OS reports for its pages; pick the WordPress language each chain serves and
 save. A language without a chain gets **no structured data**, and the plugin
 says so in red on Settings, on Status and in Site Health. From the command line:
 
@@ -133,7 +133,7 @@ support.
 
 ## 5. First sync
 
-AIVIS OS → **Status** → *Sync now*, or wait for the next cron tick, or:
+Aivis-OS → **Status** → *Sync now*, or wait for the next cron tick, or:
 
 ```bash
 wp aivis sync --all
@@ -218,19 +218,19 @@ What holds regardless of plugin:
 - **One chain per language, assigned by you** (step 4a). A chain may be assigned to one language;
   a language may have several chains.
 - **Language subdomains are fine** — they are added to the allowed hosts automatically.
-- **A separate domain per language is not supported.** An AIVIS business has one domain, so
+- **A separate domain per language is not supported.** An Aivis-OS business has one domain, so
   `example.de` and `example.fr` are two businesses — and two WordPress sites (or two sites of a
   multisite, each with its own plugin activation).
-- If AIVIS reports pages of a chain in a language other than the one you assigned, the plugin
+- If Aivis-OS reports pages of a chain in a language other than the one you assigned, the plugin
   keeps your assignment and flags the disagreement on Status and in Site Health.
-- AIVIS finds a chain's pages by following links or by manual entry; there is no link between a
+- Aivis-OS finds a chain's pages by following links or by manual entry; there is no link between a
   page and its translation. Each page is matched by its exact URL.
 
-## Status for AIVIS
+## Status for Aivis-OS
 
-The plugin **never sends anything to AIVIS**. It keeps the status of publishing
+The plugin **never sends anything to Aivis-OS**. It keeps the status of publishing
 here — per page: what is published, with which content, since when, and when
-this site last saw it on the page — and AIVIS can **fetch** it:
+this site last saw it on the page — and Aivis-OS can **fetch** it:
 
 ```
 GET https://example.com/wp-json/aivis-os/v1/status
@@ -238,8 +238,8 @@ GET https://example.com/wp-json/aivis-os/v1/status/urls?cursor=&limit=200
 Authorization: Bearer aivis_status_…
 ```
 
-The key is issued by this site on activation and shown under AIVIS OS →
-**Settings → Status for AIVIS** (also `wp aivis status-key`). Enter it in AIVIS
+The key is issued by this site on activation and shown under Aivis-OS →
+**Settings → Status for Aivis-OS** (also `wp aivis status-key`). Enter it in Aivis-OS
 for this business. It is not the API token: it reaches nothing but the status
 document, which names this site's pages and their publishing state and never
 contains the token. *Regenerate* invalidates the old key at once; *Disable*
@@ -249,34 +249,34 @@ makes the endpoint answer 404.
 
 ## Other SEO plugins
 
-AIVIS is the primary source of structured data. If Yoast, Rank Math, All in One
+Aivis-OS is the primary source of structured data. If Yoast, Rank Math, All in One
 SEO, SEOPress or similar also emit JSON-LD, the plugin flags it in red — two
 `Organization` nodes on one page give search engines conflicting answers.
 
-AIVIS OS → **Settings → Structured data sources** lists what was found and says,
+Aivis-OS → **Settings → Structured data sources** lists what was found and says,
 per plugin, where to switch that output off. The connector never changes another
 plugin itself. Publishing continues either way; *Override* on the warning keeps
 it quiet until the set of conflicts changes. Logged-in admins also see the
 warning in the admin bar on the front end. Nobody is emailed: who gets told is
-AIVIS's decision, and AIVIS sees the conflicts when it fetches the status
+Aivis-OS's decision, and Aivis-OS sees the conflicts when it fetches the status
 document.
 
 ## Moved pages
 
-Once a day the plugin compares each page's current address with the URL AIVIS
+Once a day the plugin compares each page's current address with the URL Aivis-OS
 crawled. Pages that moved (a slug or parent changed, a post was trashed) are
 listed on Status under **Moved pages**, flagged in Site Health, and included in
-the status document AIVIS fetches. Nothing else happens: the structured data
-stays with the URL AIVIS has, and the new address receives nothing until AIVIS
-re-crawls. That is deliberate — the plugin delivers, AIVIS decides.
+the status document Aivis-OS fetches. Nothing else happens: the structured data
+stays with the URL Aivis-OS has, and the new address receives nothing until Aivis-OS
+re-crawls. That is deliberate — the plugin delivers, Aivis-OS decides.
 
-Each post and term edit screen has a read-only **AIVIS OS** box with the same
+Each post and term edit screen has a read-only **Aivis-OS** box with the same
 facts for that object.
 
 ## Staging and live
 
 A staging copy of the site cannot bind to the live business: the domain rule
-refuses it. The supported workflow is: staging talks to the AIVIS dev instance
+refuses it. The supported workflow is: staging talks to the Aivis-OS dev instance
 (`AIVIS_API_BASE_URL`) and its own business; live syncs fresh from production.
 Nothing is migrated. When a staging database is pushed to live, run
 *Disconnect and remove local data* (or `wp aivis sync --all` after the first
@@ -304,17 +304,17 @@ data on uninstall* is ticked — the token is removed either way.
 
 | Symptom | Look at |
 |---|---|
-| "<host> rejected the token (invalid_token — …)" | The token is wrong, revoked, or issued on the other instance: a Test token does not work on Production, and the other way round. Recreate it on the instance selected under Environment and paste it again |
-| "Could not reach app.aivis-os.com (…)" | The selected instance did not answer at all — Production has no DNS record yet as of September 2026; switch Environment to Test and save again. If it persists on Test, the host blocks outbound requests |
-| "AIVIS requires a newer connector (minimum x.y.z)" | Update the plugin. Syncing stops until then; pages keep serving their last known good data |
-| "<host> is rate-limiting this token (429)" | Wait a minute. 600 requests per minute per token; another integration may share the token — issue one per site |
-| No business matches | The business's base URL in AIVIS must be this site's domain |
-| "… has no chain" in Site Health | Assign a chain to that language under Settings → Languages & chains, or create one in AIVIS |
+| "The token was rejected by <environment> (invalid_token — …)" | The token is wrong, revoked, or issued on the other instance: a Test token does not work on Production, and the other way round. Recreate it on the instance selected under Environment and paste it again |
+| "Could not reach the Production environment (…)" | The selected instance did not answer at all — Production is not in service yet (November 2026); switch Environment to Test and save again. If it persists on Test, the host blocks outbound requests |
+| "Aivis-OS requires a newer connector (minimum x.y.z)" | Update the plugin. Syncing stops until then; pages keep serving their last known good data |
+| "This token is rate-limited by <environment> (429)" | Wait a minute. 600 requests per minute per token; another integration may share the token — issue one per site |
+| No business matches | The business's base URL in Aivis-OS must be this site's domain |
+| "… has no chain" in Site Health | Assign a chain to that language under Settings → Languages & chains, or create one in Aivis-OS |
 | Sync says *no chain assigned to a language* | Same — nothing syncs until at least one chain is assigned |
-| A chain shows *AIVIS reports N pages as en* | The chain's pages are not in the language you assigned; check the assignment, or the chain in AIVIS |
-| AIVIS cannot fetch the status (401 / 404) | 401: the key in AIVIS is not this site's current key — copy it from Settings → Status for AIVIS. 404: the endpoint is disabled; issue a key |
-| Pages say *Holding last good* | AIVIS has not generated that page yet; nothing is wrong on this side |
-| A page shows *Suspended* | It was unpublished in AIVIS; injection stopped, cache purged, awaiting confirmation |
+| A chain shows *Aivis-OS reports N pages as en* | The chain's pages are not in the language you assigned; check the assignment, or the chain in Aivis-OS |
+| Aivis-OS cannot fetch the status (401 / 404) | 401: the key in Aivis-OS is not this site's current key — copy it from Settings → Status for Aivis-OS. 404: the endpoint is disabled; issue a key |
+| Pages say *Holding last good* | Aivis-OS has not generated that page yet; nothing is wrong on this side |
+| A page shows *Suspended* | It was unpublished in Aivis-OS; injection stopped, cache purged, awaiting confirmation |
 | Marker missing in view-source | Cache not purged, or the theme does not call `wp_head()` |
 | Sync overdue in Site Health | Set up the system cron above |
 | "Is page X delivered?" | Pages → search the URL; the row shows state, chain, language, when it was generated, published and last seen on the page |

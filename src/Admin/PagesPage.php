@@ -45,8 +45,8 @@ final class PagesPage {
 		$table->prepare_items();
 		?>
 		<div class="wrap aivis-os">
-			<h1><?php esc_html_e( 'AIVIS OS — Pages', 'aivis-os' ); ?></h1>
-			<p class="description"><?php esc_html_e( 'You do not have to read this list. "Needs attention" shows the pages that want a decision; search finds one page. Everything else is AIVIS delivering as generated.', 'aivis-os' ); ?></p>
+			<h1><?php esc_html_e( 'Aivis-OS — Pages', 'aivis-os' ); ?></h1>
+			<p class="description"><?php esc_html_e( 'You do not have to read this list. "Needs attention" shows the pages that want a decision; search finds one page. Everything else is Aivis-OS delivering as generated.', 'aivis-os' ); ?></p>
 			<?php echo Menu::tabs( Menu::SLUG_PAGES ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 			<form method="get" action="<?php echo esc_url( admin_url( 'admin.php' ) ); ?>">
 				<input type="hidden" name="page" value="<?php echo esc_attr( Menu::SLUG_PAGES ); ?>">

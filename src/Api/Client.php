@@ -1,9 +1,9 @@
 <?php
 /**
- * AIVIS Public API v1 client (§03, §04, ZT-01).
+ * Aivis-OS Public API v1 client (§03, §04, ZT-01).
  *
  * Transport rules: wp_safe_remote_get only — the connector never writes to
- * AIVIS — TLS verified, ZERO redirects (a redirect would forward the bearer
+ * Aivis-OS — TLS verified, ZERO redirects (a redirect would forward the bearer
  * token), fixed host, 10 s timeout, 1 MiB cap, versioned user agent. Never
  * called on the public render path.
  *
@@ -110,7 +110,7 @@ final class Client {
 
 	/**
 	 * The connector only ever reads. There is no POST here on purpose (§11a):
-	 * nothing about this site is pushed to AIVIS — AIVIS fetches the status
+	 * nothing about this site is pushed to Aivis-OS — Aivis-OS fetches the status
 	 * document from the site when it wants it.
 	 *
 	 * @param array<string,string|int> $query
@@ -150,11 +150,12 @@ final class Client {
 			$msg = (string) $res->get_error_message();
 			if ( str_contains( $msg, 'valid URL was not provided' ) ) {
 				// wp_http_validate_url() refuses a host that does not resolve — that is
-				// what an admin sees while app.aivis-os.com has no DNS record. Say so.
+				// what an admin sees while the selected instance has no DNS record. Say so.
 				$msg .= ' — the host name does not resolve (no DNS record), or this WordPress blocks external requests';
 			}
 			// Redact defensively: WP_Error messages can echo request details.
-			return new Response( 0, null, $this->options->redact( $msg ) );
+			// And name the instance by its environment, not its address (§11).
+			return new Response( 0, null, \AivisOS\Storage\Options::name_instances( $this->options->redact( $msg ) ) );
 		}
 
 		$status  = (int) wp_remote_retrieve_response_code( $res );
@@ -216,7 +217,7 @@ final class Client {
 		}
 		if ( $too_old && false === get_transient( 'aivis_os_too_old_noted' ) ) {
 			set_transient( 'aivis_os_too_old_noted', 1, HOUR_IN_SECONDS );
-			$this->options->record( ErrorCode::CLIENT_TOO_OLD, sprintf( 'AIVIS answered 426: connector %s is below the minimum client %s — update the plugin; nothing syncs until then', AIVIS_OS_VERSION, '' !== $min ? $min : '?' ) );
+			$this->options->record( ErrorCode::CLIENT_TOO_OLD, sprintf( 'Aivis-OS answered 426: connector %s is below the minimum client %s — update the plugin; nothing syncs until then', AIVIS_OS_VERSION, '' !== $min ? $min : '?' ) );
 		}
 	}
 

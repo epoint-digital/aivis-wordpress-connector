@@ -86,7 +86,7 @@ final class Synchronizer {
 			return $summary + [ 'skipped' => 'no business bound' ];
 		}
 		// Domain binding is re-checked on every run (§07): a business edited in
-		// AIVIS to point elsewhere unbinds instead of quietly serving another
+		// Aivis-OS to point elsewhere unbinds instead of quietly serving another
 		// site's data.
 		$biz_host = strtolower( (string) wp_parse_url( $biz['base_url'], PHP_URL_HOST ) );
 		if ( '' !== $biz_host && ! $this->host_matches( $biz_host, $this->options->site_host() ) ) {
@@ -96,7 +96,7 @@ final class Synchronizer {
 
 		// §07a — only chains assigned to a WordPress language sync. Assign
 		// automatically where there is nothing to decide (one language, or a
-		// chain whose language AIVIS reports matches exactly one); otherwise
+		// chain whose language Aivis-OS reports matches exactly one); otherwise
 		// the admin must, and nothing runs until then.
 		if ( ! $this->options->assigned_chain_ids() ) {
 			$auto = $this->assignment->auto_assign();
@@ -129,7 +129,7 @@ final class Synchronizer {
 					'cursor'      => null,
 					'inventory'   => [],     // url_key => compact row
 					'totals'      => [],     // chain_id => [seen, total]
-					'mismatch'    => [],     // chain_id => AIVIS languageCode vs assignment (§07a)
+					'mismatch'    => [],     // chain_id => Aivis-OS languageCode vs assignment (§07a)
 					'phase'       => 'inventory',
 					'started_at'  => time(),
 				];
@@ -277,7 +277,7 @@ final class Synchronizer {
 		if ( null === $best ) {
 			$r = ( null !== $failed && ! $this->api_reachable )
 				? $failed // nothing answered: hold, like any transport failure
-				// AIVIS answered and no chain of this language holds the page: R-01.
+				// Aivis-OS answered and no chain of this language holds the page: R-01.
 				: new Response( 404, [ 'error' => [ 'code' => Response::CODE_URL_NOT_FOUND, 'message' => Response::NOT_FOUND ] ] );
 			$out = $this->apply_lookup( $absolute_url, $r, $biz, $sync_id, $chains, $context );
 		} elseif ( ! empty( $best['jsonLd']['ready'] ) ) {
@@ -352,7 +352,7 @@ final class Synchronizer {
 			$map   = $this->options->chain_languages();
 			$stale = array_diff( array_keys( $map ), $all );
 			if ( $stale ) {
-				// The listing succeeded and these chains are not in it: AIVIS removed or
+				// The listing succeeded and these chains are not in it: Aivis-OS removed or
 				// archived them, and their pages with them. Retire the rows now (#56) —
 				// kept 30 days for rollback, never injected — and purge their caches.
 				$this->options->set_chain_languages( array_diff_key( $map, array_flip( $stale ) ) );
@@ -360,7 +360,7 @@ final class Synchronizer {
 				foreach ( $gone as $u ) {
 					$this->purge[] = $u;
 				}
-				$this->options->record( ErrorCode::LANGUAGE_UNASSIGNED, sprintf( 'chain(s) no longer exist in AIVIS, assignment dropped and %d page(s) retired: %s', count( $gone ), implode( ', ', $stale ) ) );
+				$this->options->record( ErrorCode::LANGUAGE_UNASSIGNED, sprintf( 'chain(s) no longer exist in Aivis-OS, assignment dropped and %d page(s) retired: %s', count( $gone ), implode( ', ', $stale ) ) );
 			}
 			$chains = array_values( array_intersect( $all, $this->options->assigned_chain_ids() ) );
 			if ( ! $chains ) {
@@ -410,7 +410,7 @@ final class Synchronizer {
 					}
 					continue;
 				}
-				// AIVIS's own language for the row vs the admin's assignment: a
+				// Aivis-OS's own language for the row vs the admin's assignment: a
 				// disagreement is reported, not acted on — the assignment is the
 				// admin's decision.
 				$aivis_lang = Language::normalize( (string) $compact['languageCode'] );
@@ -536,7 +536,7 @@ final class Synchronizer {
 		$pending = (array) ( $state['pending'] ?? [] );
 		$done    = 0;
 		/**
-		 * Filter how many artifacts one sync tick may fetch. AIVIS allows 600
+		 * Filter how many artifacts one sync tick may fetch. Aivis-OS allows 600
 		 * requests per minute per token (API-7); the tick also yields when the
 		 * window runs low. Raise this for an initial import.
 		 *
@@ -572,7 +572,7 @@ final class Synchronizer {
 			}
 			$left = $r->rate_remaining();
 			if ( null !== $left && $left < self::RATE_RESERVE ) {
-				// Leave headroom for on-demand lookups and AIVIS's own status fetch;
+				// Leave headroom for on-demand lookups and Aivis-OS's own status fetch;
 				// the continuation tick a minute later starts a fresh window.
 				break;
 			}
@@ -671,7 +671,7 @@ final class Synchronizer {
 				if ( $local && (int) $local['active'] === 1 ) {
 					$this->repository->deactivate( $key, ErrorCode::RETRACTED );
 					$this->purge[] = $url;
-					$this->options->record( ErrorCode::RETRACTED, 'unpublished in AIVIS (410 withdrawn); injection stopped, cache purged — resumes when republished', $url );
+					$this->options->record( ErrorCode::RETRACTED, 'unpublished in Aivis-OS (410 withdrawn); injection stopped, cache purged — resumes when republished', $url );
 				} elseif ( ! $local ) {
 					set_transient( 'aivis_os_miss_' . $key, 1, self::MISS_TTL );
 				}
@@ -751,7 +751,7 @@ final class Synchronizer {
 			if ( Action::DEACTIVATE === $d['action'] && (int) $local['active'] === 1 ) {
 				$this->repository->deactivate( (string) $key, ErrorCode::RETRACTED );
 				$this->purge[] = (string) $row['url'];
-				$this->options->record( ErrorCode::RETRACTED, ! empty( $row['jsonLd']['suppressedAt'] ) ? 'unpublished in AIVIS; injection stopped, cache purged' : 'no document and the capture is not running; injection stopped, cache purged', (string) $row['url'] );
+				$this->options->record( ErrorCode::RETRACTED, ! empty( $row['jsonLd']['suppressedAt'] ) ? 'unpublished in Aivis-OS; injection stopped, cache purged' : 'no document and the capture is not running; injection stopped, cache purged', (string) $row['url'] );
 			} elseif ( Action::SERVE === $d['action'] ) {
 				if ( ! empty( $local['suspended_at'] ) ) {
 					// Suspicion not confirmed: the URL is still in inventory and ready.
@@ -781,7 +781,7 @@ final class Synchronizer {
 				$this->repository->deactivate( $key, ErrorCode::RETRACTED );
 				$this->purge[] = $url;
 			}
-			$this->options->record( ErrorCode::RETRACTED, ! empty( $row['jsonLd']['suppressedAt'] ) ? 'unpublished in AIVIS; injection stopped, cache purged' : "no document and the capture is not running ({$capture}); injection stopped", $url );
+			$this->options->record( ErrorCode::RETRACTED, ! empty( $row['jsonLd']['suppressedAt'] ) ? 'unpublished in Aivis-OS; injection stopped, cache purged' : "no document and the capture is not running ({$capture}); injection stopped", $url );
 			return [ 'ok' => true, 'action' => 'deactivate', 'rule' => 'R-02a' ];
 		}
 		if ( $local ) {
@@ -797,7 +797,7 @@ final class Synchronizer {
 	private function retire_absent( string $business_id, string $sync_id ): int {
 		$retired = 0;
 		// A row whose chain is no longer assigned to a language is absent by the
-		// admin's decision, not AIVIS's — it retires under its own code (§07a).
+		// admin's decision, not Aivis-OS's — it retires under its own code (§07a).
 		$assigned  = $this->options->assigned_chain_ids();
 		$summaries = (array) ( $this->options->sync_state()['chain_summaries'] ?? [] );
 		foreach ( $this->repository->unseen_in_sync( $business_id, $sync_id ) as $local ) {
@@ -860,7 +860,7 @@ final class Synchronizer {
 		foreach ( $mismatch as $chain_id => $m ) {
 			$this->options->record(
 				ErrorCode::LANGUAGE_MISMATCH,
-				sprintf( 'chain %s is assigned to %s but AIVIS reports %d of its pages as %s', $chain_id, $m['assigned'], (int) $m['count'], $m['aivis'] ),
+				sprintf( 'chain %s is assigned to %s but Aivis-OS reports %d of its pages as %s', $chain_id, $m['assigned'], (int) $m['count'], $m['aivis'] ),
 				(string) $m['url']
 			);
 		}

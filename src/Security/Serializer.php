@@ -4,7 +4,7 @@
  *
  * The plugin never echoes the API's raw response substring into the page. It
  * re-serializes the parsed value itself with the flag set that makes a
- * <script> breakout impossible regardless of what AIVIS sent. The JS reference
+ * <script> breakout impossible regardless of what Aivis-OS sent. The JS reference
  * (src/reference/serialize.mjs) reproduces this output byte for byte and is
  * fuzzed against it.
  *
@@ -43,7 +43,7 @@ final class Serializer {
 	/**
 	 * The one element the plugin prints. `data-aivis="1"` is the edge-worker
 	 * marker (§14); `data-aivis-hash` is the SHA-256 of the exact content, so
-	 * anyone fetching the public page — AIVIS included — can verify delivery
+	 * anyone fetching the public page — Aivis-OS included — can verify delivery
 	 * without the plugin's help (§11).
 	 */
 	public static function script_tag( string $serialized, string $hash = '' ): string {

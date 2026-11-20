@@ -23,16 +23,16 @@ final class ErrorCode {
 	public const PURGE_UNSUPPORTED = 'AIVIS_PURGE_UNSUPPORTED';
 	public const PURGE_FAILED      = 'AIVIS_PURGE_FAILED';
 	public const LOCKED            = 'AIVIS_LOCKED';
-	/** §03: AIVIS answered 426 — this connector is below X-Aivis-Min-Client; nothing syncs until updated. */
+	/** §03: Aivis-OS answered 426 — this connector is below X-Aivis-Min-Client; nothing syncs until updated. */
 	public const CLIENT_TOO_OLD    = 'AIVIS_CLIENT_TOO_OLD';
-	/** §04: 429 from AIVIS; the tick yields and continues after Retry-After. */
+	/** §04: 429 from Aivis-OS; the tick yields and continues after Retry-After. */
 	public const RATE_LIMITED      = 'AIVIS_RATE_LIMITED';
 	/** §07a: a site language has no chain, or a chain is not assigned to any language. */
 	public const LANGUAGE_UNASSIGNED = 'AIVIS_LANGUAGE_UNASSIGNED';
-	/** §07a: AIVIS's languageCode for a chain's pages disagrees with the assignment. */
+	/** §07a: Aivis-OS's languageCode for a chain's pages disagrees with the assignment. */
 	public const LANGUAGE_MISMATCH   = 'AIVIS_LANGUAGE_MISMATCH';
-	/** The site was switched to the other AIVIS instance; rows from the previous one stop serving. */
+	/** The site was switched to the other Aivis-OS instance; rows from the previous one stop serving. */
 	public const ENVIRONMENT_SWITCHED = 'AIVIS_ENVIRONMENT_SWITCHED';
-	/** §11: a page's address changed since AIVIS crawled it; reported, never acted on. */
+	/** §11: a page's address changed since Aivis-OS crawled it; reported, never acted on. */
 	public const URL_MOVED           = 'AIVIS_URL_MOVED';
 }

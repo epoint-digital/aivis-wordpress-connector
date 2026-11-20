@@ -1,4 +1,4 @@
-// Fixture data for the mock AIVIS Public API.
+// Fixture data for the mock Aivis-OS Public API.
 //
 // Shaped to exercise the cases the connector actually has to survive, not the
 // happy path: two businesses sharing one domain (the duplicate-onboarding
@@ -32,7 +32,7 @@ export const chains = {
     // its own chain, under /en/ on the same domain.
     { id: 'chain_en',   name: 'English site',    description: null, state: 'ready', declared: ['en'],
       currentStep: 9, knowledgeGraphReady: true, graphScore: 0.77, urlCount: 2, createdAt: '2026-06-01T10:00:00.000Z' },
-    // A chain declared with two languages and holding rows in both: AIVIS
+    // A chain declared with two languages and holding rows in both: Aivis-OS
     // reports languageCode null, and the admin must decide (API-10 caveat).
     { id: 'chain_mixed', name: 'Mixed campaign', description: null, state: 'ready', declared: ['de', 'en'],
       currentStep: 9, knowledgeGraphReady: true, graphScore: 0.5, urlCount: 2, createdAt: '2026-07-01T10:00:00.000Z' },

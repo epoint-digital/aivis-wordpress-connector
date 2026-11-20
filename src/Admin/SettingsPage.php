@@ -32,8 +32,8 @@ final class SettingsPage {
 		$current    = $this->plugin->cache()->adapter();
 		?>
 		<div class="wrap aivis-os">
-			<h1>AIVIS OS</h1>
-			<p class="description"><?php esc_html_e( 'Delivers the structured data AIVIS generates for this site into its pages.', 'aivis-os' ); ?></p>
+			<h1>Aivis-OS</h1>
+			<p class="description"><?php esc_html_e( 'Publishes the structured data (JSON-LD) that Aivis-OS has prepared for this domain.', 'aivis-os' ); ?></p>
 			<?php echo Menu::tabs( Menu::SLUG_SETTINGS ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -45,15 +45,15 @@ final class SettingsPage {
 						<tr><th scope="row"><label for="aivis_env"><?php esc_html_e( 'Environment', 'aivis-os' ); ?></label></th><td>
 							<?php if ( 'constant' === $o->api_base_source() ) : ?>
 								<p><code>AIVIS_API_BASE_URL</code> <?php esc_html_e( 'is defined in wp-config.php:', 'aivis-os' ); ?> <code><?php echo esc_html( $o->api_base() ); ?></code></p>
-								<p class="description"><?php esc_html_e( 'The constant overrides this setting. Remove it from wp-config.php to choose between the AIVIS test and production instances here.', 'aivis-os' ); ?></p>
+								<p class="description"><?php esc_html_e( 'The constant overrides this setting. Remove it from wp-config.php to choose between the Aivis-OS test and production instances here.', 'aivis-os' ); ?></p>
 							<?php else : ?>
 								<select id="aivis_env" name="environment">
-									<?php foreach ( \AivisOS\Storage\Options::ENVIRONMENTS as $key => $url ) : ?>
-										<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $o->environment(), $key ); ?>><?php echo esc_html( \AivisOS\Storage\Options::environment_label( $key ) . ' — ' . (string) wp_parse_url( $url, PHP_URL_HOST ) ); ?></option>
+									<?php foreach ( array_keys( \AivisOS\Storage\Options::ENVIRONMENTS ) as $key ) : // Named, never spelled out (§11). ?>
+										<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $o->environment(), $key ); ?>><?php echo esc_html( \AivisOS\Storage\Options::environment_label( $key ) ); ?></option>
 									<?php endforeach; ?>
 								</select>
 								<?php if ( 'test' === $o->environment() ) : ?><span class="aivis-chip aivis-chip--warn"><?php esc_html_e( 'Test instance', 'aivis-os' ); ?></span><?php endif; ?>
-								<p class="description"><?php esc_html_e( 'Only these two AIVIS instances can be chosen; the token is sent to the selected one and nowhere else. A token issued on the test instance works only there. Switching unbinds the business, stops serving everything synced from the other instance, purges the affected pages and needs a fresh connection test and sync.', 'aivis-os' ); ?></p>
+								<p class="description"><?php esc_html_e( 'Only these two Aivis-OS instances can be chosen; the token is sent to the selected one and nowhere else. A token issued on the test instance works only there. Switching unbinds the business, stops serving everything synced from the other instance, purges the affected pages and needs a fresh connection test and sync.', 'aivis-os' ); ?></p>
 							<?php endif; ?>
 						</td></tr>
 						<tr><th scope="row"><label for="aivis_token"><?php esc_html_e( 'API token', 'aivis-os' ); ?></label></th><td>
@@ -94,8 +94,8 @@ final class SettingsPage {
 											__( 'This is an <strong>account-wide</strong> token: it can read structured data for <strong>all %d businesses</strong> on the account, not only this site’s.', 'aivis-os' ),
 											count( $businesses )
 										)
-										: __( 'An account-wide AIVIS token can read structured data for <strong>every business</strong> on the account, not only this site’s.', 'aivis-os' ) ); ?></p>
-									<p><?php echo wp_kses_post( __( 'Prefer a token <strong>bound to this business</strong> — create it on the profile page in AIVIS and pick the business there. Use an account-wide token only on sites you control, and keep it in <code>wp-config.php</code> rather than the database.', 'aivis-os' ) ); ?></p>
+										: __( 'An account-wide Aivis-OS token can read structured data for <strong>every business</strong> on the account, not only this site’s.', 'aivis-os' ) ); ?></p>
+									<p><?php echo wp_kses_post( __( 'Prefer a token <strong>bound to this business</strong> — create it on the profile page in Aivis-OS and pick the business there. Use an account-wide token only on sites you control, and keep it in <code>wp-config.php</code> rather than the database.', 'aivis-os' ) ); ?></p>
 								</div>
 							<?php endif; ?>
 						</td></tr>
@@ -106,17 +106,17 @@ final class SettingsPage {
 					<table class="form-table" role="presentation">
 						<tr><th scope="row"><?php esc_html_e( 'This site serves', 'aivis-os' ); ?></th><td>
 							<?php if ( 'none' === $source || true !== $status['valid'] ) : ?>
-								<p class="description"><?php esc_html_e( 'Add a valid token and test the connection first — the list of businesses comes from AIVIS.', 'aivis-os' ); ?></p>
+								<p class="description"><?php esc_html_e( 'Add a valid token and test the connection first — the list of businesses comes from Aivis-OS.', 'aivis-os' ); ?></p>
 							<?php elseif ( 0 === count( $matching ) && $status['bound'] ) : ?>
 								<p><?php echo wp_kses_post( sprintf( /* translators: 1: business name, 2: its domain, 3: this site's host */ __( 'This token is bound to <strong>%1$s</strong>, whose domain is <code>%2$s</code> — not <code>%3$s</code>.', 'aivis-os' ), esc_html( $status['business_name'] ), esc_html( (string) wp_parse_url( $status['business_base_url'], PHP_URL_HOST ) ), esc_html( $host ) ) ); ?></p>
-								<p class="description"><?php esc_html_e( 'Issue a token for the business whose domain is this site, or correct that business’s base URL in AIVIS, then test the connection again. A business on another domain is never bound.', 'aivis-os' ); ?></p>
+								<p class="description"><?php esc_html_e( 'Issue a token for the business whose domain is this site, or correct that business’s base URL in Aivis-OS, then test the connection again. A business on another domain is never bound.', 'aivis-os' ); ?></p>
 							<?php elseif ( 0 === count( $matching ) ) : ?>
 								<p><?php echo wp_kses_post( sprintf( /* translators: %s: host */ __( 'No business on this account uses <code>%s</code>.', 'aivis-os' ), esc_html( $host ) ) ); ?></p>
-								<p class="description"><?php esc_html_e( 'A business has exactly one domain in AIVIS. Create one for this site, or correct its base URL there, then test the connection again. Businesses on other domains are not offered — binding one would serve another site’s data here.', 'aivis-os' ); ?></p>
+								<p class="description"><?php esc_html_e( 'A business has exactly one domain in Aivis-OS. Create one for this site, or correct its base URL there, then test the connection again. Businesses on other domains are not offered — binding one would serve another site’s data here.', 'aivis-os' ); ?></p>
 							<?php elseif ( 1 === count( $matching ) ) : ?>
 								<input type="hidden" name="business_id" value="<?php echo esc_attr( (string) $matching[0]['id'] ); ?>">
 								<p><strong><?php echo esc_html( (string) $matching[0]['name'] ); ?></strong> <span class="aivis-chip aivis-chip--ok"><?php esc_html_e( 'Matched automatically', 'aivis-os' ); ?></span></p>
-								<p class="description"><?php echo wp_kses_post( sprintf( /* translators: %s: host */ __( 'The only AIVIS business whose domain is <code>%s</code>. Nothing to choose.', 'aivis-os' ), esc_html( $host ) ) ); ?></p>
+								<p class="description"><?php echo wp_kses_post( sprintf( /* translators: %s: host */ __( 'The only Aivis-OS business whose domain is <code>%s</code>. Nothing to choose.', 'aivis-os' ), esc_html( $host ) ) ); ?></p>
 							<?php else : ?>
 								<?php foreach ( $matching as $b ) : ?>
 									<label style="display:block;margin-bottom:8px"><input type="radio" name="business_id" value="<?php echo esc_attr( (string) $b['id'] ); ?>" <?php checked( $biz['business_id'], $b['id'] ); ?>>
@@ -140,14 +140,14 @@ final class SettingsPage {
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Delivery', 'aivis-os' ); ?></h2><div class="inside">
 					<table class="form-table" role="presentation">
 						<tr><th scope="row"><?php esc_html_e( 'Injection', 'aivis-os' ); ?></th><td>
-							<label><input type="checkbox" name="injection" value="1" <?php checked( $o->injection_enabled() ); ?>> <?php esc_html_e( 'Add AIVIS structured data to pages on this site', 'aivis-os' ); ?></label>
+							<label><input type="checkbox" name="injection" value="1" <?php checked( $o->injection_enabled() ); ?>> <?php esc_html_e( 'Add Aivis-OS structured data to pages on this site', 'aivis-os' ); ?></label>
 							<p class="description"><?php echo wp_kses_post( __( 'One <code>&lt;script type="application/ld+json" data-aivis="1"&gt;</code> in the page head. Existing structured data from your theme or SEO plugin is never read or changed.', 'aivis-os' ) ); ?></p>
 						</td></tr>
 						<tr><th scope="row"><?php esc_html_e( 'Unknown pages', 'aivis-os' ); ?></th><td>
-							<label><input type="checkbox" name="on_demand" value="1" <?php checked( $o->on_demand_enabled() ); ?>> <?php esc_html_e( 'When a page is viewed that has no structured data yet, ask AIVIS about it in the background', 'aivis-os' ); ?></label>
-							<p class="description"><?php esc_html_e( 'Off by default. The regular sync already picks up every page AIVIS knows; this only shortens the wait for brand-new pages, at the cost of a small database write the first time each unknown page is viewed.', 'aivis-os' ); ?></p>
+							<label><input type="checkbox" name="on_demand" value="1" <?php checked( $o->on_demand_enabled() ); ?>> <?php esc_html_e( 'When a page is viewed that has no structured data yet, ask Aivis-OS about it in the background', 'aivis-os' ); ?></label>
+							<p class="description"><?php esc_html_e( 'Off by default. The regular sync already picks up every page Aivis-OS knows; this only shortens the wait for brand-new pages, at the cost of a small database write the first time each unknown page is viewed.', 'aivis-os' ); ?></p>
 						</td></tr>
-						<tr><th scope="row"><label for="aivis_interval"><?php esc_html_e( 'Check AIVIS for changes', 'aivis-os' ); ?></label></th><td>
+						<tr><th scope="row"><label for="aivis_interval"><?php esc_html_e( 'Check Aivis-OS for changes', 'aivis-os' ); ?></label></th><td>
 							<select id="aivis_interval" name="interval">
 								<option value="300" <?php selected( $interval, 300 ); ?>><?php esc_html_e( 'Every 5 minutes', 'aivis-os' ); ?></option>
 								<option value="900" <?php selected( $interval, 900 ); ?>><?php esc_html_e( 'Every 15 minutes (recommended)', 'aivis-os' ); ?></option>
@@ -156,9 +156,9 @@ final class SettingsPage {
 							</select>
 							<p class="description"><?php
 							if ( 0 === $interval ) {
-								esc_html_e( 'With manual syncing, a page unpublished in AIVIS keeps being served here until you sync. Only choose this if you sync from WP-CLI or a system cron.', 'aivis-os' );
+								esc_html_e( 'With manual syncing, a page unpublished in Aivis-OS keeps being served here until you sync. Only choose this if you sync from WP-CLI or a system cron.', 'aivis-os' );
 							} else {
-								echo wp_kses_post( sprintf( /* translators: 1: minutes, 2: twice the minutes */ __( 'A page unpublished in AIVIS stops being served here within <strong>%1$d minutes plus your cache purge</strong> while its pipeline is idle — up to %2$d minutes while a chain is rebuilding — plus any sync backlog shown on Status.', 'aivis-os' ), (int) ( $interval / 60 ), (int) ( $interval / 30 ) ) );
+								echo wp_kses_post( sprintf( /* translators: 1: minutes, 2: twice the minutes */ __( 'A page unpublished in Aivis-OS stops being served here within <strong>%1$d minutes plus your cache purge</strong> while its pipeline is idle — up to %2$d minutes while a chain is rebuilding — plus any sync backlog shown on Status.', 'aivis-os' ), (int) ( $interval / 60 ), (int) ( $interval / 30 ) ) );
 								if ( 300 === $interval ) {
 									echo ' ' . esc_html__( 'Five minutes needs a real system cron — WordPress’s built-in cron only runs when someone visits the site.', 'aivis-os' );
 								}
@@ -169,7 +169,7 @@ final class SettingsPage {
 				</div></div>
 
 				<div class="postbox" id="aivis-sources"><h2 class="hndle"><?php esc_html_e( 'Structured data sources', 'aivis-os' ); ?></h2><div class="inside">
-					<p class="description"><?php esc_html_e( 'AIVIS is the primary source of structured data on this site. Anything else that emits JSON-LD is flagged here and in the admin bar. The connector never changes another plugin’s behaviour — it tells you where to switch that output off. Publishing continues either way.', 'aivis-os' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Aivis-OS is the primary source of structured data on this site. Anything else that emits JSON-LD is flagged here and in the admin bar. The connector never changes another plugin’s behaviour — it tells you where to switch that output off. Publishing continues either way.', 'aivis-os' ); ?></p>
 					<?php
 					$conf     = $o->conflicts();
 					$active   = $conf['plugins'] ?: \AivisOS\Delivery\Conflicts::active_plugins();
@@ -197,10 +197,10 @@ final class SettingsPage {
 					</tbody></table>
 					<?php endif; ?>
 					<p style="margin-top:10px"><?php echo Menu::action_button( 'scan_conflicts', __( 'Scan pages now', 'aivis-os' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
-					<p class="description"><?php esc_html_e( 'Nothing is sent from here — not to AIVIS, not by email. AIVIS fetches this site’s publishing status, conflicts included, and decides who is told (see Status for AIVIS below).', 'aivis-os' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Nothing is sent from here — not to Aivis-OS, not by email. Aivis-OS fetches this site’s publishing status, conflicts included, and decides who is told (see Status for Aivis-OS below).', 'aivis-os' ); ?></p>
 				</div></div>
 
-				<div class="postbox" id="aivis-status-key"><h2 class="hndle"><?php esc_html_e( 'Status for AIVIS', 'aivis-os' ); ?></h2><div class="inside">
+				<div class="postbox" id="aivis-status-key"><h2 class="hndle"><?php esc_html_e( 'Status for Aivis-OS', 'aivis-os' ); ?></h2><div class="inside">
 					<?php $this->status_box(); ?>
 				</div></div>
 
@@ -299,7 +299,7 @@ final class SettingsPage {
 	}
 
 	/**
-	 * Switch between the AIVIS test and production instances (Q-01). The two
+	 * Switch between the Aivis-OS test and production instances (Q-01). The two
 	 * instances hold different accounts and businesses, so everything that
 	 * belonged to the previous one is let go: the binding, the token check,
 	 * cached lists, the in-progress sync — and every row stops serving now,
@@ -321,7 +321,7 @@ final class SettingsPage {
 		if ( $urls ) {
 			$this->plugin->synchronizer()->purge( $urls );
 		}
-		$o->record( ErrorCode::ENVIRONMENT_SWITCHED, sprintf( 'switched from %s to %s (%s); business unbound, %d page(s) stopped serving, caches purged', $from, $environment, Options::environment_host( $environment ), count( $urls ) ) );
+		$o->record( ErrorCode::ENVIRONMENT_SWITCHED, sprintf( 'switched from %s to %s; business unbound, %d page(s) stopped serving, caches purged', $from, $environment, count( $urls ) ) );
 	}
 
 	/**
@@ -360,13 +360,13 @@ final class SettingsPage {
 		Scheduler::request_sync_now();
 	}
 
-	/** §11a — the read-only status document AIVIS fetches, and the key that gates it. */
+	/** §11a — the read-only status document Aivis-OS fetches, and the key that gates it. */
 	private function status_box(): void {
 		$o   = $this->plugin->options();
 		$key = $o->ensure_status_key();
 		$url = rest_url( \AivisOS\Rest\StatusController::NS . '/status' );
 		?>
-		<p><?php esc_html_e( 'This plugin never sends anything to AIVIS. It keeps the status of publishing here — per page: what is published, with which content, since when, and when this site last saw it on the page — and AIVIS can fetch it from the endpoint below, presenting the key.', 'aivis-os' ); ?></p>
+		<p><?php esc_html_e( 'This plugin never sends anything to Aivis-OS. It keeps the status of publishing here — per page: what is published, with which content, since when, and when this site last saw it on the page — and Aivis-OS can fetch it from the endpoint below, presenting the key.', 'aivis-os' ); ?></p>
 		<table class="form-table" role="presentation">
 			<tr><th scope="row"><?php esc_html_e( 'Endpoint', 'aivis-os' ); ?></th><td><code><?php echo esc_html( $url ); ?></code><br><span class="description"><?php esc_html_e( 'Per-page detail at …/status/urls, paged by cursor. Read-only; GET only.', 'aivis-os' ); ?></span></td></tr>
 			<tr><th scope="row"><?php esc_html_e( 'Status key', 'aivis-os' ); ?></th><td>
@@ -375,7 +375,7 @@ final class SettingsPage {
 					<p style="margin-top:8px"><?php echo Menu::action_button( 'status_key_regenerate', __( 'Issue a key', 'aivis-os' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
 				<?php else : ?>
 					<code id="aivis-status-key-value"><?php echo esc_html( $key ); ?></code>
-					<p class="description"><?php esc_html_e( 'Enter this in AIVIS for this business. It is not the API token: it reaches nothing but the status document, which names this site’s pages and their publishing state and never the token.', 'aivis-os' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Enter this in Aivis-OS for this business. It is not the API token: it reaches nothing but the status document, which names this site’s pages and their publishing state and never the token.', 'aivis-os' ); ?></p>
 					<pre style="margin:8px 0;padding:8px;background:#f6f7f7;overflow:auto">curl -H "Authorization: Bearer <?php echo esc_html( $key ); ?>" <?php echo esc_html( $url ); ?></pre>
 					<p><?php echo Menu::action_button( 'status_key_regenerate', __( 'Regenerate', 'aivis-os' ), 'button', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 					<?php echo Menu::action_button( 'status_key_disable', __( 'Disable', 'aivis-os' ), 'button button-link-delete', true ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></p>
@@ -398,20 +398,20 @@ final class SettingsPage {
 			esc_html( implode( ', ', $names ) ),
 			esc_html( Language::provider_label( $provider ) )
 		) ); ?></p>
-		<p class="description"><?php esc_html_e( 'Each chain is one language in AIVIS — intents and forensic prompts are bound per language. Assign every chain to the WordPress language its pages are in. A language without a chain receives no structured data; a chain without a language is not synced. Language subdomains (de.example.com) are fine; a separate domain per language needs its own AIVIS business and its own WordPress site.', 'aivis-os' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Each chain is one language in Aivis-OS — intents and forensic prompts are bound per language. Assign every chain to the WordPress language its pages are in. A language without a chain receives no structured data; a chain without a language is not synced. Language subdomains (de.example.com) are fine; a separate domain per language needs its own Aivis-OS business and its own WordPress site.', 'aivis-os' ); ?></p>
 		<?php
 		if ( '' === $biz['business_id'] ) {
-			echo '<p class="description">' . esc_html__( 'Bind a business first — the chains come from AIVIS.', 'aivis-os' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Bind a business first — the chains come from Aivis-OS.', 'aivis-os' ) . '</p>';
 			return;
 		}
 		$assignment = $this->plugin->assignment();
 		$catalog    = $assignment->catalog();
 		if ( null === $catalog ) {
-			echo '<div class="notice notice-warning inline" style="margin:0"><p>' . esc_html__( 'AIVIS could not be reached, so the chain list is unavailable right now. Existing assignments are unchanged.', 'aivis-os' ) . '</p></div>';
+			echo '<div class="notice notice-warning inline" style="margin:0"><p>' . esc_html__( 'Aivis-OS could not be reached, so the chain list is unavailable right now. Existing assignments are unchanged.', 'aivis-os' ) . '</p></div>';
 			return;
 		}
 		if ( ! $catalog ) {
-			echo '<p>' . esc_html__( 'This business has no chains yet. Create one in AIVIS for each language of this site.', 'aivis-os' ) . '</p>';
+			echo '<p>' . esc_html__( 'This business has no chains yet. Create one in Aivis-OS for each language of this site.', 'aivis-os' ) . '</p>';
 			return;
 		}
 		$map      = $o->chain_languages();
@@ -420,7 +420,7 @@ final class SettingsPage {
 		?>
 		<table class="widefat striped"><thead><tr>
 			<th><?php esc_html_e( 'Chain', 'aivis-os' ); ?></th>
-			<th><?php esc_html_e( 'Language in AIVIS', 'aivis-os' ); ?></th>
+			<th><?php esc_html_e( 'Language in Aivis-OS', 'aivis-os' ); ?></th>
 			<th><?php esc_html_e( 'Serves WordPress language', 'aivis-os' ); ?></th>
 			<th><?php esc_html_e( 'Pages', 'aivis-os' ); ?></th>
 		</tr></thead><tbody>
@@ -444,7 +444,7 @@ final class SettingsPage {
 					if ( null === $hint['language'] ) {
 						echo '<span class="description">' . esc_html__( 'none reported — no pages and no single declared language', 'aivis-os' ) . '</span>';
 					} elseif ( $hint['mixed'] ) {
-						echo '<span class="aivis-chip aivis-chip--warn">' . esc_html( sprintf( /* translators: %s: comma-separated language codes */ __( 'mixed: %s — one chain, several languages; assign the one this site should take from it, or split the chain in AIVIS', 'aivis-os' ), implode( ', ', $hint['languages'] ) ) ) . '</span>';
+						echo '<span class="aivis-chip aivis-chip--warn">' . esc_html( sprintf( /* translators: %s: comma-separated language codes */ __( 'mixed: %s — one chain, several languages; assign the one this site should take from it, or split the chain in Aivis-OS', 'aivis-os' ), implode( ', ', $hint['languages'] ) ) ) . '</span>';
 					} else {
 						echo '<code>' . esc_html( $hint['language'] ) . '</code>';
 					}
@@ -459,7 +459,7 @@ final class SettingsPage {
 							<option value="<?php echo esc_attr( $code ); ?>" <?php selected( '' !== $current ? $current : $suggest, $code ); ?>><?php echo esc_html( $l['name'] . ' (' . $code . ')' ); ?></option>
 						<?php endforeach; ?>
 					</select>
-					<?php if ( '' === $current && '' !== $suggest ) : ?><br><span class="description"><?php esc_html_e( 'suggested from the chain’s language in AIVIS — save to confirm', 'aivis-os' ); ?></span><?php endif; ?>
+					<?php if ( '' === $current && '' !== $suggest ) : ?><br><span class="description"><?php esc_html_e( 'suggested from the chain’s language in Aivis-OS — save to confirm', 'aivis-os' ); ?></span><?php endif; ?>
 				</td>
 				<td><?php echo esc_html( sprintf( /* translators: 1: active, 2: holding */ __( '%1$d injected · %2$d holding', 'aivis-os' ), $cnt['active'], $cnt['hold'] ) ); ?></td>
 			</tr>
@@ -486,13 +486,15 @@ final class SettingsPage {
 		if ( null === $f ) {
 			return __( 'Token invalid or revoked', 'aivis-os' );
 		}
+		// "the Test environment" / "the Production environment", or a custom host (§11).
+		$where = Options::instance_label( (string) $f['host'] );
 		return match ( $f['kind'] ) {
-			'auth'           => sprintf( /* translators: %s: host */ __( 'Token rejected by %s', 'aivis-os' ), $f['host'] ),
-			'account'        => sprintf( /* translators: %s: host */ __( 'Account deactivated on %s', 'aivis-os' ), $f['host'] ),
+			'auth'           => sprintf( /* translators: %s: the environment */ __( 'Token rejected by %s', 'aivis-os' ), $where ),
+			'account'        => sprintf( /* translators: %s: the environment */ __( 'Account deactivated on %s', 'aivis-os' ), $where ),
 			'client_too_old' => __( 'Plugin update required', 'aivis-os' ),
-			'throttled'      => sprintf( /* translators: %s: host */ __( 'Rate-limited by %s — retry in a minute', 'aivis-os' ), $f['host'] ),
-			'transport'      => sprintf( /* translators: %s: host */ __( 'Could not reach %s', 'aivis-os' ), $f['host'] ),
-			default          => sprintf( /* translators: 1: host, 2: HTTP status */ __( 'Unexpected answer from %1$s (HTTP %2$d)', 'aivis-os' ), $f['host'], $f['status'] ),
+			'throttled'      => sprintf( /* translators: %s: the environment */ __( 'Rate-limited by %s — retry in a minute', 'aivis-os' ), $where ),
+			'transport'      => sprintf( /* translators: %s: the environment */ __( 'Could not reach %s', 'aivis-os' ), $where ),
+			default          => sprintf( /* translators: 1: the environment, 2: HTTP status */ __( 'Unexpected answer from %1$s (HTTP %2$d)', 'aivis-os' ), $where, $f['status'] ),
 		};
 	}
 

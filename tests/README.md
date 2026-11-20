@@ -48,15 +48,15 @@ On Node v26.0.0 the fidelity property skips itself — see
 npm run test:contract
 ```
 
-Boots the mock AIVIS API on an ephemeral port: API shape, pagination, the two
+Boots the mock Aivis-OS API on an ephemeral port: API shape, pagination, the two
 distinct 404s, the four-stage retraction scenario, and binding against real
 responses. No network, no credentials.
 
 ## Against the live API
 
 ```bash
-export AIVIS_API_BASE=https://app.aivis-os.com   # or the dev instance, aivis-new.dev.onepoint.ro
-export AIVIS_API_TOKEN=aivis_…                   # from your AIVIS profile → API tokens
+export AIVIS_API_BASE=…                          # an instance's base URL; both are in src/Storage/Options.php
+export AIVIS_API_TOKEN=aivis_…                   # from your Aivis-OS profile → API tokens
 npm run test:live
 ```
 
@@ -94,7 +94,7 @@ only add flake.
 | Path | Purpose |
 |---|---|
 | `tests/fixtures/openapi-v1.json` | Vendored live contract — the source of truth the mock is built against |
-| `tests/mock/server.js` | Mock AIVIS Public API v1, no dependencies |
+| `tests/mock/server.js` | Mock Aivis-OS Public API v1, no dependencies |
 | `tests/mock/data.js` | Fixtures: duplicate domains, multi-chain URLs, an ungenerated URL, a retraction subject |
 | `tests/contract/run.mjs` | Contract suite — everything that crosses the wire |
 | `tests/contract/openapi.mjs` | Validates responses against the vendored OpenAPI; throws on any schema keyword it cannot check |

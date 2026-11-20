@@ -1,4 +1,4 @@
-// docs/api-requirements.html tells the AIVIS team it is machine-readable.
+// docs/api-requirements.html tells the Aivis-OS team it is machine-readable.
 // This checks that claim still holds, so a copy edit cannot quietly break it.
 
 import { readFileSync } from 'node:fs';

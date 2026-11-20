@@ -1,6 +1,6 @@
 <?php
 /**
- * §11a — the publishing status AIVIS fetches. Built here, served by the REST
+ * §11a — the publishing status Aivis-OS fetches. Built here, served by the REST
  * controller and printed by `wp aivis status --format=json`, so both say the
  * same thing.
  *
@@ -80,7 +80,7 @@ final class StatusDocument {
 					'url'    => $verify['url'] ?? null,
 					'at'     => ! empty( $verify['at'] ) ? gmdate( 'c', (int) $verify['at'] ) : null,
 				] : null,
-				// Pages whose address changed since AIVIS crawled them (§11). A fact; AIVIS decides.
+				// Pages whose address changed since Aivis-OS crawled them (§11). A fact; Aivis-OS decides.
 				'moved'        => $moved,
 				'movedCheckedAt' => ! empty( $state['moved_checked_at'] ) ? gmdate( 'c', (int) $state['moved_checked_at'] ) : null,
 			],

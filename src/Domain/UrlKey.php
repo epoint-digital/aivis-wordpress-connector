@@ -1,7 +1,7 @@
 <?php
 /**
  * §07 — the local index key. NOT what goes on the wire: outbound lookups send
- * the permalink unmodified, because AIVIS applies no normalization on purpose.
+ * the permalink unmodified, because Aivis-OS applies no normalization on purpose.
  *
  * @package AivisOS
  */
@@ -70,7 +70,7 @@ final class UrlKey {
 		return hash( 'sha256', self::normalize( $raw ) );
 	}
 
-	/** Exact plus trailing-slash variant — the same tolerance AIVIS applies. */
+	/** Exact plus trailing-slash variant — the same tolerance Aivis-OS applies. */
 	public static function slash_aliases( string $raw ): array {
 		return str_ends_with( $raw, '/' ) ? [ $raw, rtrim( $raw, '/' ) ] : [ $raw, $raw . '/' ];
 	}

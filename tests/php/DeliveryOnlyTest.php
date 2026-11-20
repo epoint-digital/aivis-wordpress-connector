@@ -111,13 +111,13 @@ final class DeliveryOnlyTest extends TestCase {
 	public function test_edit_screen_box_shows_facts_and_offers_nothing_to_click(): void {
 		$box = new ObjectBox( Plugin::instance() );
 		$GLOBALS['wpdb']->rows = [];
-		self::assertStringContainsString( 'Not managed by AIVIS', $box->render( 'post', '7' ) );
+		self::assertStringContainsString( 'Not managed by Aivis-OS', $box->render( 'post', '7' ) );
 		$GLOBALS['wpdb']->rows = [ [ 'url_key' => 'k7', 'source_url' => 'https://example.com/hello/', 'content_hash' => str_repeat( 'b', 64 ), 'source_generated_at' => '2026-09-01 10:00:00', 'published_at' => '2026-09-06 08:00:00', 'verified_at' => null, 'active' => 1, 'suspended_at' => null, 'retired_at' => null, 'last_error_code' => null, 'source_stale' => 0 ] ];
 		( new Options() )->patch_sync_state( [ 'moved' => [ 'k7' => [ 'from' => 'https://example.com/hello/', 'to' => 'https://example.com/hello-new/', 'since' => 1 ] ] ] );
 		$html = $box->render( 'post', '7' );
 		self::assertStringContainsString( 'Injected', $html );
 		self::assertStringContainsString( 'bbbbbbbbbbbb…', $html );
-		self::assertStringContainsString( 'This page moved since AIVIS crawled it.', $html );
+		self::assertStringContainsString( 'This page moved since Aivis-OS crawled it.', $html );
 		self::assertStringContainsString( 'page=aivis-os', $html );
 		self::assertStringNotContainsString( '<input', $html, 'read-only: no controls' );
 		self::assertStringNotContainsString( '<button', $html );

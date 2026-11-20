@@ -31,14 +31,15 @@ final class Commands {
 		}
 		$o = $this->plugin->options();
 		if ( 'none' === $o->token_source() ) {
-			\WP_CLI::error( 'No token. Define AIVIS_API_TOKEN in wp-config.php or set one under AIVIS OS → Settings.' );
+			\WP_CLI::error( 'No token. Define AIVIS_API_TOKEN in wp-config.php or set one under Aivis-OS → Settings.' );
 		}
-		$host = (string) wp_parse_url( $o->api_base(), PHP_URL_HOST );
+		// "the Test environment" / "the Production environment", or a custom host (§11).
+		$host = Options::instance_label( (string) wp_parse_url( $o->api_base(), PHP_URL_HOST ) );
 		$msg  = ( new \AivisOS\Admin\Menu( $this->plugin ) )->test_connection();
 		$ts   = $o->token_status();
 		if ( 'connected' !== $msg ) {
 			$f = $ts['failure'] ?? [ 'detail' => $msg, 'status' => 0 ];
-			\WP_CLI::error( sprintf( '%s — %s (HTTP %d, %s)', \AivisOS\Admin\SettingsPage::failure_label( $ts['failure'] ), $f['detail'], $f['status'], $host ) );
+			\WP_CLI::error( sprintf( '%s — %s (HTTP %d)', \AivisOS\Admin\SettingsPage::failure_label( $ts['failure'] ), Options::name_instances( (string) $f['detail'] ), $f['status'] ) );
 		}
 		$api = $o->api_info();
 		\WP_CLI::success( sprintf(
@@ -53,7 +54,7 @@ final class Commands {
 	}
 
 	/**
-	 * Bind this site to the AIVIS business whose domain matches it, then
+	 * Bind this site to the Aivis-OS business whose domain matches it, then
 	 * assign chains to languages where that is unambiguous. Headless
 	 * counterpart of Settings → Business (§06, §07a).
 	 *
@@ -96,7 +97,7 @@ final class Commands {
 
 		$matching = array_values( array_filter( $all, static fn( array $b ): bool => Options::same_host( (string) wp_parse_url( (string) ( $b['baseUrl'] ?? '' ), PHP_URL_HOST ), $host ) ) );
 		if ( ! $matching ) {
-			\WP_CLI::error( sprintf( 'No business on this account uses %s (%d businesses on the account). A business has exactly one domain in AIVIS: create one for this site, or correct its base URL there. Businesses on other domains are never bound.', $host, count( $all ) ) );
+			\WP_CLI::error( sprintf( 'No business on this account uses %s (%d businesses on the account). A business has exactly one domain in Aivis-OS: create one for this site, or correct its base URL there. Businesses on other domains are never bound.', $host, count( $all ) ) );
 		}
 		$want = isset( $assoc['business'] ) ? (string) $assoc['business'] : '';
 		if ( '' === $want && count( $matching ) > 1 ) {
@@ -210,7 +211,7 @@ final class Commands {
 			) ),
 		] + $counts;
 		if ( ( $assoc['format'] ?? 'table' ) === 'json' ) {
-			// The same document AIVIS fetches from the status endpoint (§11a).
+			// The same document Aivis-OS fetches from the status endpoint (§11a).
 			$doc = new \AivisOS\Rest\StatusDocument( $o, $this->plugin->repository(), $this->plugin->cache() );
 			\WP_CLI::line( (string) wp_json_encode( $doc->build() + [ 'recent' => array_slice( $o->diagnostics(), -10 ) ], JSON_PRETTY_PRINT ) );
 			return;
@@ -272,7 +273,7 @@ final class Commands {
 		if ( 'auto' === $act ) {
 			$r = $a->auto_assign();
 			if ( ! $r['catalog_ok'] ) {
-				\WP_CLI::error( 'AIVIS could not be reached.' );
+				\WP_CLI::error( 'Aivis-OS could not be reached.' );
 			}
 			\WP_CLI::log( sprintf( 'assigned: %s; left to you: %s', $r['assigned'] ? implode( ', ', $r['assigned'] ) : '-', $r['unresolved'] ? implode( ', ', $r['unresolved'] ) : '-' ) );
 		}
@@ -350,7 +351,7 @@ final class Commands {
 	}
 
 	/**
-	 * Show or switch the AIVIS instance this site talks to (test | production).
+	 * Show or switch the Aivis-OS instance this site talks to (test | production).
 	 *
 	 * ## OPTIONS
 	 * [<environment>]
@@ -364,7 +365,7 @@ final class Commands {
 		$o    = $this->plugin->options();
 		$want = strtolower( (string) ( $args[0] ?? '' ) );
 		if ( '' === $want ) {
-			\WP_CLI::log( sprintf( '%s — %s%s', $o->environment(), $o->api_base(), 'constant' === $o->api_base_source() ? ' (fixed by AIVIS_API_BASE_URL)' : '' ) );
+			\WP_CLI::log( 'constant' === $o->api_base_source() ? sprintf( '%s (fixed by AIVIS_API_BASE_URL)', $o->api_base() ) : $o->environment() );
 			return;
 		}
 		if ( ! isset( Options::ENVIRONMENTS[ $want ] ) ) {
@@ -378,11 +379,11 @@ final class Commands {
 			return;
 		}
 		( new \AivisOS\Admin\SettingsPage( $this->plugin ) )->switch_environment( $want );
-		\WP_CLI::success( sprintf( 'Switched to %s (%s). The business is unbound and pages from the other instance stopped serving — run `wp aivis connection test`, then `wp aivis bind`.', $want, Options::ENVIRONMENTS[ $want ] ) );
+		\WP_CLI::success( sprintf( 'Switched to %s. The business is unbound and pages from the other instance stopped serving — run `wp aivis connection test`, then `wp aivis bind`.', $want ) );
 	}
 
 	/**
-	 * The read-only key AIVIS presents to fetch this site's publishing status.
+	 * The read-only key Aivis-OS presents to fetch this site's publishing status.
 	 *
 	 * ## OPTIONS
 	 * [<action>]
@@ -399,7 +400,7 @@ final class Commands {
 		$act = (string) ( $args[0] ?? 'show' );
 		if ( 'regenerate' === $act ) {
 			$o->regenerate_status_key();
-			\WP_CLI::success( 'New status key issued; the old one stops working now. Update it in AIVIS.' );
+			\WP_CLI::success( 'New status key issued; the old one stops working now. Update it in Aivis-OS.' );
 		} elseif ( 'disable' === $act ) {
 			$o->disable_status_key();
 			\WP_CLI::success( 'Status endpoint disabled.' );
@@ -430,7 +431,7 @@ final class Commands {
 	}
 
 	/**
-	 * Re-check one URL against AIVIS right now.
+	 * Re-check one URL against Aivis-OS right now.
 	 *
 	 * ## OPTIONS
 	 * <url>

@@ -63,7 +63,8 @@ final class EnvironmentTest extends TestCase {
 		self::assertSame( 2, $state['last_purge']['count'], 'their caches are purged' );
 		$last = end( WPStub::$options['aivis_os_diagnostics'] );
 		self::assertSame( 'AIVIS_ENVIRONMENT_SWITCHED', $last['code'] );
-		self::assertStringContainsString( 'from production to test (aivis-new.dev.onepoint.ro)', $last['message'] );
+		self::assertStringContainsString( 'from production to test;', $last['message'] );
+		self::assertStringNotContainsString( 'onepoint', $last['message'], 'events name the environment, never the address' );
 	}
 
 	public function test_saving_the_same_environment_changes_nothing(): void {
@@ -90,7 +91,7 @@ final class EnvironmentTest extends TestCase {
 	public function test_cli_environment_shows_and_switches(): void {
 		$c = new Commands( Plugin::instance() );
 		$c->environment( [] );
-		self::assertStringContainsString( 'production — https://app.aivis-os.com', WP_CLI::messages( 'log' )[0] );
+		self::assertSame( 'production', WP_CLI::messages( 'log' )[0], 'the environment by name, never by address' );
 		try {
 			$c->environment( [ 'staging' ] );
 			self::fail( 'unknown environment must be refused' );

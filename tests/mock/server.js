@@ -1,4 +1,4 @@
-// Mock AIVIS Public API v1 — contract 1.9.0.
+// Mock Aivis-OS Public API v1 — contract 1.9.0.
 //
 // Mirrors the vendored tests/fixtures/openapi-v1.json and the behaviour of the
 // merged implementation: stable error codes, version / min-client headers and
@@ -346,5 +346,5 @@ export function createServer() {
 
 if (process.argv[1] && process.argv[1].endsWith('server.js')) {
   const port = Number(process.env.PORT || 8787);
-  createServer().listen(port, () => console.log(`mock AIVIS API on http://127.0.0.1:${port}/api/public/v1`));
+  createServer().listen(port, () => console.log(`mock Aivis-OS API on http://127.0.0.1:${port}/api/public/v1`));
 }

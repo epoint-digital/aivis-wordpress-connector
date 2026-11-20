@@ -19,7 +19,7 @@ final class NotifierTest extends TestCase {
 		$n->sync_completed( [ 'authoritative' => false ] );
 		$scans = array_filter( array_keys( WPStub::$scheduled ), static fn( string $k ): bool => str_starts_with( $k, 'aivis_os_scan_conflicts' ) );
 		self::assertCount( 1, $scans );
-		self::assertSame( [], WPStub::$mail, 'no email: notification policy is AIVIS\'s (WP-I12)' );
+		self::assertSame( [], WPStub::$mail, 'no email: notification policy is Aivis-OS\'s (WP-I12)' );
 		self::assertSame( [], WPStub::$http_log, 'nothing pushed anywhere' );
 		self::assertFalse( method_exists( Notifier::class, 'conflicts_changed' ) );
 		self::assertFalse( method_exists( Options::class, 'notify_email' ) );

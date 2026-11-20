@@ -1,21 +1,45 @@
-# AIVIS WordPress Connector
+# Aivis-OS JSON-LD Delivery
 
-Delivers AIVIS-generated JSON-LD into WordPress pages — synced locally, injected at `wp_head`,
-never fetched on a public request.
+Aivis-OS JSON-LD Delivery publishes the structured data (JSON-LD) that Aivis-OS has prepared for
+your domain, each block on the page it was made for. The plugin does not create structured data
+itself.
+
+Aivis-OS stands for Domain-based AI Source Integrity and is delivered as a Managed Architectural
+Service. Aivis-OS finds contradictions and gaps in the content of a domain, lets the company decide
+what applies, and uses these decisions to produce domain-based rather than URL-based structured
+data. This plugin is the delivery component for WordPress. Learn more at
+[aivis-os.com](https://aivis-os.com/en/).
+
+- [Aivis-OS](https://aivis-os.com/en/) provides the method and the service, from clarifying the
+  content of your domain to the structured data this plugin publishes.
+- [epoint](https://epoint.at), Development & Technology Partner in the
+  [Aivis-OS Network](https://aivis-os.com/en/network/), develops and maintains this plugin.
+
+What the plugin does on your site:
+
+- **External service.** The plugin sends GET requests, carrying the API token you provide, to the
+  Aivis-OS interface. It collects no visitor data, sets no cookies and adds no front-end JavaScript.
+- **One block per page.** A page Aivis-OS has data for gets exactly one
+  `<script type="application/ld+json" data-aivis="1">`; a page it has none for gets nothing.
+- **Hands off other plugins.** Other JSON-LD on the site is found and reported, with where to switch
+  it off. The plugin never changes another plugin or its settings.
+
+Questions about Aivis-OS: [aivis-os.com](https://aivis-os.com/en/). Bug reports and feature requests
+for the plugin: [GitHub issues](https://github.com/epoint-digital/aivis-wordpress-connector/issues).
 
 - **Plugin slug:** `aivis-os`
 - **Requires:** WordPress 6.5–7.1, PHP 8.1–8.5
 - **License:** GPL-2.0-or-later
-- **API contract:** [AIVIS Public API 1.9.0](https://aivis-new.dev.onepoint.ro/api/public/v1/docs) (works down to 1.0.0; business-bound tokens need ≥ 1.3.0)
+- **API contract:** Aivis-OS Public API 1.9.0 or later, vendored as `tests/fixtures/openapi-v1.json` (works down to 1.0.0; business-bound tokens need ≥ 1.3.0)
 
 ## Status
 
-**Built, not yet piloted.** The plugin, its admin screens, WP-CLI, update
-channel, release tooling and documentation are complete against the verified
-API contract. What remains is [#18](https://github.com/epoint-digital/aivis-wordpress-connector/issues/18):
-a pilot on an AIVIS-controlled site with a real page cache, the failure drills
-in the runbook, and the `v1.0.0` tag. Work is tracked as GitHub issues and
-milestones M1–M6.
+**Released.** 1.0.2 is the current version and runs on live sites. Packages are on
+[GitHub Releases](https://github.com/epoint-digital/aivis-wordpress-connector/releases/latest), and
+installed sites update from there through the normal Plugins screen. Start with
+[docs/ONBOARDING.md](docs/ONBOARDING.md) to put it on a site. Work is tracked as GitHub issues; the
+formal pilot with the runbook's failure drills is
+[#18](https://github.com/epoint-digital/aivis-wordpress-connector/issues/18).
 
 ```
 aivis-os.php            bootstrap · Update URI · activation
@@ -41,8 +65,8 @@ docs/         SPECIFICATION · API-REQUIREMENTS · INSTALL · RUNBOOK · KNOWN-I
 |---|---|
 | [docs/ONBOARDING.md](docs/ONBOARDING.md) | Start here to deploy the connector on a site: where to get everything, the steps, and the pitfalls seen in real installs |
 | [docs/SPECIFICATION.md](docs/SPECIFICATION.md) | The source of truth — invariants, API contract, data model, retraction, delivery, acceptance criteria |
-| [docs/API-REQUIREMENTS.md](docs/API-REQUIREMENTS.md) | Extensions requested from the AIVIS platform team |
-| [docs/api-requirements.html](docs/api-requirements.html) | The requirements document handed to the AIVIS platform team — call patterns, load profile, and the eight asks. Published at [claude.ai/code/artifact/cfbb429c](https://claude.ai/code/artifact/cfbb429c-6415-497d-8d55-669fd0f8b5ef) |
+| [docs/API-REQUIREMENTS.md](docs/API-REQUIREMENTS.md) | Extensions requested from the Aivis-OS platform team |
+| [docs/api-requirements.html](docs/api-requirements.html) | The requirements document handed to the Aivis-OS platform team — call patterns, load profile, and the eight asks. Published at [claude.ai/code/artifact/cfbb429c](https://claude.ai/code/artifact/cfbb429c-6415-497d-8d55-669fd0f8b5ef) |
 | [docs/admin-ui.html](docs/admin-ui.html) | Clickable wp-admin prototype of the plugin screens, with every hard state reviewable. Published at [claude.ai/code/artifact/26186cd5](https://claude.ai/code/artifact/26186cd5-b590-4c4d-86a3-a1df1aa8d8c4) |
 | [Program Map (FigJam)](https://www.figma.com/board/zQo3mgU7G8eRrVqsBa2LnP) | The four flows as one picture — sync loop, retraction decision tree, WordPress-behind-Cloudflare composition, API dependencies |
 
@@ -54,7 +78,7 @@ npm test               # JS: 85 unit + serializer fuzz + 52 contract (offline)
 ./scripts/lint.sh      # php -l on every file (Docker if no local PHP)
 ```
 
-The contract suite validates every mock response against AIVIS's own vendored
+The contract suite validates every mock response against Aivis-OS's own vendored
 OpenAPI document, so a mis-shaped mock cannot pass. CI runs the JS suites on
 Node 20/22/24, PHPUnit on PHP 8.1/8.3/8.5, and a version-consistency check;
 a scheduled job diffs the vendored OpenAPI against the live one. See
@@ -67,7 +91,7 @@ wrong: [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ## Distribution restriction (v1)
 
-Use a **business-bound** AIVIS API token (created for one business; it reads nothing else) and the
+Use a **business-bound** Aivis-OS API token (created for one business; it reads nothing else) and the
 plugin may run on customer-managed installs. An **account-wide** token reads every business on the
 account, so it belongs only on sites the account holder controls. Settings shows which kind is
 connected. See §00 and §13 of the specification.
@@ -80,7 +104,7 @@ Status is an overview (is it healthy, what needs me), Pages is a paginated, sear
 
 ## Scope
 
-The plugin is a delivery method. It holds facts only the site can know and performs actions only the site can perform; judgments, histories and policies live in AIVIS (specification WP-I12). If a change adds a decision to the plugin, it belongs in AIVIS instead.
+The plugin is a delivery method. It holds facts only the site can know and performs actions only the site can perform; judgments, histories and policies live in Aivis-OS (specification WP-I12). If a change adds a decision to the plugin, it belongs in Aivis-OS instead.
 
 ## Install with an agent
 

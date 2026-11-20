@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       base:
-        description: AIVIS base URL to check against
+        description: Aivis-OS base URL to check against
         required: false
         default: https://aivis-new.dev.onepoint.ro   # switch to https://app.aivis-os.com when it serves openapi.json
 

@@ -2,7 +2,7 @@
 /**
  * §09 — where injection is allowed. Anything not a normal public front-end
  * HTML GET is out, including a WordPress 404 page (not to be confused with the
- * HTTP 404 from AIVIS that §06 uses as a retraction signal).
+ * HTTP 404 from Aivis-OS that §06 uses as a retraction signal).
  *
  * @package AivisOS
  */

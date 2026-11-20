@@ -2,11 +2,11 @@
 /**
  * §07a — chains and the languages they serve.
  *
- * AIVIS has no multilingual model: a chain is one language, because intents
+ * Aivis-OS has no multilingual model: a chain is one language, because intents
  * and forensic prompts are bound per language. The connector therefore treats
  * "which chain serves which WordPress language" as configuration the admin
  * owns, with two helpers around it: a cached chain catalogue, and the
- * language AIVIS itself reports for each chain (`languageCode`, contract
+ * language Aivis-OS itself reports for each chain (`languageCode`, contract
  * ≥ 1.4.0 / API-10 — the one language its URL rows use, null when they use
  * several). Assignment is automatic only where there is nothing to decide.
  *
@@ -34,7 +34,7 @@ final class ChainAssignment {
 	 * The bound business's chains, briefly cached. Null when the API could
 	 * not be reached (a failed walk is never cached).
 	 *
-	 * `language` is AIVIS's `languageCode` for the chain (null = mixed or
+	 * `language` is Aivis-OS's `languageCode` for the chain (null = mixed or
 	 * undeclared); `languages` the distinct codes on its rows; `declared` the
 	 * codes it was created with.
 	 *
@@ -84,7 +84,7 @@ final class ChainAssignment {
 	}
 
 	/**
-	 * What AIVIS says the chain's language is. `language` is the chain's own
+	 * What Aivis-OS says the chain's language is. `language` is the chain's own
 	 * `languageCode`; when that is null the chain is `mixed` (its rows, or its
 	 * declaration, span more than one language) and `language` names the first
 	 * of them so the admin sees what is there. Unknown chain → nothing known.

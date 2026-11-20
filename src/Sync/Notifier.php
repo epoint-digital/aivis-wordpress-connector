@@ -4,8 +4,8 @@
  * path. That is all this class does now.
  *
  * It used to email the site admin when the set of structured-data conflicts
- * changed. Who gets told what is notification policy, and policy is AIVIS's
- * (WP-I12): AIVIS fetches the status document, which carries the conflicts,
+ * changed. Who gets told what is notification policy, and policy is Aivis-OS's
+ * (WP-I12): Aivis-OS fetches the status document, which carries the conflicts,
  * and decides. Nothing here talks to anyone.
  *
  * @package AivisOS

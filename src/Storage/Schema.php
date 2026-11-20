@@ -28,7 +28,7 @@ final class Schema {
 		// Column list per SPECIFICATION §05, plus two the retraction rules in §06
 		// need but the data-model table omitted: `suspended_at` (R-01 suspends
 		// before it retires) and `last_error_code` (the status screen shows why
-		// a row is holding or suspended). v2 adds the publishing status AIVIS
+		// a row is holding or suspended). v2 adds the publishing status Aivis-OS
 		// fetches (§11a): when the served content last changed, and when a
 		// loopback fetch last saw it on the page. v3 adds the object reference
 		// (post / term / archive) — a fact only the site knows, never identity.

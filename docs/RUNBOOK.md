@@ -1,6 +1,6 @@
 # Runbook
 
-Operational drills for AIVIS OS. Each one names the symptom, what the plugin
+Operational drills for Aivis-OS. Each one names the symptom, what the plugin
 does on its own, what you check, and what you do. Run every drill on the pilot
 site before 1.0.0 (M6).
 
@@ -10,7 +10,7 @@ Quick tools: `wp aivis status`, `wp aivis verify`, `wp aivis sync --all`,
 
 ---
 
-## AIVIS API outage
+## Aivis-OS API outage
 
 **Symptom.** Diagnostics fill with `AIVIS_HTTP_TIMEOUT` / `AIVIS_HTTP_ERROR`;
 the Status screen shows the outage notice.
@@ -29,25 +29,25 @@ several ticks.
 ## Invalid or revoked token
 
 **Symptom.** `AIVIS_AUTH_401` in diagnostics; Settings shows *Token rejected by
-<host>* with the code AIVIS sent (`invalid_token`); Site Health flags it. If the
-chip says *Could not reach <host>* instead, the problem is the environment or
+the … environment* with the code Aivis-OS sent (`invalid_token`); Site Health flags it. If the
+chip says *Could not reach the … environment* instead, the problem is the environment or
 the network, not the token.
 
 **Plugin behaviour.** Syncing stops. Pages keep serving last known good.
 
-**Do.** Create a new token in AIVIS, update `AIVIS_API_TOKEN` in `wp-config.php`
+**Do.** Create a new token in Aivis-OS, update `AIVIS_API_TOKEN` in `wp-config.php`
 (or Settings), *Save & test connection*, then `wp aivis sync --all`. Revoke the old
-token in AIVIS afterwards, not before.
+token in Aivis-OS afterwards, not before.
 
 ## Plugin update required (426)
 
-**Symptom.** `AIVIS_CLIENT_TOO_OLD` in diagnostics; a red *Update AIVIS OS*
+**Symptom.** `AIVIS_CLIENT_TOO_OLD` in diagnostics; a red *Update Aivis-OS*
 notice; Status shows *update required* next to the API row; Site Health
-"AIVIS OS: API contract" is critical. `wp aivis connection test` says so too.
+"Aivis-OS: API contract" is critical. `wp aivis connection test` says so too.
 
-**Plugin behaviour.** AIVIS answers `426 client_too_old` to every request
+**Plugin behaviour.** Aivis-OS answers `426 client_too_old` to every request
 from a connector below its minimum client version. Syncing stops; pages keep
-serving last known good. AIVIS announces a raised minimum in `/changelog`
+serving last known good. Aivis-OS announces a raised minimum in `/changelog`
 ahead of time (`nextMinClient`), which the connector shows as an amber notice
 with the date after each connection test.
 
@@ -55,9 +55,9 @@ with the date after each connection test.
 and `wp aivis sync --all`. The comparison uses the version the instance
 announced, so the flag clears on its own after the update.
 
-## Page unpublished in AIVIS (410 withdrawn)
+## Page unpublished in Aivis-OS (410 withdrawn)
 
-**Symptom.** `AIVIS_RETRACTED` with "unpublished in AIVIS" in diagnostics;
+**Symptom.** `AIVIS_RETRACTED` with "unpublished in Aivis-OS" in diagnostics;
 the page is *inactive* on the Pages screen; its cache was purged.
 
 **Plugin behaviour.** An unpublish is explicit: the artifact endpoints answer
@@ -67,10 +67,10 @@ round — and keeps the row. The change feed carries the unpublish, so it takes
 effect within one sync interval plus the cache purge; a "Refresh this URL now"
 sees the 410 immediately.
 
-**Do.** Nothing. When the page is republished in AIVIS its row is `ready`
+**Do.** Nothing. When the page is republished in Aivis-OS its row is `ready`
 again, the next sync fetches the artifact and the page serves again.
 
-## Malformed artifact from AIVIS
+## Malformed artifact from Aivis-OS
 
 **Symptom.** `AIVIS_SCHEMA_INVALID` against a URL; the page shows *Holding last
 good* with "Last response failed validation".
@@ -79,7 +79,7 @@ good* with "Last response failed validation".
 artifact keeps serving (ZT-06). Nothing reaches the page.
 
 **Do.** `wp aivis refresh <url>` to see the current error. Report the URL to
-AIVIS with the code. No local action makes an invalid artifact valid.
+Aivis-OS with the code. No local action makes an invalid artifact valid.
 
 ## Artifact bound to the wrong business
 
@@ -112,7 +112,7 @@ plugin will not call the page live.
 Re-run `wp aivis verify`. If this recurs, switch the cache adapter under
 Settings or file a bug with the adapter name.
 
-## Retraction (a page unpublished in AIVIS)
+## Retraction (a page unpublished in Aivis-OS)
 
 **Symptom.** Status shows one or more **Suspended** rows and the withdrawal
 notice; `AIVIS_RETRACTED` in diagnostics.
@@ -137,18 +137,18 @@ screen shows the figure.
 
 ## A language has no chain (or a chain has no language)
 
-**Symptom.** Site Health: "AIVIS OS: *Language* has no chain" (critical); Status shows the
-language in red; pages in that language carry no AIVIS block. Or: a sync reports *no chain
+**Symptom.** Site Health: "Aivis-OS: *Language* has no chain" (critical); Status shows the
+language in red; pages in that language carry no Aivis-OS block. Or: a sync reports *no chain
 assigned to a language*, or Status marks a chain "not assigned — not synced".
 
-**Cause.** AIVIS has one chain per language. The connector only syncs chains an administrator
+**Cause.** Aivis-OS has one chain per language. The connector only syncs chains an administrator
 has assigned to a WordPress language; assignment is automatic only when there is nothing to
 decide (one site language, or a chain whose reported language matches exactly one site
 language).
 
 **Fix.** Settings → Languages & chains: pick the language for each chain, save. Or
 `wp aivis languages assign <chain> <lang>`. If the language genuinely has no chain, create one
-in AIVIS and sync. If AIVIS reports a chain's pages in a *different* language than assigned
+in Aivis-OS and sync. If Aivis-OS reports a chain's pages in a *different* language than assigned
 (`AIVIS_LANGUAGE_MISMATCH`), check which side is wrong before changing anything — the
 assignment is kept either way.
 
@@ -169,24 +169,24 @@ kept. Then `wp aivis verify`.
 
 **Do.** Within 30 days: Status → the row → *Restore*, then
 `wp aivis refresh <url>`. After 30 days the row is gone; the next sync will
-re-create it if AIVIS still serves the URL.
+re-create it if Aivis-OS still serves the URL.
 
 ## Suspected token leak
 
-**Do, in order.** Revoke the token in AIVIS. Create a new one. Update
+**Do, in order.** Revoke the token in Aivis-OS. Create a new one. Update
 `wp-config.php`. Search the site's database, logs and any backups made since
 the suspected leak for the old token prefix. The plugin never writes the token
 to any of those, but other software may have.
 
-## Pages moved since AIVIS crawled them
+## Pages moved since Aivis-OS crawled them
 
 **Symptom.** Status → *Moved pages* lists rows; Site Health says N pages moved; the status
 document's `delivery.moved` is non-empty.
 
-**Cause.** A slug, parent or permalink structure changed, or a post was trashed, after AIVIS
-crawled the page. The structured data is keyed to the URL AIVIS has.
+**Cause.** A slug, parent or permalink structure changed, or a post was trashed, after Aivis-OS
+crawled the page. The structured data is keyed to the URL Aivis-OS has.
 
-**Fix.** Nothing on the WordPress side. Re-crawl the page (or the chain) in AIVIS so it learns the
+**Fix.** Nothing on the WordPress side. Re-crawl the page (or the chain) in Aivis-OS so it learns the
 new URL; the old row retires on the following authoritative syncs. If the move was a mistake,
 restoring the old address makes the entry disappear on the next daily check.
 
@@ -202,14 +202,14 @@ survive the push.
 
 The status key reaches nothing but the read-only status document (page URLs
 and their publishing state — never the API token). Still: Settings → Status
-for AIVIS → *Regenerate* (or `wp aivis status-key regenerate`), then enter the
-new key in AIVIS. The old key stops working immediately. *Disable* makes the
+for Aivis-OS → *Regenerate* (or `wp aivis status-key regenerate`), then enter the
+new key in Aivis-OS. The old key stops working immediately. *Disable* makes the
 endpoint answer 404 until a key is issued again.
 
-## AIVIS cannot fetch the status
+## Aivis-OS cannot fetch the status
 
-**401** — the key AIVIS holds is not this site's current key (regenerated, or a
-staging clone with its own key). Copy the key from Settings → Status for AIVIS.
+**401** — the key Aivis-OS holds is not this site's current key (regenerated, or a
+staging clone with its own key). Copy the key from Settings → Status for Aivis-OS.
 **404** — the endpoint is disabled, or the site's REST API is blocked by a
 security plugin or the host (`/wp-json/` must be reachable). **Empty
 `items`** — nothing synced yet.

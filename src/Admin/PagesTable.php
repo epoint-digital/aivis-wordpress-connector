@@ -128,7 +128,7 @@ final class PagesTable extends \WP_List_Table {
 		}
 		echo '<label for="aivis-bulk" class="screen-reader-text">' . esc_html__( 'Bulk action', 'aivis-os' ) . '</label>';
 		echo '<select name="aivis_bulk" id="aivis-bulk"><option value="">' . esc_html__( 'Bulk actions', 'aivis-os' ) . '</option>';
-		echo '<option value="refresh">' . esc_html__( 'Refresh from AIVIS now', 'aivis-os' ) . '</option>';
+		echo '<option value="refresh">' . esc_html__( 'Refresh from Aivis-OS now', 'aivis-os' ) . '</option>';
 		echo '<option value="disable">' . esc_html__( 'Disable here', 'aivis-os' ) . '</option>';
 		echo '<option value="restore">' . esc_html__( 'Restore', 'aivis-os' ) . '</option></select> ';
 		submit_button( __( 'Apply', 'aivis-os' ), 'action', '', false, [ 'id' => 'aivis-bulk-apply' ] );
@@ -209,7 +209,7 @@ final class PagesTable extends \WP_List_Table {
 
 	public function no_items(): void {
 		if ( 'attention' === $this->filters['state'] ) {
-			esc_html_e( 'Nothing needs you. Every page is either injected as AIVIS generated it, or retired on purpose.', 'aivis-os' );
+			esc_html_e( 'Nothing needs you. Every page is either injected as Aivis-OS generated it, or retired on purpose.', 'aivis-os' );
 			return;
 		}
 		esc_html_e( 'No pages match.', 'aivis-os' );

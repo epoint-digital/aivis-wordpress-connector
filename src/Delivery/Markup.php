@@ -21,7 +21,7 @@ final class Markup {
 	}
 
 	/**
-	 * The content of the first genuine AIVIS JSON-LD element, or null when
+	 * The content of the first genuine Aivis-OS JSON-LD element, or null when
 	 * the page has none. Untrimmed: the stored bytes are compared exactly.
 	 */
 	public static function aivis_block( string $html ): ?string {
@@ -42,7 +42,7 @@ final class Markup {
 		return null;
 	}
 
-	/** The hash the page declares for its AIVIS block, if any (§11 data-aivis-hash). */
+	/** The hash the page declares for its Aivis-OS block, if any (§11 data-aivis-hash). */
 	public static function aivis_hash( string $html ): ?string {
 		$clean = self::strip_comments( $html );
 		if ( preg_match( '#<script\b([^>]*\bdata-aivis\s*=\s*["\']?1["\']?[^>]*)>#i', $clean, $m ) && preg_match( '#\bdata-aivis-hash\s*=\s*["\']([a-f0-9]{64})["\']#i', $m[1], $h ) ) {
@@ -52,7 +52,7 @@ final class Markup {
 	}
 
 	/**
-	 * Does the page serve exactly these bytes as its AIVIS block?
+	 * Does the page serve exactly these bytes as its Aivis-OS block?
 	 * `present` distinguishes "block missing" from "block differs".
 	 *
 	 * @return array{present:bool, current:bool}
