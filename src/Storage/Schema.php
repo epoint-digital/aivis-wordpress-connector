@@ -12,7 +12,7 @@ namespace AivisOS\Storage;
 final class Schema {
 
 	/** Bump when the table definition changes; dbDelta reconciles the rest. */
-	public const VERSION = '3';
+	public const VERSION = '4';
 
 	public static function table(): string {
 		global $wpdb;
@@ -32,6 +32,8 @@ final class Schema {
 		// fetches (§11a): when the served content last changed, and when a
 		// loopback fetch last saw it on the page. v3 adds the object reference
 		// (post / term / archive) — a fact only the site knows, never identity.
+		// v4 adds which pipeline built the stored document (§06a) and the ETag it
+		// came with, for conditional requests (API-8).
 		$sql = "CREATE TABLE {$table} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 			url_key char(64) NOT NULL,
@@ -57,6 +59,8 @@ final class Schema {
 			verified_hash char(64) NULL,
 			object_type varchar(16) NULL,
 			object_id varchar(191) NULL,
+			pipeline varchar(8) NOT NULL DEFAULT 'v1',
+			source_etag varchar(191) NULL,
 			PRIMARY KEY  (id),
 			KEY object_ref (object_type,object_id),
 			UNIQUE KEY url_key (url_key),

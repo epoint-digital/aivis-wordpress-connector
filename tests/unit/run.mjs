@@ -64,6 +64,27 @@ await test('426 client_too_old holds (nothing is removed because the plugin is o
 });
 await test('429 rate_limited holds', () => eq(decideFromLookup({ status: 429, body: coded(CODE.RATE_LIMITED), apiReachable: true }).action, Action.HOLD, 'action'));
 
+heading('decideFromInventory: another pipeline than v1 (rowTellsReadiness: false)');
+test('a row whose v1 document is missing does not take the block down', () => {
+  const row = { captureStatus: 'processed', jsonLd: { ready: false, stale: false, generatedAt: null, suppressedAt: null } };
+  eq(decideFromInventory({ authoritative: true, row, missingCompleteRuns: 0 }).action, Action.DEACTIVATE, 'v1');
+  const d = decideFromInventory({ authoritative: true, row, missingCompleteRuns: 0, rowTellsReadiness: false });
+  eq(d.action, Action.HOLD, 'action'); eq(d.rule, 'R-02b', 'rule');
+});
+test('a row whose v1 document is ready does not serve by itself either', () => {
+  const row = { captureStatus: 'processed', jsonLd: { ready: true, stale: false, generatedAt: '2026-09-01T00:00:00Z', suppressedAt: null } };
+  eq(decideFromInventory({ authoritative: true, row, missingCompleteRuns: 0, rowTellsReadiness: false }).action, Action.HOLD, 'the lookup decides');
+});
+test('unpublish is one decision for every pipeline', () => {
+  const row = { captureStatus: 'processed', jsonLd: { ready: false, stale: false, generatedAt: null, suppressedAt: '2026-11-20T10:00:00Z' } };
+  const d = decideFromInventory({ authoritative: true, row, missingCompleteRuns: 0, rowTellsReadiness: false });
+  eq(d.action, Action.DEACTIVATE, 'action'); eq(d.rule, 'R-02a', 'rule');
+});
+test('absence and partial walks are unchanged', () => {
+  eq(decideFromInventory({ authoritative: true, row: null, missingCompleteRuns: 1, rowTellsReadiness: false }).action, Action.RETIRE, 'second absence');
+  eq(decideFromInventory({ authoritative: false, row: null, missingCompleteRuns: 1, rowTellsReadiness: false }).action, Action.HOLD, 'partial');
+});
+
 heading('decideFromInventory: suppressedAt and open enums');
 await test('ready:false + suppressedAt deactivates even while the capture is processing', () => {
   const row = { jsonLd: { ready: false, suppressedAt: '2026-09-08T10:00:00Z' }, captureStatus: 'processing' };

@@ -35,4 +35,8 @@ final class ErrorCode {
 	public const ENVIRONMENT_SWITCHED = 'AIVIS_ENVIRONMENT_SWITCHED';
 	/** §11: a page's address changed since Aivis-OS crawled it; reported, never acted on. */
 	public const URL_MOVED           = 'AIVIS_URL_MOVED';
+	/** §06a — the admin chose another pipeline; the next sync walks everything. */
+	public const PIPELINE_SWITCHED    = 'AIVIS_PIPELINE_SWITCHED';
+	/** §06a — the selected instance does not offer the chosen pipeline (contract too old). */
+	public const PIPELINE_UNAVAILABLE = 'AIVIS_PIPELINE_UNAVAILABLE';
 }

@@ -34,6 +34,7 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | **API-9** | Fetch the connector's publishing status (site-served, key-gated) | Medium — fetcher on the Aivis-OS side; the connector pushes nothing |
 | **API-10** | `languageCode` on the chain resource | Medium — makes chain → language assignment exact instead of sampled |
 | **API-11** | Versioning and compatibility policy | **High** — nothing else in this list can ship safely without it |
+| **API-12** | v2 state in the inventory and the change feed | Medium — recorded 2026-11-21, **not filed with the Aivis-OS team yet**. Without it a site that delivers v2 has to ask every page on every sync |
 
 ### Outcome (2026-09-09)
 
@@ -42,7 +43,7 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | API-1 | 1.3.0 — business-bound tokens; `/me` returns `businessId`, `business`, `permissions` | Settings and CLI show the bound business; the customer-managed install restriction is lifted for bound tokens |
 | API-2 | 1.5.0 — `410 withdrawn`; `jsonLd.suppressedAt` + `ready:false` on inventory rows | R-01b: deactivate at once, keep the row, resume on republish; R-02a honours `suppressedAt` |
 | API-3 | 1.1.0 — `error.code` on every error; open enum | Classification branches on the code; the 1.0.0 messages remain as fallback |
-| API-4 | 1.8.0 — `ETag` / `If-None-Match` / 304, `Cache-Control: private, no-cache` | Not sent by the connector: its inventory diff already avoids re-fetching an unchanged artifact; a 304 saves the transfer, not the lookup |
+| API-4 | 1.8.0 — `ETag` / `If-None-Match` / 304, `Cache-Control: private, no-cache` | With v1: not sent, the inventory diff already avoids re-fetching an unchanged artifact. With v2 (since 1.11.0): sent on every page, because nothing else says whether a v2 document changed (SPECIFICATION §06a, P-06) |
 | API-5 | 1.6.0 — `GET /urls/{urlId}`, `?url=` on the chain listing, `chainId`/`businessId` on rows | Refresh and on-demand lookups go through the page's language chains (`?url=`), never `/jsonld?url=`; rows are business-pinned |
 | API-6 | 1.7.0 — `?updatedSince=` change feed (no tombstones; ping declined for v1) | Incremental walks between full walks (every 6 h); an unpublish arrives within one interval |
 | API-7 | 1.9.0 — 600/60 s per token, `429 rate_limited` + `Retry-After`, `X-RateLimit-*` | The tick yields on 429 and below 20 remaining requests |
@@ -444,6 +445,45 @@ failure; nightly drift job. A runtime check that reads the version and minimum-c
 surfaces them in Site Health is planned on the connector side and lands the day the headers exist.
 
 ---
+
+## API-12 — v2 state in the inventory and the change feed
+
+**Status:** recorded 2026-11-21 while building the pipeline choice (SPECIFICATION §06a). Not filed
+with the Aivis-OS team.
+
+### Current behaviour
+
+Contract 1.11.0 (aivis#392) serves the Universal Pipeline's document on `GET /urls/{urlId}/jsonld/v2`
+and `GET /jsonld/v2?url=`. Read against `epoint-digital/aivis@7faf505`:
+
+- An inventory row's `jsonLd{ready, stale, generatedAt}` describes the v1 artifact
+  (`UrlJsonLdArtifact`). The v2 document lives in `V2Page` and is not on the row.
+- The change feed (`?updatedSince=`, `lib/public-api/change-feed.ts`) matches on the URL row, its
+  default version and the v1 artifact. A v2 document that is built or rebuilt matches none of them.
+- `suppressedAt` and 410 `withdrawn` cover both pipelines, so unpublish is reported as before.
+
+### Why it matters
+
+A consumer that delivers v2 cannot learn from the inventory which pages have a v2 document, nor
+from the feed which v2 documents changed. The connector therefore walks the whole inventory and
+asks every published page on every sync (§06a, P-01 and P-02). Conditional requests keep the
+transfer small, but the request count is one per page per run: fine for a hundred pages, not for
+thousands at a 15-minute interval. The same will hold for every other consumer of v2.
+
+### Proposed contract
+
+1. On the inventory row, beside `jsonLd`, the same facts for v2, for example
+   `jsonLdV2{ready, stale, generatedAt}` (`suppressedAt` stays where it is: one decision).
+2. In the change feed, a row whose v2 document was built, rebuilt or turned stale counts as
+   changed.
+
+Either alone already helps: (1) lets a full walk skip unchanged pages; (2) lets a v2 site use the
+feed between full walks, as a v1 site does.
+
+### Until then
+
+Full walks and one conditional request per published page (§06a). When the fields arrive, P-01 and
+P-02 fall back to the v1 rules of §06 and the cost note in §06a goes away.
 
 ## What the connector does in the meantime
 

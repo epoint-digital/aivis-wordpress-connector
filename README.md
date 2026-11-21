@@ -30,7 +30,7 @@ for the plugin: [GitHub issues](https://github.com/epoint-digital/aivis-wordpres
 - **Plugin slug:** `aivis-os`
 - **Requires:** WordPress 6.5–7.1, PHP 8.1–8.5
 - **License:** GPL-2.0-or-later
-- **API contract:** Aivis-OS Public API 1.9.0 or later, vendored as `tests/fixtures/openapi-v1.json` (works down to 1.0.0; business-bound tokens need ≥ 1.3.0)
+- **API contract:** Aivis-OS Public API 1.9.0 or later; 1.11.0 for the pipeline choice. Vendored as `tests/fixtures/openapi-v1.json` (works down to 1.0.0; business-bound tokens need ≥ 1.3.0)
 
 ## Status
 
@@ -73,7 +73,7 @@ docs/         SPECIFICATION · API-REQUIREMENTS · INSTALL · RUNBOOK · KNOWN-I
 ## Tests
 
 ```bash
-npm test               # JS: 85 unit + serializer fuzz + 52 contract (offline)
+npm test               # JS: 89 unit + serializer fuzz + 58 contract (offline)
 ./scripts/phpunit.sh   # PHPUnit (Docker if no local PHP)
 ./scripts/lint.sh      # php -l on every file (Docker if no local PHP)
 ```

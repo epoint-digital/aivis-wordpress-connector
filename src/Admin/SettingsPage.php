@@ -139,6 +139,16 @@ final class SettingsPage {
 
 				<div class="postbox"><h2 class="hndle"><?php esc_html_e( 'Delivery', 'aivis-os' ); ?></h2><div class="inside">
 					<table class="form-table" role="presentation">
+						<tr><th scope="row"><label for="aivis_pipeline"><?php esc_html_e( 'JSON-LD pipeline', 'aivis-os' ); ?></label></th><td>
+							<select id="aivis_pipeline" name="pipeline">
+								<?php foreach ( \AivisOS\Storage\Options::PIPELINES as $p ) : ?>
+									<option value="<?php echo esc_attr( $p ); ?>" <?php selected( $o->pipeline(), $p ); ?>><?php echo esc_html( \AivisOS\Storage\Options::pipeline_label( $p ) ); ?></option>
+								<?php endforeach; ?>
+							</select>
+							<?php if ( 'v1' !== $o->pipeline() && false === $o->pipeline_available( $o->pipeline() ) ) : ?><span class="aivis-chip aivis-chip--bad"><?php esc_html_e( 'Not offered by this instance', 'aivis-os' ); ?></span>
+							<?php elseif ( 'v1' !== $o->pipeline() ) : ?><span class="aivis-chip aivis-chip--warn"><?php esc_html_e( 'Test pipeline', 'aivis-os' ); ?></span><?php endif; ?>
+							<p class="description"><?php esc_html_e( 'Which Aivis-OS pipeline this site delivers structured data from. The Universal Pipeline (V2) runs beside the standard one as a test. With V2 selected, every page is asked for its own document on each sync. A page that has no V2 document yet keeps the block it has, and Status counts those pages. Unpublishing a page in Aivis-OS removes its block with either pipeline. Switching removes nothing by itself.', 'aivis-os' ); ?></p>
+						</td></tr>
 						<tr><th scope="row"><?php esc_html_e( 'Injection', 'aivis-os' ); ?></th><td>
 							<label><input type="checkbox" name="injection" value="1" <?php checked( $o->injection_enabled() ); ?>> <?php esc_html_e( 'Add Aivis-OS structured data to pages on this site', 'aivis-os' ); ?></label>
 							<p class="description"><?php echo wp_kses_post( __( 'One <code>&lt;script type="application/ld+json" data-aivis="1"&gt;</code> in the page head. Existing structured data from your theme or SEO plugin is never read or changed.', 'aivis-os' ) ); ?></p>
@@ -258,6 +268,9 @@ final class SettingsPage {
 			$o->set_injection_enabled( $injection );
 			$this->plugin->synchronizer()->purge( $this->plugin->repository()->active_urls() );
 		}
+		if ( isset( $post['pipeline'] ) ) {
+			$this->switch_pipeline( sanitize_key( (string) $post['pipeline'] ) );
+		}
 		$o->set_on_demand_enabled( ! empty( $post['on_demand'] ) );
 		$interval = (int) ( $post['interval'] ?? 900 );
 		if ( $interval !== $o->sync_interval() ) {
@@ -296,6 +309,27 @@ final class SettingsPage {
 			$this->save_chain_languages( (array) $post['chain_lang'] );
 		}
 		return 'saved';
+	}
+
+	/**
+	 * §06a — deliver another pipeline's documents from now on. Nothing is taken
+	 * down here: each block stays until the chosen pipeline's document for that
+	 * page replaces it, and a page the chosen pipeline has no document for
+	 * keeps the block it has. A run in flight was fetching the other pipeline's
+	 * documents, so it is dropped and the next one walks everything.
+	 *
+	 * @return bool True when the pipeline changed.
+	 */
+	public function switch_pipeline( string $pipeline ): bool {
+		$o    = $this->plugin->options();
+		$from = $o->pipeline();
+		if ( ! $o->set_pipeline( $pipeline ) ) {
+			return false;
+		}
+		$o->patch_sync_state( [ 'in_progress' => '', 'inventory' => [], 'chains' => null, 'pending' => [], 'force_full' => true, 'pipeline_unavailable' => false ] );
+		$o->record( ErrorCode::PIPELINE_SWITCHED, sprintf( 'switched from %s to %s; the next sync asks for every page again, nothing was removed', Options::pipeline_label( $from ), Options::pipeline_label( $pipeline ) ) );
+		Scheduler::request_sync_now();
+		return true;
 	}
 
 	/**

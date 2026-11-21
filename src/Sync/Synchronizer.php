@@ -55,6 +55,8 @@ final class Synchronizer {
 
 	private float $started = 0.0;
 	private bool $api_reachable = false;
+	/** §06a — the pipeline this run delivers; fixed when the run starts. */
+	private string $pipeline = 'v1';
 	/** @var list<string> */
 	private array $purge = [];
 	private readonly ChainAssignment $assignment;
@@ -118,9 +120,10 @@ final class Synchronizer {
 			$sync_id = (string) ( $state['in_progress'] ?? '' );
 			if ( '' === $sync_id ) {
 				$sync_id = wp_generate_uuid4();
-				$mode    = $this->next_mode( $state );
+				$mode    = $this->next_mode( $state, $this->options->pipeline() );
 				$state   = [
 					'in_progress' => $sync_id,
+					'pipeline'    => $this->options->pipeline(), // §06a: one pipeline per run
 					'mode'        => $mode,  // full | incremental (§06)
 					'since'       => 'incremental' === $mode ? gmdate( 'Y-m-d\\TH:i:s\\Z', (int) $state['last_run_started_at'] - self::FEED_MARGIN ) : null,
 					'force_full'  => false,
@@ -135,6 +138,8 @@ final class Synchronizer {
 				];
 				$this->options->patch_sync_state( $state );
 			}
+
+			$this->pipeline = in_array( (string) ( $state['pipeline'] ?? '' ), Options::PIPELINES, true ) ? (string) $state['pipeline'] : 'v1';
 
 			if ( 'inventory' === $state['phase'] ) {
 				$state = $this->walk_inventory( $state, $biz['business_id'] );
@@ -161,6 +166,9 @@ final class Synchronizer {
 
 			$mode          = (string) ( $state['mode'] ?? 'full' );
 			$authoritative = $this->reconciles( $state );
+			// R-03: an unpublish does not wait behind the artifact queue. With every
+			// page asked on every run (§06a) that queue is the whole site.
+			$this->deactivate_unpublished( (array) $state['inventory'] );
 			$fetched       = $this->fetch_artifacts( $state, $biz, $sync_id );
 			$this->options->patch_sync_state( $state );
 
@@ -207,6 +215,7 @@ final class Synchronizer {
 				'ok'            => true,
 				'sync_id'       => $sync_id,
 				'mode'          => $mode,
+				'pipeline'      => $this->pipeline,
 				'authoritative' => $authoritative,
 				'fetched'       => $fetched,
 				'retired'       => $retired,
@@ -238,7 +247,11 @@ final class Synchronizer {
 		if ( ! $this->options->assigned_chain_ids() ) {
 			return [ 'ok' => false, 'error' => 'no chain assigned to a language' ];
 		}
-		$sync_id = 'manual-' . wp_generate_uuid4();
+		$sync_id        = 'manual-' . wp_generate_uuid4();
+		$this->pipeline = $this->options->pipeline();
+		if ( 'v1' !== $this->pipeline && ! $this->pipeline_offered() ) {
+			return [ 'ok' => false, 'error' => 'the selected instance does not offer the chosen pipeline' ];
+		}
 		[ $chains, $context ] = $this->chains_for_url( $absolute_url );
 		if ( [] === $chains ) {
 			$out = $this->apply_lookup( $absolute_url, new Response( 404, null ), $biz, $sync_id, [], $context );
@@ -280,8 +293,10 @@ final class Synchronizer {
 				// Aivis-OS answered and no chain of this language holds the page: R-01.
 				: new Response( 404, [ 'error' => [ 'code' => Response::CODE_URL_NOT_FOUND, 'message' => Response::NOT_FOUND ] ] );
 			$out = $this->apply_lookup( $absolute_url, $r, $biz, $sync_id, $chains, $context );
-		} elseif ( ! empty( $best['jsonLd']['ready'] ) ) {
-			$r = $this->client->jsonld_by_id( (string) $best['urlId'] );
+		} elseif ( 'v1' === $this->pipeline ? ! empty( $best['jsonLd']['ready'] ) : empty( $best['jsonLd']['suppressedAt'] ) ) {
+			// v1: the row says there is a document. Any other pipeline: the row cannot
+			// say, so a published page is asked (§06a).
+			$r = $this->client->jsonld_by_id( (string) $best['urlId'], $this->pipeline );
 			$this->api_reachable = $this->api_reachable || 200 === $r->status;
 			$out = $this->apply_lookup( $absolute_url, $r, $biz, $sync_id, $chains, $context );
 		} else {
@@ -296,9 +311,16 @@ final class Synchronizer {
 	 * complete happened yet, when the last full walk is older than
 	 * FULL_WALK_EVERY, or when one was requested (`wp aivis sync --full`).
 	 *
+	 * With another pipeline than v1 every run is a full walk (§06a): the feed
+	 * reports changes of the v1 document only, so a v2 document that was built
+	 * or rebuilt never appears in it.
+	 *
 	 * @param array<string,mixed> $state
 	 */
-	private function next_mode( array $state ): string {
+	private function next_mode( array $state, string $pipeline = 'v1' ): string {
+		if ( 'v1' !== $pipeline ) {
+			return 'full';
+		}
 		$last_full  = (int) ( $state['last_full_at'] ?? 0 );
 		$last_start = (int) ( $state['last_run_started_at'] ?? 0 );
 		/**
@@ -511,7 +533,20 @@ final class Synchronizer {
 	 */
 	private function select_targets( array $state ): array {
 		$targets = [];
+		$v1      = 'v1' === $this->pipeline;
+		if ( ! $v1 && ! $this->pipeline_offered() ) {
+			return [];
+		}
 		foreach ( (array) $state['inventory'] as $key => $row ) {
+			if ( ! $v1 ) {
+				// §06a: `ready`, `stale` and `generatedAt` describe the v1 document. For
+				// any other pipeline the row says only that the page exists and whether
+				// it is unpublished, so every published page is asked for its document.
+				if ( empty( $row['jsonLd']['suppressedAt'] ) ) {
+					$targets[] = (string) $key;
+				}
+				continue;
+			}
 			if ( empty( $row['jsonLd']['ready'] ) ) {
 				continue;
 			}
@@ -522,7 +557,8 @@ final class Synchronizer {
 			}
 			$remote_gen = $row['jsonLd']['generatedAt'] ? gmdate( 'Y-m-d H:i:s', (int) strtotime( (string) $row['jsonLd']['generatedAt'] ) ) : null;
 			$stale      = ! empty( $row['jsonLd']['stale'] ) ? 1 : 0;
-			if ( $local['source_generated_at'] !== $remote_gen || (int) $local['source_stale'] !== $stale || ! empty( $local['suspended_at'] ) || null !== $local['last_error_code'] ) {
+			// A block another pipeline built is fetched again whatever the dates say (§06a).
+			if ( $local['source_generated_at'] !== $remote_gen || (int) $local['source_stale'] !== $stale || ! empty( $local['suspended_at'] ) || null !== $local['last_error_code'] || 'v1' !== (string) ( $local['pipeline'] ?? 'v1' ) ) {
 				$targets[] = (string) $key;
 			}
 		}
@@ -553,8 +589,9 @@ final class Synchronizer {
 			// freshest artifact across every chain (and business) on the account,
 			// which with one chain per language can be another language's page.
 			$url_id = (string) ( $row['urlId'] ?? '' );
-			$r      = '' !== $url_id ? $this->client->jsonld_by_id( $url_id ) : $this->client->jsonld_by_url( (string) $row['url'] );
-			if ( 200 === $r->status ) {
+			$etag   = $this->etag_for( $key );
+			$r      = '' !== $url_id ? $this->client->jsonld_by_id( $url_id, $this->pipeline, $etag ) : $this->client->jsonld_by_url( (string) $row['url'], $this->pipeline, $etag );
+			if ( 200 === $r->status || 304 === $r->status ) {
 				$this->api_reachable = true;
 			}
 			// ZT-03 chain context: the chains assigned to this page's language.
@@ -603,8 +640,15 @@ final class Synchronizer {
 		if ( 'url_gone' === $r->kind() && ! $this->api_reachable ) {
 			$this->api_reachable = $this->client->reachable();
 		}
+		$local = $this->repository->find_by_key( $key );
+		if ( 'not_modified' === $r->kind() ) {
+			// 304 to our own ETag (API-8): the stored document is the current one.
+			if ( $local ) {
+				$this->repository->mark_seen( $key, $sync_id );
+			}
+			return [ 'ok' => true, 'action' => 'keep' ];
+		}
 		$decision = Decision::from_lookup( $r, $this->api_reachable );
-		$local    = $this->repository->find_by_key( $key );
 
 		switch ( $decision['action'] ) {
 			case Action::SERVE:
@@ -640,6 +684,8 @@ final class Synchronizer {
 						'local_post_id'       => $this->post_id_for( $url ),
 						'object_type'         => ( $ref = ObjectResolver::for_url( $url ) )['type'] ?? null,
 						'object_id'           => $ref['id'] ?? null,
+						'pipeline'            => $this->pipeline,
+						'source_etag'         => $r->etag(),
 						'sync_id'             => $sync_id,
 					],
 					$serialized
@@ -679,6 +725,19 @@ final class Synchronizer {
 
 			case Action::HOLD:
 			default:
+				if ( 'not_generated' === $decision['kind'] && 'v1' !== $this->pipeline ) {
+					// §06a: every page is asked, so "no document yet" is the usual answer for
+					// part of a site, not an event. The block the page has stays (R-01a); the
+					// row is marked once and said once, and a page with nothing stored is
+					// not reported at all.
+					if ( $local && ErrorCode::NOT_GENERATED !== $local['last_error_code'] ) {
+						$this->repository->mark_hold( $key, ErrorCode::NOT_GENERATED, $sync_id );
+						$this->options->record( ErrorCode::NOT_GENERATED, sprintf( 'no %s document for this page yet; the block it has stays', Options::pipeline_label( $this->pipeline ) ), $url );
+					} elseif ( $local ) {
+						$this->repository->mark_seen( $key, $sync_id );
+					}
+					return [ 'ok' => true, 'action' => 'hold', 'rule' => $decision['rule'], 'kind' => $decision['kind'] ];
+				}
 				if ( $local ) {
 					$code = match ( $decision['kind'] ) {
 						'not_generated'  => ErrorCode::NOT_GENERATED,
@@ -735,6 +794,27 @@ final class Synchronizer {
 	/* ── phase 3: reconciliation and retirement ──────────────────────── */
 
 	/**
+	 * Rows the walk reports as unpublished (`suppressedAt`, R-02a) stop serving
+	 * before any document is fetched. Idempotent: a tick that continues a run
+	 * finds them already down.
+	 *
+	 * @param array<string,array<string,mixed>> $inventory
+	 */
+	private function deactivate_unpublished( array $inventory ): void {
+		foreach ( $inventory as $key => $row ) {
+			if ( empty( $row['jsonLd']['suppressedAt'] ) ) {
+				continue;
+			}
+			$local = $this->repository->find_by_key( (string) $key );
+			if ( $local && 1 === (int) $local['active'] ) {
+				$this->repository->deactivate( (string) $key, ErrorCode::RETRACTED );
+				$this->purge[] = (string) $row['url'];
+				$this->options->record( ErrorCode::RETRACTED, 'unpublished in Aivis-OS; injection stopped, cache purged', (string) $row['url'] );
+			}
+		}
+	}
+
+	/**
 	 * Rows the walk saw: apply R-02a and clear stale suspicions. Runs after a
 	 * full walk and after a change-feed walk alike — a row that arrived is
 	 * authoritative for itself.
@@ -747,7 +827,7 @@ final class Synchronizer {
 			if ( null === $local ) {
 				continue;
 			}
-			$d = Decision::from_inventory( true, $row, (int) $local['missing_complete_runs'] );
+			$d = Decision::from_inventory( true, $row, (int) $local['missing_complete_runs'], false, 'v1' === $this->pipeline );
 			if ( Action::DEACTIVATE === $d['action'] && (int) $local['active'] === 1 ) {
 				$this->repository->deactivate( (string) $key, ErrorCode::RETRACTED );
 				$this->purge[] = (string) $row['url'];
@@ -774,7 +854,7 @@ final class Synchronizer {
 	private function apply_row( string $url, array $row, string $sync_id ): array {
 		$key   = UrlKey::of( $url );
 		$local = $this->repository->find_by_key( $key );
-		$d     = Decision::from_inventory( true, $row, (int) ( $local['missing_complete_runs'] ?? 0 ) );
+		$d     = Decision::from_inventory( true, $row, (int) ( $local['missing_complete_runs'] ?? 0 ), false, 'v1' === $this->pipeline );
 		$capture = (string) ( $row['captureStatus'] ?? 'never captured' );
 		if ( Action::DEACTIVATE === $d['action'] ) {
 			if ( $local && (int) $local['active'] === 1 ) {
@@ -908,6 +988,48 @@ final class Synchronizer {
 			$detail = '' !== $r->code() ? $r->code() . ': ' . $r->message() : ( $r->message() ?: $r->transport_error ?: ( 'HTTP ' . $r->status ) );
 			$this->options->record( $code, $detail, $ctx );
 		}
+	}
+
+	/**
+	 * §06a — does the selected instance offer this run's pipeline? Unknown
+	 * (no response announced a contract version yet) counts as yes: a route an
+	 * instance does not have answers a 404 we cannot attribute, which holds.
+	 * A known "no" is said once and asks nothing; what is served stays served.
+	 */
+	private function pipeline_offered(): bool {
+		$noted = ! empty( $this->options->sync_state()['pipeline_unavailable'] );
+		if ( false !== $this->options->pipeline_available( $this->pipeline ) ) {
+			if ( $noted ) {
+				$this->options->patch_sync_state( [ 'pipeline_unavailable' => false ] );
+			}
+			return true;
+		}
+		if ( ! $noted ) {
+			$this->options->patch_sync_state( [ 'pipeline_unavailable' => true ] );
+			$this->options->record(
+				ErrorCode::PIPELINE_UNAVAILABLE,
+				sprintf( '%1$s needs API contract %2$s; this instance reports %3$s. Nothing is fetched and what is served stays served', Options::pipeline_label( $this->pipeline ), Options::PIPELINE_MIN_CONTRACT[ $this->pipeline ] ?? '?', $this->options->api_info()['version'] )
+			);
+		}
+		return false;
+	}
+
+	/**
+	 * The ETag to offer for a page (API-8), or null. Only where every page is
+	 * asked on every run (§06a), only for a healthy block, and only the ETag of
+	 * a document the same pipeline built: the other route would compare it with
+	 * another document.
+	 */
+	private function etag_for( string $url_key ): ?string {
+		if ( 'v1' === $this->pipeline ) {
+			return null;
+		}
+		$local = $this->repository->find_by_key( $url_key );
+		if ( null === $local || (string) ( $local['pipeline'] ?? 'v1' ) !== $this->pipeline || 1 !== (int) $local['active'] || ! empty( $local['suspended_at'] ) || ! empty( $local['retired_at'] ) || null !== $local['last_error_code'] ) {
+			return null;
+		}
+		$etag = (string) ( $local['source_etag'] ?? '' );
+		return '' !== $etag ? $etag : null;
 	}
 
 	private function host_matches( string $a, string $b ): bool {

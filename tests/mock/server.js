@@ -1,4 +1,4 @@
-// Mock Aivis-OS Public API v1 — contract 1.9.0.
+// Mock Aivis-OS Public API v1 — contract 1.11.0.
 //
 // Mirrors the vendored tests/fixtures/openapi-v1.json and the behaviour of the
 // merged implementation: stable error codes, version / min-client headers and
@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import { businesses, chains, urls, tokens } from './data.js';
 
 const PREFIX = 'aivis_';
-export const API_VERSION = '1.10.0';
+export const API_VERSION = '1.11.0';
 export const MIN_CLIENT = '1.0.0';
 export const RATE_LIMIT = { perToken: { limit: 600, windowSeconds: 60 }, perIp: { limit: 60, windowSeconds: 60 } };
 const DEPRECATED_SINCE = '2026-09-08';
@@ -124,6 +124,14 @@ const envelope = u => ({
   generatedAt: u.artifact.generatedAt, jsonLd: u.artifact.jsonLd,
 });
 
+// The v2 document in the v1 envelope (contract 1.11.0): same shape, the v2 times.
+const envelopeV2 = u => ({
+  urlId: u.id, chainId: u.chainId, businessId: u.businessId, url: u.url,
+  languageCode: u.languageCode, stale: !!u.v2.staleAt,
+  generatedAt: u.v2.generatedAt, jsonLd: u.v2.jsonLd,
+});
+const compareV2 = (a, b) => compareCandidates({ artifact: a.v2 }, { artifact: b.v2 });
+
 const inventoryRow = u => ({
   id: u.id, url: u.url, chainId: u.chainId, businessId: u.businessId,
   languageCode: u.languageCode, layer: u.layer,
@@ -168,6 +176,7 @@ const changelog = () => ({
   rateLimits: RATE_LIMIT,
   deprecations: [{ path: '/deprecation-probe', since: DEPRECATED_SINCE, sunset: SUNSET, reason: 'Test endpoint — deprecated by design so integrations can verify their deprecation handling.' }],
   entries: [
+    { version: '1.11.0', date: '2026-11-20', notes: ['v2 JSON-LD (#392): GET /jsonld/v2?url=… and GET /urls/{urlId}/jsonld/v2 return the document the Universal Pipeline (v2) test built. Same shape, matching, tie-break and errors as the v1 routes; the v1 routes do not change.'] },
     { version: '1.10.0', date: '2026-09-26', notes: ['Captured page markdown (#287): GET /urls/{urlId}/markdown and GET /chains/{chainId}/markdown; permissions gain markdown:read.'] },
     { version: '1.9.0', date: '2026-09-08', notes: ['Rate limits (#271).'] },
     { version: '1.8.0', date: '2026-09-08', notes: ['Conditional requests (#268).'] },
@@ -310,6 +319,31 @@ export function createServer() {
       const rows = visibleUrls().filter(u => u.chainId === m[1]).map(markdownRow).filter(r => r.markdown !== null);
       const r = paginate(rows.map(r => ({ ...r, id: r.urlId })), q);
       return send(req, res, 200, { ...r, items: r.items.map(({ id, ...rest }) => rest) });
+    }
+
+    // Universal Pipeline (v2) documents, contract 1.11.0: the v1 answers over the v2 document.
+    m = route.match(/^\/urls\/([^/]+)\/jsonld\/v2$/);
+    if (m) {
+      const u = visibleUrls().find(x => x.id === m[1]);
+      if (!u || !inScope(u.businessId)) return fail(req, res, 404, 'url_not_found', 'URL not found');
+      if (u.suppressedAt) return fail(req, res, 410, 'withdrawn', 'JSON-LD withdrawn for this URL');
+      if (!u.v2) return fail(req, res, 404, 'jsonld_not_generated', 'JSON-LD not generated yet for this URL');
+      return send(req, res, 200, envelopeV2(u));
+    }
+    if (route === '/jsonld/v2') {
+      const target = q.get('url');
+      if (!target || !/^https?:\/\//.test(target)) {
+        return fail(req, res, 400, 'bad_request', 'Query parameter `url` must be an absolute URL, e.g. ?url=https://example.com/page');
+      }
+      const variants = urlLookupVariants(target);
+      const candidates = visibleUrls().filter(u => variants.includes(u.url) && inScope(u.businessId));
+      if (candidates.length === 0) return fail(req, res, 404, 'url_not_found', 'URL not found in your businesses');
+      const published = candidates.filter(u => u.v2 && !u.suppressedAt);
+      if (published.length === 0) {
+        if (candidates.some(u => u.suppressedAt)) return fail(req, res, 410, 'withdrawn', 'JSON-LD withdrawn for this URL');
+        return fail(req, res, 404, 'jsonld_not_generated', 'JSON-LD not generated yet for this URL');
+      }
+      return send(req, res, 200, envelopeV2(published.sort(compareV2)[0]));
     }
 
     m = route.match(/^\/urls\/([^/]+)\/jsonld$/);

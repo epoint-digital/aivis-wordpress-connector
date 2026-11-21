@@ -54,9 +54,12 @@ final class Decision {
 	 *        re-ingesting. On the first authoritative absence an idle chain's URL is suspended at once
 	 *        (injection stops, cache purged) and retired on the second; a rebuilding chain's URL is held
 	 *        through the first absence, because rows can be transiently missing while a pipeline runs.
+	 * @param bool                     $row_tells_readiness False when another pipeline than v1 is delivered
+	 *        (§06a): `ready`, `stale` and `generatedAt` describe the v1 document, so the row proves only that
+	 *        the page exists and whether it is unpublished. Whether there is a document is the lookup's answer.
 	 * @return array{action:string, rule:?string, missing_runs:int}
 	 */
-	public static function from_inventory( bool $authoritative, ?array $row, int $missing_runs, bool $chain_idle = false ): array {
+	public static function from_inventory( bool $authoritative, ?array $row, int $missing_runs, bool $chain_idle = false, bool $row_tells_readiness = true ): array {
 		if ( ! $authoritative ) {
 			return [
 				'action'       => Action::HOLD,
@@ -70,6 +73,14 @@ final class Decision {
 				'action'       => $runs >= 2 ? Action::RETIRE : ( $chain_idle ? Action::SUSPEND : Action::HOLD ),
 				'rule'         => 'R-02',
 				'missing_runs' => $runs,
+			];
+		}
+		if ( ! $row_tells_readiness ) {
+			// R-02b: unpublish is one decision for every pipeline; nothing else on the row is about this document.
+			return [
+				'action'       => ! empty( $row['jsonLd']['suppressedAt'] ) ? Action::DEACTIVATE : Action::HOLD,
+				'rule'         => ! empty( $row['jsonLd']['suppressedAt'] ) ? 'R-02a' : 'R-02b',
+				'missing_runs' => 0,
 			];
 		}
 		$ready = ! empty( $row['jsonLd']['ready'] );

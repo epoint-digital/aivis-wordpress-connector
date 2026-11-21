@@ -91,8 +91,11 @@ final class Repository {
 			'published_at'          => $published,
 			'object_type'           => $fields['object_type'] ?? null,
 			'object_id'             => isset( $fields['object_id'] ) ? (string) $fields['object_id'] : null,
+			// §06a: which pipeline built this document, and its ETag (never offered to the other pipeline's route).
+			'pipeline'              => (string) ( $fields['pipeline'] ?? 'v1' ),
+			'source_etag'           => isset( $fields['source_etag'] ) && '' !== (string) $fields['source_etag'] ? substr( (string) $fields['source_etag'], 0, 191 ) : null,
 		];
-		$format = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ];
+		$format = [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ];
 
 		$wpdb->query( 'START TRANSACTION' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		if ( $prev ) {
@@ -242,6 +245,22 @@ final class Repository {
 	 *
 	 * @return list<array<string,mixed>>
 	 */
+	/**
+	 * §06a — served blocks that another pipeline than the selected one built:
+	 * pages the selected pipeline has no document for yet.
+	 */
+	public function count_from_other_pipeline( string $business_id, string $pipeline ): int {
+		global $wpdb;
+		return (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare( // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+				"SELECT COUNT(*) FROM {$this->table()}
+				  WHERE business_id = %s AND active = 1 AND retired_at IS NULL AND suspended_at IS NULL AND pipeline <> %s",
+				$business_id,
+				$pipeline
+			)
+		);
+	}
+
 	public function unseen_in_sync( string $business_id, string $sync_id ): array {
 		global $wpdb;
 		return (array) $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery

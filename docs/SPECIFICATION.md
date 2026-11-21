@@ -2,13 +2,13 @@
 
 | Field | Value |
 |---|---|
-| Specification version | **1.1.0** (supersedes 1.0.0 of 05 Sep 2026 and adapted rev 1 of 08 Aug 2026) |
+| Specification version | **1.2.0** (adds §06a, the pipeline choice; supersedes 1.1.0 of 09 Sep 2026, 1.0.0 of 05 Sep 2026 and adapted rev 1 of 08 Aug 2026) |
 | Target plugin version | 1.0.0 |
-| Date | 09 Sep 2026 |
+| Date | 21 Nov 2026 |
 | Repository | `aivis-wordpress-connector` |
 | Plugin slug / text domain | `aivis-os` (bootstrap `aivis-os.php`) |
 | License | GPL-2.0-or-later (deliberately different from the edge connector's Apache-2.0) |
-| API contract | Aivis-OS Public API **1.9.0** (works down to 1.0.0 through the prose fallback of §04; business-bound tokens need ≥ 1.3.0) |
+| API contract | Aivis-OS Public API **1.11.0** vendored. Everything works from 1.9.0 except the pipeline choice of §06a, which needs 1.11.0 (works down to 1.0.0 through the prose fallback of §04; business-bound tokens need ≥ 1.3.0) |
 | Platforms | WordPress 6.5 – 7.1, PHP 8.1 – 8.5 |
 | Companion | [API-REQUIREMENTS.md](API-REQUIREMENTS.md) — extensions requested from the Aivis-OS team |
 | Process board | [Aivis-OS Connector — Program Map](https://www.figma.com/board/zQo3mgU7G8eRrVqsBa2LnP) — sync loop, retraction tree, edge composition, API dependencies |
@@ -28,6 +28,11 @@ written). Every API statement below carries a source. Changes from rev 1 are lis
 and this revision adopts them — stable error codes, the compatibility policy, business-bound
 tokens, chain language, explicit retraction, the per-URL lookup, the change feed, conditional
 requests and rate limits. The Production instance was not in service on that date.
+
+**Re-verified on 21 Nov 2026** against contract **1.11.0** on the Test instance and the platform
+source at `epoint-digital/aivis@7faf505`: two more artifact routes serve the document of the
+Universal Pipeline (v2), and nothing about v2 reaches the inventory or the change feed. §06a is
+the connector's answer; [API-12](API-REQUIREMENTS.md) records the gap.
 
 ---
 
@@ -159,6 +164,8 @@ the connector treats an unknown value conservatively — an unknown `state` is n
 | `GET /urls/{urlId}` | One inventory row by id (≥ 1.6.0) |
 | `GET /jsonld?url={absoluteUrl}` | Artifact by permalink: the freshest published copy across every chain and business the token reads. **Not used by the connector any more** — it cannot pin the chain (§07a) |
 | `GET /urls/{urlId}/jsonld` | Artifact by inventory row: the path the connector fetches on, because it pins the chain |
+| `GET /urls/{urlId}/jsonld/v2` | (≥ 1.11.0) The Universal Pipeline's document for the same row: the same envelope, the same errors. Fetched instead of the route above when the site delivers v2 (§06a) |
+| `GET /jsonld/v2?url={absoluteUrl}` | (≥ 1.11.0) As `/jsonld`, over v2 documents. Not used, for the same reason |
 
 **Enums (open).** `state`: `empty` \| `building` \| `ready` \| `re_ingesting`. `layer`: `structural_core`
 \| `editorial`. `captureStatus`: `draft` \| `processing` \| `processed` \| `failed` \| `null`.
@@ -212,6 +219,7 @@ artifact, and a 304 saves the transfer, not the lookup.
 | Status | Behaviour |
 |---|---|
 | `200` | Validate through §08 before storing or displaying anything |
+| `304` | The answer to an `If-None-Match` the connector sent (§06a, P-06): the stored document is current. Nothing is written; the page counts as seen |
 | `400` | Mark the URL request invalid; no retry without changing the request |
 | `401` (`missing_token`, `invalid_token`, `unauthorized`) | Stop the sync, keep last-known-good rows. The connection test names the host that rejected the token (§11) |
 | `403` (`account_deactivated`, `forbidden`) | Stop the sync, keep rows, show "Aivis-OS account deactivated" |
@@ -267,6 +275,8 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 | `suspended_at` | datetime null | Set by R-01: injection stopped, row kept pending inventory confirmation |
 | `retired_at` | datetime null | Soft-retirement time |
 | `last_error_code` | varchar(32) null | Why a row is holding or suspended — the status screen shows it |
+| `pipeline` | varchar(8), default `v1` | Which pipeline built the stored document (§06a) |
+| `source_etag` | varchar(191) null | The ETag the document came with, offered back only to the same pipeline's route (§06a, P-06) |
 
 **Indexes:** primary key; unique `url_key`; `(business_id, active)`; `url_id`; `last_seen_sync_id`;
 `retired_at`.
@@ -279,6 +289,7 @@ Created and upgraded with `dbDelta()` plus a schema-version option.
 | `aivis_os_api_info` | The contract observed on the wire (§03, §19): `version`, `min_client`, `too_old` (a 426 was seen), `next_min_client{version,effective_from}` and `rate_limit` from `/changelog`, `seen_at` |
 | `aivis_os_token` | The token, only when no constant is defined |
 | `aivis_os_environment` | `production` \| `test` — which of the two Aivis-OS instances the site talks to (§03). Ignored when `AIVIS_API_BASE_URL` is defined |
+| `aivis_os_pipeline` | `v1` \| `v2` — which pipeline's documents the site delivers (§06a). Default `v1` |
 | `aivis_os_business` | Selected `businessId`, `baseUrl`, allowed hosts, and `chains`: the chain → language assignment (§07a) |
 | `aivis_os_delivery` | Injection switch, per-URL disables |
 | `aivis_os_sync_state` | Cursors, current sync id and its `mode` (`full` \| `incremental`) and `since`, last completion, last full walk (`last_full_at`), `last_run_started_at` (the next feed's `updatedSince`), `force_full`, lock |
@@ -381,6 +392,69 @@ admin disable.
 **Why this matters more here than at the edge.** The edge worker cannot retract a block that the
 origin shipped — removing origin markup is modification, fenced out by its I4/D6. WordPress owns its
 retraction path completely; nothing downstream will catch a mistake made here.
+
+---
+
+## §06a · Pipelines — which document a site delivers
+
+Aivis-OS builds JSON-LD with two pipelines. The standard one (**v1**) is what §03 to §06 describe.
+The Universal Pipeline (**v2**) runs beside it as a test and writes its own document per page. From
+contract 1.11.0 the API serves the v2 document on two routes that answer exactly like the v1 ones
+(§03): the same envelope, the same two 404 codes, the same 410.
+
+**One choice per site** (`aivis_os_pipeline`: `v1` or `v2`, default `v1`), under Settings →
+Delivery and with `wp aivis pipeline`. The site delivers the documents of the chosen pipeline. It
+is a choice of source, not a judgment (WP-I12): the plugin does not compare the two documents and
+never chooses between them by itself.
+
+**What the API tells a client about v2, and what it does not.** Verified against the platform
+source (`epoint-digital/aivis@7faf505`, 20 Nov 2026):
+
+| Question | v1 | v2 |
+|---|---|---|
+| Is there a document? | `jsonLd.ready` on the inventory row | Only the artifact route says: 200, or 404 `jsonld_not_generated` |
+| Did it change? | `jsonLd.generatedAt` and `stale` on the row, and the row appears in the change feed | Only the artifact route says. A v2 document that is built or rebuilt changes nothing on the row and does not appear in the change feed |
+| Is the page unpublished? | `jsonLd.suppressedAt` on the row; 410 on the route | The same field and the same 410: one decision for both pipelines |
+| Is the page gone? | Absent from a complete full walk (R-02) | The same |
+
+With v2 selected the connector cannot be told what changed. It has to ask.
+
+**Rules with v2 selected.**
+
+| ID | Rule |
+|---|---|
+| **P-01** | **Every run is a full walk.** The change feed is not used: it reports changes of the v1 document only |
+| **P-02** | **Every published page is asked** for its v2 document on every run, by id (`/urls/{urlId}/jsonld/v2`), whatever `ready`, `stale` and `generatedAt` say. An unpublished page is not asked |
+| **P-03** | **The inventory row decides presence and unpublish, never readiness (R-02b).** `suppressedAt` deactivates (R-02a). Absence suspends and retires as in R-02. `ready: false` does nothing here: it describes the v1 document |
+| **P-04** | **The route's answer decides the document.** 200 is stored after the zero-trust pipeline of §08, unchanged. 404 `jsonld_not_generated` holds (R-01a). 404 `url_not_found` suspends (R-01). 410 deactivates (R-01b) |
+| **P-05** | **A page keeps the block it has until the chosen pipeline has a document for it.** Switching pipelines takes nothing down (WP-I8). Each row records which pipeline built its document (`pipeline`). A page that still carries the other pipeline's block is marked `AIVIS_NOT_GENERATED` once, appears under *Holding last good*, and is counted on Status |
+| **P-06** | **Conditional requests.** The ETag a stored v2 document came with is sent as `If-None-Match`; a 304 means unchanged and nothing is written. An ETag is offered only to the route of the pipeline that built the document, and only for a healthy row |
+| **P-07** | **Quiet polling.** "No v2 document" is the ordinary answer for part of a site. A page with nothing stored is not reported; a page that keeps the other pipeline's block is reported once, not on every run |
+| **P-08** | **Contract floor.** When the instance reports a contract below 1.11.0, nothing is asked on the v2 routes, `AIVIS_PIPELINE_UNAVAILABLE` is recorded once, and what is served stays served. An unknown contract version counts as "ask": a route an instance does not have answers a 404 the connector cannot attribute, which holds (§04) |
+
+**Back on v1** the rules of §06 apply again, with one addition: a row whose document v2 built is
+fetched through the v1 route even when the dates agree. A page v1 has no document for is treated
+by R-02a like any other row: it keeps its block while its capture is processing and loses it
+otherwise.
+
+**Switching** records `AIVIS_PIPELINE_SWITCHED`, drops a run in flight and requests a full walk.
+Nothing is purged at the switch itself; a page is purged when its block changes.
+
+**Unpublish first (R-03).** Rows the walk reports as unpublished stop serving before any document
+is fetched, in either pipeline. With v2 the queue of pages to ask is the whole site, and an
+unpublish must not wait behind it.
+
+**Cost, stated honestly.** v1 costs requests in proportion to what changed. v2 costs one request
+per published page per run: 87 pages at a 15-minute interval are 87 conditional requests every
+quarter hour, asked 20 per tick. A site with thousands of pages cannot hold a 15-minute interval
+with v2; the Status screen shows the backlog. A rebuilt v2 document reaches its page within one
+complete round. The cure is on the API side,
+[API-12](API-REQUIREMENTS.md#api-12--v2-state-in-the-inventory-and-the-change-feed): v2 state on
+the inventory row and v2 changes in the change feed.
+
+**Test cases.** `tests/php/PipelineTest.php` holds TC-01 to TC-17; `tests/unit/run.mjs` covers
+R-02b in the reference logic; `tests/contract/run.mjs` covers the v2 routes of the mock, validated
+against the vendored contract.
 
 ---
 
@@ -669,6 +743,17 @@ generated / published / last-seen times, a moved note, and a link to Status. Not
 **WP-CLI:** `wp aivis connection test`, `wp aivis sync --all`, `wp aivis status [--format=json]`,
 `wp aivis verify [--url=…]`, `wp aivis languages [assign <chain> <lang>|auto]`,
 `wp aivis status-key [show|regenerate|disable]`.
+
+---
+
+**Pipeline (§06a).** Settings → Delivery carries the *JSON-LD pipeline* select (Standard pipeline (V1),
+Universal Pipeline (V2)), marked *Test pipeline* while V2 is chosen and *Not offered by this
+instance* below the contract floor. The Connection box on Status names the pipeline and counts the
+served blocks the other pipeline built (the *Pipelines* box further down is another matter: each
+chain's build state). Site Health has *Aivis-OS: JSON-LD pipeline* (good for V1,
+recommended for V2, critical when the instance does not offer the choice). `wp aivis pipeline`
+shows and switches it; `wp aivis status` lists it. The status document carries it as
+`delivery.pipeline`.
 
 ---
 

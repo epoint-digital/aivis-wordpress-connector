@@ -38,6 +38,7 @@ if ( ! $aivis_os_keep ) {
 		'aivis_os_sync_state',
 		'aivis_os_diagnostics',
 		'aivis_os_schema_version',
+		'aivis_os_pipeline',
 		'aivis_os_uninstall_retention',
 	] as $aivis_os_option ) {
 		delete_option( $aivis_os_option );

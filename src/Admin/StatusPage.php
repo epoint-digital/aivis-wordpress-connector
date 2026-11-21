@@ -87,6 +87,20 @@ final class StatusPage {
 							echo implode( ' · ', $parts ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 							echo ' <span class="description">(' . esc_html( Language::provider_label( Language::provider() ) ) . ')</span>';
 						?></dd>
+						<dt><?php esc_html_e( 'JSON-LD pipeline', 'aivis-os' ); ?></dt><dd><?php
+							// §06a: which pipeline's documents are delivered, and how many served blocks the other one built.
+							$pipeline = $o->pipeline();
+							echo esc_html( \AivisOS\Storage\Options::pipeline_label( $pipeline ) );
+							if ( 'v1' !== $pipeline && false === $o->pipeline_available( $pipeline ) ) {
+								echo ' <span class="aivis-chip aivis-chip--bad">' . esc_html__( 'Not offered by this instance', 'aivis-os' ) . '</span>';
+							} elseif ( 'v1' !== $pipeline ) {
+								echo ' <span class="aivis-chip aivis-chip--warn">' . esc_html__( 'Test pipeline', 'aivis-os' ) . '</span>';
+							}
+							$other = '' !== $o->business()['business_id'] ? $this->plugin->repository()->count_from_other_pipeline( $o->business()['business_id'], $pipeline ) : 0;
+							if ( $other > 0 ) {
+								echo ' <span class="description">' . esc_html( sprintf( /* translators: 1: number of pages, 2: pipeline name */ _n( '%1$d page still carries a block the other pipeline built; it changes when %2$s has a document for it', '%1$d pages still carry a block the other pipeline built; each changes when %2$s has a document for it', $other, 'aivis-os' ), $other, \AivisOS\Storage\Options::pipeline_label( $pipeline ) ) ) . '</span>';
+							}
+						?></dd>
 						<dt><?php esc_html_e( 'Token', 'aivis-os' ); ?></dt><dd><?php echo 'constant' === $o->token_source() ? esc_html__( 'From wp-config.php', 'aivis-os' ) : ( 'option' === $o->token_source() ? esc_html__( 'From the database', 'aivis-os' ) : esc_html__( 'None', 'aivis-os' ) ); ?> · <code><?php echo esc_html( $o->token_display() ); ?></code></dd>
 						<dt><?php esc_html_e( 'Last complete sync', 'aivis-os' ); ?></dt><dd><?php echo $last ? esc_html( human_time_diff( $last ) . ' ' . __( 'ago', 'aivis-os' ) ) : '—'; ?> <?php if ( false === $auth ) : ?><span class="description">(<?php esc_html_e( 'incomplete — nothing retired', 'aivis-os' ); ?>)</span><?php endif; ?></dd>
 						<dt><?php esc_html_e( 'Next sync', 'aivis-os' ); ?></dt><dd><?php echo $next ? esc_html( sprintf( /* translators: %s: time */ __( 'in %s', 'aivis-os' ), human_time_diff( $next ) ) ) : esc_html__( 'manual only', 'aivis-os' ); ?></dd>

@@ -75,6 +75,8 @@ final class StatusDocument {
 			],
 			'delivery'    => [
 				'injection'    => $this->options->injection_enabled(),
+				// §06a: which pipeline's documents this site delivers — a fact only the site knows.
+				'pipeline'     => $this->options->pipeline(),
 				'lastVerified' => $verify ? [
 					'result' => (string) ( $verify['result'] ?? '' ),
 					'url'    => $verify['url'] ?? null,

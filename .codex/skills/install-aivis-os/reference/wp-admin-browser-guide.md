@@ -66,6 +66,7 @@ Text at the top says which languages the site publishes in and which plugin mana
 ### Delivery
 
 - Checkbox `injection` (*Add Aivis-OS structured data to pages on this site*): on.
+- Select `#aivis_pipeline` (`pipeline`), first row of the Delivery box: leave on *Standard pipeline (V1)* unless the human says this site takes part in the Universal Pipeline (V2) test. Switching removes nothing, but with V2 every page is asked on every sync.
 - Checkbox `on_demand`: leave off unless asked.
 - Select `#aivis_interval` (`interval`): *Every 15 minutes (recommended)*. Choose *Every 5 minutes* only if the human confirmed a real system cron.
 

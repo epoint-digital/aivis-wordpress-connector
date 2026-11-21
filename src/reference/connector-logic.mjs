@@ -92,7 +92,7 @@ export function decideFromLookup({ status, body, apiReachable }) {
  * traversal never retires anything; a row it did see is still authoritative
  * for itself (the change feed, API-6, delivers unpublish this way).
  */
-export function decideFromInventory({ authoritative, row, missingCompleteRuns, chainIdle = false }) {
+export function decideFromInventory({ authoritative, row, missingCompleteRuns, chainIdle = false, rowTellsReadiness = true }) {
   if (!authoritative) return { action: Action.HOLD, rule: null, reason: 'partial traversal' };
 
   if (!row) {
@@ -101,6 +101,12 @@ export function decideFromInventory({ authoritative, row, missingCompleteRuns, c
     // stops, cache purged); a rebuilding chain's URL is held. Second absence retires.
     if (runs >= 2) return { action: Action.RETIRE, rule: 'R-02', missingCompleteRuns: runs };
     return { action: chainIdle ? Action.SUSPEND : Action.HOLD, rule: 'R-02', missingCompleteRuns: runs };
+  }
+  // Another pipeline than v1 is delivered (§06a): ready / stale / generatedAt describe the v1
+  // document, so the row proves only that the page exists and whether it is unpublished.
+  if (!rowTellsReadiness) {
+    const withdrawn = !!(row.jsonLd && row.jsonLd.suppressedAt);
+    return { action: withdrawn ? Action.DEACTIVATE : Action.HOLD, rule: withdrawn ? 'R-02a' : 'R-02b', missingCompleteRuns: 0 };
   }
   if (row.jsonLd && row.jsonLd.ready) return { action: Action.SERVE, rule: null, missingCompleteRuns: 0 };
   // Unpublished in Aivis-OS (suppressedAt, contract >= 1.5.0): down, whatever the capture is doing.

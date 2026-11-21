@@ -8,7 +8,28 @@ file, `readme.txt` and the git tag do not agree with it.
 
 ## [Unreleased]
 
+### Added
+- **Pipeline choice** (specification §06a). Aivis-OS API contract 1.11.0 serves the
+  document of the Universal Pipeline (V2) beside the standard one. *Settings →
+  Delivery → JSON-LD pipeline* and `wp aivis pipeline [v1|v2]` choose which one the site
+  delivers; the default stays V1.
+  - With V2 every sync is a full walk and every published page is asked for its
+    own document, because the page list and the change feed report V1 only.
+    Unchanged documents cost a 304 (`If-None-Match`).
+  - Switching takes nothing down. A page keeps the block it has until the chosen
+    pipeline has a document for it; Status counts those pages and they appear
+    under *Holding last good*.
+  - Unpublishing a page in Aivis-OS removes its block with either pipeline, and
+    now before any document is fetched in that run.
+  - An instance below contract 1.11.0 is not asked for V2; Site Health says so.
+  - The table gains `pipeline` and `source_etag` (schema 4, upgraded in place);
+    the status document gains `delivery.pipeline`.
+- `docs/API-REQUIREMENTS.md` records API-12: V2 state on the page list and in the
+  change feed would remove the need to ask every page.
+
 ### Changed
+- `wp aivis status` no longer prints the address of the instance (`api_base` shows
+  a custom host only).
 - The plugin is now called **Aivis-OS JSON-LD Delivery**, and the word mark is
   written "Aivis-OS" everywhere a person reads it: plugin header, menu, screens,
   notices, Site Health, WP-CLI output, readme and documentation. Technical names

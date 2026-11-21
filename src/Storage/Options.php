@@ -232,6 +232,51 @@ final class Options {
 		return $text;
 	}
 
+	/* ── pipeline (§06a) ──────────────────────────────────────────────── */
+
+	/**
+	 * Which pipeline's JSON-LD this site delivers. `v1` is the standard
+	 * pipeline. `v2` is the Universal Pipeline, which Aivis-OS runs beside it
+	 * and serves on routes of its own from contract 1.11.0.
+	 */
+	public const PIPELINES = [ 'v1', 'v2' ];
+	/** The contract version from which an instance offers a pipeline. */
+	public const PIPELINE_MIN_CONTRACT = [ 'v2' => '1.11.0' ];
+
+	public function pipeline(): string {
+		$p = (string) get_option( 'aivis_os_pipeline', 'v1' );
+		return in_array( $p, self::PIPELINES, true ) ? $p : 'v1';
+	}
+
+	/** @return bool True when the choice changed. */
+	public function set_pipeline( string $pipeline ): bool {
+		if ( ! in_array( $pipeline, self::PIPELINES, true ) || $pipeline === $this->pipeline() ) {
+			return false;
+		}
+		update_option( 'aivis_os_pipeline', $pipeline, false );
+		return true;
+	}
+
+	public static function pipeline_label( string $pipeline ): string {
+		return 'v2' === $pipeline ? __( 'Universal Pipeline (V2)', 'aivis-os' ) : __( 'Standard pipeline (V1)', 'aivis-os' );
+	}
+
+	/**
+	 * Whether the selected instance offers a pipeline: true, false, or null
+	 * while no response has announced its contract version yet.
+	 */
+	public function pipeline_available( string $pipeline ): ?bool {
+		if ( ! in_array( $pipeline, self::PIPELINES, true ) ) {
+			return false;
+		}
+		$min = self::PIPELINE_MIN_CONTRACT[ $pipeline ] ?? null;
+		if ( null === $min ) {
+			return true;
+		}
+		$have = $this->api_info()['version'];
+		return '' === $have ? null : version_compare( $have, $min, '>=' );
+	}
+
 	/* ── business binding (§06, §07) ─────────────────────────────────── */
 
 	/** @return array{business_id:string, business_name:string, base_url:string, allowed_hosts:list<string>, chains:array<string,string>} */

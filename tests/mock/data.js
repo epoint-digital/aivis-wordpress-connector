@@ -100,6 +100,22 @@ export const urls = [
 ];
 
 /** Account-wide token: reads every business on the account. */
+// Universal Pipeline (v2) documents (contract 1.11.0, #392). v2 runs beside v1:
+// a page can have either document, both or neither, and the inventory row says
+// nothing about v2. u_pending has no v1 document but a v2 one; u_services_edit
+// has a v1 document and no v2 one.
+const v2Documents = {
+  u_home:     { generatedAt: '2026-11-20T09:00:00.000Z', staleAt: null,
+    jsonLd: { '@context': 'https://schema.org', '@type': 'Organization', name: 'Example GmbH', description: 'Universal Pipeline' } },
+  u_services: { generatedAt: '2026-11-20T09:05:00.000Z', staleAt: '2026-11-20T12:00:00.000Z',
+    jsonLd: { '@context': 'https://schema.org', '@type': 'Service', name: 'Services', description: 'Universal Pipeline' } },
+  u_pending:  { generatedAt: '2026-11-20T09:10:00.000Z', staleAt: null,
+    jsonLd: { '@context': 'https://schema.org', '@type': 'ContactPage', name: 'Kontakt', description: 'Universal Pipeline' } },
+  u_retract:  { generatedAt: '2026-11-20T09:15:00.000Z', staleAt: null,
+    jsonLd: { '@context': 'https://schema.org', '@type': 'Offer', name: 'Altes Angebot', description: 'Universal Pipeline' } },
+};
+for (const u of urls) u.v2 = v2Documents[u.id] || null;
+
 export const VALID_TOKEN = 'aivis_' + 'M0ckT0kenForContractTestsOnly_notARealCredential1';
 /** Business-bound token (API-1, contract ≥ 1.3.0): reads biz_live and nothing else. */
 export const BOUND_TOKEN = 'aivis_' + 'B0undT0kenForContractTestsOnly_notARealCredential';

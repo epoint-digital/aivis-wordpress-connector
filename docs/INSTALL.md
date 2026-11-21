@@ -273,6 +273,25 @@ re-crawls. That is deliberate — the plugin delivers, Aivis-OS decides.
 Each post and term edit screen has a read-only **Aivis-OS** box with the same
 facts for that object.
 
+## JSON-LD pipeline: standard (V1) or Universal Pipeline (V2)
+
+Aivis-OS builds structured data with two pipelines. The standard one (V1) is the default. The
+Universal Pipeline (V2) runs beside it as a test. **Settings → Delivery → JSON-LD pipeline** (or
+`wp aivis pipeline v2`) chooses which one this site delivers. Leave it on V1 unless you were asked
+to try V2.
+
+- **Switching removes nothing.** A page keeps the block it has until the chosen pipeline has a
+  document for it. Status → Connection → *JSON-LD pipeline* counts the pages still carrying the
+  other pipeline's block, and the Pages screen lists them under *Holding last good*.
+- **With V2 every page is asked on every sync**, 20 pages a minute, because the page list reports
+  V1 only. On a site with many hundreds of pages one round takes longer than the sync interval;
+  Status shows the backlog.
+- **Unpublishing a page in Aivis-OS** removes its block with either pipeline.
+- **V2 needs API contract 1.11.0 or later** on the Aivis-OS instance. On an older instance nothing
+  is fetched, pages keep what they have, and Site Health shows *… is selected but this instance
+  does not offer it*.
+- **Switch back the same way.** Pages return to their V1 block on the next sync.
+
 ## Staging and live
 
 A staging copy of the site cannot bind to the live business: the domain rule

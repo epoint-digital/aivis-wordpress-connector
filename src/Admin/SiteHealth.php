@@ -31,6 +31,7 @@ final class SiteHealth {
 		$tests['direct']['aivis_os_moved']     = [ 'label' => 'Aivis-OS: pages still at the address Aivis-OS crawled', 'test' => [ $this, 'test_moved' ] ];
 		$tests['direct']['aivis_os_environment'] = [ 'label' => 'Aivis-OS: environment', 'test' => [ $this, 'test_environment' ] ];
 		$tests['direct']['aivis_os_api']         = [ 'label' => 'Aivis-OS: API contract', 'test' => [ $this, 'test_api' ] ];
+		$tests['direct']['aivis_os_pipeline']    = [ 'label' => 'Aivis-OS: JSON-LD pipeline', 'test' => [ $this, 'test_pipeline' ] ];
 		return $tests;
 	}
 
@@ -168,6 +169,20 @@ final class SiteHealth {
 			return $this->result( 'good', 'Aivis-OS: every page is still at the address Aivis-OS crawled', sprintf( '%d pages checked.', (int) ( $state['moved_checked'] ?? 0 ) ) );
 		}
 		return $this->result( 'recommended', sprintf( 'Aivis-OS: %d page(s) moved since Aivis-OS crawled them', count( $moved ) ), 'The structured data stays with the old URL; the new address receives nothing until Aivis-OS re-crawls. The list is on the Status screen and in the status document Aivis-OS fetches. Nothing to change on this side.' );
+	}
+
+	/** §06a — which pipeline's documents are delivered, and whether the instance offers it. */
+	public function test_pipeline(): array {
+		$o        = $this->plugin->options();
+		$pipeline = $o->pipeline();
+		if ( 'v1' === $pipeline ) {
+			return $this->result( 'good', 'Aivis-OS: the standard pipeline is delivered', 'Structured data on this site comes from the standard pipeline (V1).' );
+		}
+		$label = \AivisOS\Storage\Options::pipeline_label( $pipeline );
+		if ( false === $o->pipeline_available( $pipeline ) ) {
+			return $this->result( 'critical', sprintf( 'Aivis-OS: %s is selected but this instance does not offer it', $label ), sprintf( 'It needs API contract %1$s; the instance reports %2$s. Nothing is fetched and pages keep the blocks they have. Choose the standard pipeline under Aivis-OS → Settings → Delivery, or connect to an instance that offers it.', \AivisOS\Storage\Options::PIPELINE_MIN_CONTRACT[ $pipeline ] ?? '?', $o->api_info()['version'] ) );
+		}
+		return $this->result( 'recommended', sprintf( 'Aivis-OS: %s is delivered', $label ), 'This pipeline runs beside the standard one as a test. A page without a document from it keeps the block it has, and the Status screen counts those pages. Switch back under Aivis-OS → Settings → Delivery.' );
 	}
 
 	public function test_environment(): array {

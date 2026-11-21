@@ -193,7 +193,9 @@ final class Commands {
 		$data   = [
 			'version'            => AIVIS_OS_VERSION,
 			'environment'        => $o->environment() . ( 'constant' === $o->api_base_source() ? ' (constant)' : '' ),
-			'api_base'           => $o->api_base(),
+			// The two instances are named, never spelled out (§11); a custom host is the site's own.
+			'api_base'           => 'constant' === $o->api_base_source() ? $o->api_base() : '-',
+			'pipeline'           => $o->pipeline(),
 			'token_source'       => $o->token_source(),
 			'business'           => $biz['business_name'] ?: '-',
 			'business_id'        => $biz['business_id'] ?: '-',
@@ -348,6 +350,42 @@ final class Commands {
 		}
 		\WP_CLI::log( sprintf( '%d of %d pages (page %d, %d per page)%s', count( $rows ), $r['total'], $f['page'], $f['per_page'], '' !== $f['state'] ? ' — ' . $f['state'] : '' ) );
 		\WP_CLI\Utils\format_items( (string) ( $assoc['format'] ?? 'table' ), $rows, [ 'url', 'state', 'language', 'chain', 'generated', 'published', 'moved_to', 'error' ] );
+	}
+
+	/**
+	 * Show or switch the pipeline whose JSON-LD this site delivers (v1 | v2).
+	 *
+	 * v1 is the standard pipeline. v2 is the Universal Pipeline, which runs
+	 * beside it as a test. Switching removes nothing: each block stays until
+	 * the chosen pipeline's document for that page replaces it.
+	 *
+	 * ## OPTIONS
+	 * [<pipeline>]
+	 * : v1 | v2. Omit to show the current one.
+	 *
+	 * ## EXAMPLES
+	 *     wp aivis pipeline
+	 *     wp aivis pipeline v2
+	 */
+	public function pipeline( array $args ): void {
+		$o    = $this->plugin->options();
+		$want = strtolower( (string) ( $args[0] ?? '' ) );
+		if ( '' === $want ) {
+			\WP_CLI::log( $o->pipeline() );
+			return;
+		}
+		if ( ! in_array( $want, Options::PIPELINES, true ) ) {
+			\WP_CLI::error( 'Pipeline must be one of: ' . implode( ', ', Options::PIPELINES ) );
+		}
+		if ( $want === $o->pipeline() ) {
+			\WP_CLI::success( "Already on {$want}." );
+			return;
+		}
+		( new \AivisOS\Admin\SettingsPage( $this->plugin ) )->switch_pipeline( $want );
+		if ( false === $o->pipeline_available( $want ) ) {
+			\WP_CLI::warning( sprintf( 'This instance reports API contract %1$s; %2$s needs %3$s. Nothing is fetched until it does.', $o->api_info()['version'], $want, Options::PIPELINE_MIN_CONTRACT[ $want ] ?? '?' ) );
+		}
+		\WP_CLI::success( sprintf( 'Switched to %s. Nothing was removed; a full sync is requested — run `wp aivis sync` to start it now.', $want ) );
 	}
 
 	/**

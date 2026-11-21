@@ -403,6 +403,7 @@ function statusScreen(){
           <dt>Languages</dt><dd>${LANGS.map(l => { const ch = CHAINS.filter(x => x.lang === l.code).map(x => x.name);
               return ch.length ? `${l.name} → ${ch.join(', ')}` : `<span class="chip c-susp"><span class="dot"></span>${l.name} — no chain</span>`; }).join(' · ')}
               <span class="muted">(${PROVIDER})</span></dd>
+          <dt>JSON-LD pipeline</dt><dd>Standard pipeline (V1)</dd>
           <dt>Token</dt><dd>From <code>wp-config.php</code> &middot; <code>aivis_&hellip;x7Kq</code></dd>
           <dt>Last complete sync</dt><dd>${S.lastSync} ${S.authoritative ? '' : '<span class="muted">(incomplete — nothing retired)</span>'}</dd>
           <dt>Next sync</dt><dd>in ${S.interval > 5 ? '11 minutes' : '3 minutes'}</dd>
@@ -762,6 +763,13 @@ function settingsScreen(){
     <h2>Delivery</h2>
     <div class="inside">
       <table class="form-table">
+        <tr>
+          <th scope="row">JSON-LD pipeline</th>
+          <td>
+            <select><option>Standard pipeline (V1)</option><option>Universal Pipeline (V2)</option></select>
+            <p class="description">Which Aivis-OS pipeline this site delivers structured data from. The Universal Pipeline (V2) runs beside the standard one as a test. With V2 selected, every page is asked for its own document on each sync. A page that has no V2 document yet keeps the block it has, and Status counts those pages. Unpublishing a page in Aivis-OS removes its block with either pipeline. Switching removes nothing by itself.</p>
+          </td>
+        </tr>
         <tr>
           <th scope="row">Injection</th>
           <td>

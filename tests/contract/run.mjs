@@ -315,6 +315,60 @@ await test('a missing url parameter is 400 bad_request, not 404', async () => {
   eq(coded(r), 'bad_request');
 });
 
+// §06a — the Universal Pipeline (v2) documents, contract 1.11.0. The v1 answers
+// over another document; nothing in the inventory tells the two apart.
+const q2 = u => '/jsonld/v2?url=' + encodeURIComponent(u);
+await test('v2 by id: the v1 envelope with the v2 document', async () => {
+  const v1 = await api('/urls/u_home/jsonld');
+  const v2 = await api('/urls/u_home/jsonld/v2');
+  eq(v2.status, 200);
+  eq(Object.keys(v2.body).sort().join(','), Object.keys(v1.body).sort().join(','), 'same fields');
+  eq(v2.body.urlId, 'u_home'); eq(v2.body.chainId, 'chain_core', 'pinned chain');
+  assert(v2.body.generatedAt !== v1.body.generatedAt, 'generatedAt is when v2 built it');
+  eq(v2.body.jsonLd.description, 'Universal Pipeline', 'the v2 document');
+  return 'same shape, another document';
+}, FIXTURE);
+await test('v2 is independent of v1: a page with no v1 document can have a v2 one, and the reverse', async () => {
+  eq((await api('/urls/u_pending/jsonld')).status, 404, 'no v1 document');
+  eq((await api('/urls/u_pending/jsonld/v2')).status, 200, 'but a v2 one');
+  eq((await api('/urls/u_services_edit/jsonld')).status, 200, 'a v1 document');
+  const none = await api('/urls/u_services_edit/jsonld/v2');
+  eq(none.status, 404); eq(coded(none), CODE.NOT_GENERATED, 'jsonld_not_generated, never url_not_found');
+  eq(decideFromLookup({ ...none, apiReachable: true }).action, Action.HOLD, 'a missing v2 document removes nothing (R-01a)');
+}, FIXTURE);
+await test('the inventory row says nothing about v2 (the gap: API-12)', async () => {
+  const row = (await api('/chains/chain_core/urls')).body.items.find(x => x.id === 'u_pending');
+  eq(row.jsonLd.ready, false, 'ready describes v1 only');
+  eq(row.jsonLd.generatedAt, null, 'generatedAt describes v1 only');
+  eq(Object.keys(row.jsonLd).sort().join(','), 'generatedAt,ready,stale,suppressedAt', 'no v2 field');
+  // So with v2 selected the row decides presence and unpublish, never readiness.
+  eq(decideFromInventory({ authoritative: true, row: { ...row, captureStatus: 'processed' }, missingCompleteRuns: 0, rowTellsReadiness: false }).action, Action.HOLD, 'v1 not ready does not take a v2 block down');
+  return 'each page has to be asked';
+}, FIXTURE);
+await test('v2 by url: 400 without url, 404 url_not_found outside the scope, tie-break over v2 documents', async () => {
+  const bad = await api('/jsonld/v2'); eq(bad.status, 400); eq(coded(bad), 'bad_request');
+  const miss = await api(q2('https://example.com/nicht-da/')); eq(miss.status, 404); eq(coded(miss), CODE.URL_NOT_FOUND);
+  const r = await api(q2('https://example.com/services/'));
+  eq(r.status, 200); eq(r.body.chainId, 'chain_core', 'the only copy with a v2 document'); eq(r.body.stale, true, 'stale is reported, the document is still served');
+}, FIXTURE);
+await test('v2 honours If-None-Match: 304 without a body', async () => {
+  const first = await api('/urls/u_home/jsonld/v2');
+  assert(first.headers.etag, 'ETag on the v2 document');
+  const again = await api('/urls/u_home/jsonld/v2', { headers: { 'if-none-match': first.headers.etag } });
+  eq(again.status, 304);
+  const v1 = await api('/urls/u_home/jsonld');
+  assert(v1.headers.etag !== first.headers.etag, 'the two documents have their own ETags');
+}, FIXTURE);
+await test('unpublish is one decision for both pipelines: 410 on the v2 routes too', async () => {
+  await scenario('withdrawn');
+  const byId = await api('/urls/u_retract/jsonld/v2'); eq(byId.status, 410); eq(coded(byId), CODE.WITHDRAWN, 'by id');
+  const byUrl = await api(q2('https://example.com/altes-angebot/')); eq(byUrl.status, 410); eq(coded(byUrl), CODE.WITHDRAWN, 'by url');
+  eq(decideFromLookup({ ...byId, apiReachable: false }).action, Action.DEACTIVATE, 'R-01b');
+  const row = (await api('/chains/chain_core/urls')).body.items.find(x => x.id === 'u_retract');
+  eq(decideFromInventory({ authoritative: true, row, missingCompleteRuns: 0, rowTellsReadiness: false }).action, Action.DEACTIVATE, 'suppressedAt still takes the block down');
+  await scenario('live');
+}, FIXTURE);
+
 // §07a — one chain per language. /jsonld?url= picks the freshest artifact
 // across chains; /urls/{urlId}/jsonld pins the chain the inventory row came
 // from. The connector fetches inventory targets by id for exactly this reason.
@@ -488,16 +542,16 @@ await test('enums are open: the document lists known values in descriptions, not
 
 await test('the mock serves exactly the operations the document declares', async () => {
   const declared = specOperations(SPEC);
-  eq(declared.length, 11, 'operation count');
+  eq(declared.length, 13, 'operation count');
   for (const op of declared) {
     const [, tpl] = op.split(' ');
     const concrete = tpl
       .replace('{businessId}', 'biz_live')
       .replace('{chainId}', 'chain_core')
       .replace('{urlId}', 'u_home');
-    const path = concrete === '/jsonld' ? '/jsonld?url=' + encodeURIComponent('https://example.com/') : concrete;
+    const path = ['/jsonld', '/jsonld/v2'].includes(concrete) ? concrete + '?url=' + encodeURIComponent('https://example.com/') : concrete;
     const r = await api(path);
-    assert(r.status !== 404 || tpl === '/jsonld', `${op} is declared but the mock does not serve it (${r.status})`);
+    assert(r.status !== 404 || ['/jsonld', '/jsonld/v2'].includes(tpl), `${op} is declared but the mock does not serve it (${r.status})`);
   }
   return declared.length + ' operations reachable';
 }, FIXTURE);

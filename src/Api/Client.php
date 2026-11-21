@@ -88,17 +88,30 @@ final class Client {
 		return $this->get( '/urls/' . rawurlencode( $url_id ) );
 	}
 
-	/** The hot path. The permalink is sent unmodified (§07). */
-	public function jsonld_by_url( string $absolute_url ): Response {
-		return $this->get( '/jsonld', [ 'url' => $absolute_url ] );
+	/**
+	 * The hot path. The permalink is sent unmodified (§07). `$pipeline` picks
+	 * the document (§06a): the v2 routes answer exactly like the v1 ones.
+	 */
+	public function jsonld_by_url( string $absolute_url, string $pipeline = 'v1', ?string $etag = null ): Response {
+		return $this->get( '/jsonld' . self::pipeline_suffix( $pipeline ), [ 'url' => $absolute_url ], self::conditional( $etag ) );
 	}
 
 	/**
 	 * The inventory path (§07a): fetching by urlId pins the chain, so one chain
 	 * per language holds even when two chains carry the same URL.
 	 */
-	public function jsonld_by_id( string $url_id ): Response {
-		return $this->get( '/urls/' . rawurlencode( $url_id ) . '/jsonld' );
+	public function jsonld_by_id( string $url_id, string $pipeline = 'v1', ?string $etag = null ): Response {
+		return $this->get( '/urls/' . rawurlencode( $url_id ) . '/jsonld' . self::pipeline_suffix( $pipeline ), [], self::conditional( $etag ) );
+	}
+
+	/** `/v2` for the Universal Pipeline's document, nothing for the standard one (contract 1.11.0). */
+	private static function pipeline_suffix( string $pipeline ): string {
+		return 'v2' === $pipeline ? '/v2' : '';
+	}
+
+	/** @return array<string,string> `If-None-Match` with the ETag, sent back exactly as received (API-8). */
+	private static function conditional( ?string $etag ): array {
+		return null !== $etag && '' !== $etag ? [ 'If-None-Match' => $etag ] : [];
 	}
 
 	/** Reachability probe used by R-01 when no other request succeeded. */
@@ -114,8 +127,9 @@ final class Client {
 	 * document from the site when it wants it.
 	 *
 	 * @param array<string,string|int> $query
+	 * @param array<string,string>     $headers Extra request headers; they never replace the two below.
 	 */
-	public function get( string $path, array $query = [] ): Response {
+	public function get( string $path, array $query = [], array $headers = [] ): Response {
 		$token = $this->options->token();
 		if ( '' === $token ) {
 			return new Response( 401, [ 'error' => [ 'code' => 'missing_token', 'message' => 'Missing bearer token' ] ] );
@@ -142,7 +156,7 @@ final class Client {
 			'headers'             => [
 				'Authorization' => 'Bearer ' . $token,
 				'Accept'        => 'application/json',
-			],
+			] + $headers,
 		];
 		$res = wp_safe_remote_get( $url, $args );
 

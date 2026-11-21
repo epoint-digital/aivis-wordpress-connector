@@ -48,6 +48,10 @@ final class Response {
 		if ( 200 === $s ) {
 			return 'ok';
 		}
+		if ( 304 === $s ) {
+			// The document we hold is the current one (conditional request, API-8).
+			return 'not_modified';
+		}
 		if ( 0 === $s || $s >= 500 ) {
 			return 'transport';
 		}

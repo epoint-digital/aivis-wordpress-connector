@@ -70,6 +70,7 @@ Every site language needs at least one chain. A warning `<Language> has no chain
 ## 6. Sync and verify
 
 ```bash
+wp aivis pipeline                 # v1 (default). `wp aivis pipeline v2` only when the human asks for the Universal Pipeline test
 wp aivis sync --all               # ticks until nothing is pending (20 artifacts per tick)
 wp aivis status                   # counts, last sync, cache adapter, languages, moved pages
 wp aivis pages --state=attention  # the pages that want a decision (same views/filters/search as the Pages screen)
