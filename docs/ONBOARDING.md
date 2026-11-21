@@ -48,7 +48,7 @@ With a shell on the server (not on your laptop), from the WordPress root:
 wp plugin install https://github.com/epoint-digital/aivis-wordpress-connector/releases/latest/download/aivis-os.zip --activate
 ```
 
-Check **Plugins**: exactly one Aivis-OS JSON-LD Delivery entry. Two means the *Download ZIP* mistake; delete the
+Check **Plugins**: exactly one JSON-LD Delivery for Aivis-OS entry. Two means the *Download ZIP* mistake; delete the
 `aivis-wordpress-connector-main` one.
 
 ### 2. Connect
@@ -120,7 +120,7 @@ running** tells you when syncs are overdue.
 
 ## Done when
 
-- [ ] Plugins shows one active **Aivis-OS JSON-LD Delivery**; Site Health has no critical *Aivis-OS:* test.
+- [ ] Plugins shows one active **JSON-LD Delivery for Aivis-OS**; Site Health has no critical *Aivis-OS:* test.
 - [ ] Status: business bound, domain matched, every site language has a chain, *Last complete sync* set, *Next sync in …*.
 - [ ] Injected count equals the pages Aivis-OS has JSON-LD for; the rest are *no json* in Aivis-OS.
 - [ ] A public page carries exactly one JSON-LD block, the Aivis-OS one.

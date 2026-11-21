@@ -26,7 +26,7 @@ Conventions: `→` means click or navigate; *italics* are visible labels; `code`
 1. File input `#pluginzip` → choose `aivis-os.zip`.
 2. `#install-plugin-submit` (*Install Now*).
 3. On the result page → *Activate Plugin*. If WordPress offers *Replace current with uploaded* (an upgrade), take it, then activate from the Plugins list.
-4. ✱ `→ <site>/wp-admin/plugins.php` — confirm **Aivis-OS JSON-LD Delivery** is listed as active with *Version 1.0.0*. The menu now shows **Aivis-OS** (network icon) near the bottom.
+4. ✱ `→ <site>/wp-admin/plugins.php` — confirm **JSON-LD Delivery for Aivis-OS** is listed as active, with the version you installed. The menu now shows **Aivis-OS** (network icon) near the bottom.
 
 Activation makes no network request and needs no token. If the site is not on HTTPS you will see nothing special yet, but the connector requires HTTPS to talk to Aivis-OS.
 

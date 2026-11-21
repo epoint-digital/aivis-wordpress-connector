@@ -1,7 +1,7 @@
 # Aivis-OS Public API — extension requirements
 
 **Audience:** the Aivis-OS platform team (`epoint-digital/aivis`)
-**Requested by:** Aivis-OS JSON-LD Delivery for WordPress (`aivis-wordpress-connector`) and, where noted, the
+**Requested by:** JSON-LD Delivery for Aivis-OS, the WordPress plugin (`aivis-wordpress-connector`) and, where noted, the
 Cloudflare Edge Connector
 **Status (2026-09-09): all eleven shipped.** Aivis-OS released them as contract 1.1.0 → 1.9.0 on
 2026-09-08 (aivis#264 and sub-issues); the connector adopted them on 2026-09-09 (spec 1.1.0, #20,

@@ -39,7 +39,7 @@ The plugin syncs the JSON-LD that Aivis-OS generates for a business's pages into
 
 ## Done means all of these are true
 
-- [ ] Plugins screen shows **Aivis-OS JSON-LD Delivery** active; Site Health has no critical **Aivis-OS:** test.
+- [ ] Plugins screen shows **JSON-LD Delivery for Aivis-OS** active; Site Health has no critical **Aivis-OS:** test.
 - [ ] Settings shows *Connected — bound to <business>* (or *Connected as <email>* for an account-wide token) and the business **matched automatically** (or the human's explicit choice on a duplicate domain).
 - [ ] Every site language has at least one chain under **Languages & chains**; unassigned chains are intentional.
 - [ ] Status shows a completed sync (*Syncing* chip), a non-zero **Injected** count, and *Nothing needs you* — or the attention items are in the report with counts, not worked through.

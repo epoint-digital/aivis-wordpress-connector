@@ -1,10 +1,10 @@
-=== Aivis-OS JSON-LD Delivery ===
+=== JSON-LD Delivery for Aivis-OS ===
 Contributors: epointdigital
 Tags: structured data, json-ld, schema, seo, ai
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 1.0.2
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ Publishes the JSON-LD that Aivis-OS has prepared for this domain. Sends only GET
 
 == Description ==
 
-Aivis-OS JSON-LD Delivery publishes the structured data (JSON-LD) that Aivis-OS has prepared for your domain, each block on the page it was made for. The plugin does not create structured data itself.
+JSON-LD Delivery for Aivis-OS publishes the structured data (JSON-LD) that Aivis-OS has prepared for your domain, each block on the page it was made for. The plugin does not create structured data itself.
 
 = What is Aivis-OS? =
 
@@ -96,6 +96,18 @@ Yes, with WPML, Polylang, TranslatePress or Weglot. Aivis-OS has one chain per l
 Aivis-OS should be the only source of JSON-LD on a page. The plugin reports other sources on its Settings screen and says where to switch each one off; it never changes another plugin. Rank Math: Dashboard → Modules → switch off Schema (Structured Data). Yoast SEO has no setting for this; add `add_filter( 'wpseo_json_ld_output', '__return_false' );` with a code snippet plugin or in your theme. Titles, meta descriptions and sitemaps keep working in both.
 
 == Changelog ==
+
+= 1.1.0 =
+* The plugin is now called JSON-LD Delivery for Aivis-OS, and the word mark is written Aivis-OS throughout.
+* New: choose which Aivis-OS pipeline the site delivers structured data from, the standard one (V1) or the Universal Pipeline (V2), under Settings → Delivery. Switching removes nothing.
+* An unpublished page loses its block before anything else happens in a sync.
+* The two Aivis-OS environments are named Production and Test everywhere.
+
+= 1.0.2 =
+* Fixed: the Status screen was rendered twice.
+
+= 1.0.1 =
+* Fixed: the recurring sync was not scheduled on activation, and the business was bound only on the second save.
 
 = 1.0.0 =
 * Initial release. See CHANGELOG.md.

@@ -1,4 +1,4 @@
-# Aivis-OS JSON-LD Delivery for WordPress — reviewer brief
+# JSON-LD Delivery for Aivis-OS (WordPress plugin) — reviewer brief
 
 **Purpose.** Everything an independent reviewer (human or model) needs to check this connector: what it is, what was decided and why, what was verified against reality, where the code and tests are, what is known to be missing, and the questions where a second opinion matters most. Every link points into the repository, which you have access to.
 

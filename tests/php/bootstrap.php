@@ -11,7 +11,7 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'HOUR_IN_SECONDS', 3600 );
 define( 'DAY_IN_SECONDS', 86400 );
-define( 'AIVIS_OS_VERSION', '1.0.2' );
+define( 'AIVIS_OS_VERSION', '1.1.0' );
 define( 'AIVIS_OS_BASENAME', 'aivis-os/aivis-os.php' );
 define( 'AIVIS_OS_DIR', dirname( __DIR__, 2 ) . '/' );
 define( 'AIVIS_OS_URL', 'https://example.com/wp-content/plugins/aivis-os/' );

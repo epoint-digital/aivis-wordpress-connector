@@ -1,6 +1,6 @@
-# Aivis-OS JSON-LD Delivery
+# JSON-LD Delivery for Aivis-OS
 
-Aivis-OS JSON-LD Delivery publishes the structured data (JSON-LD) that Aivis-OS has prepared for
+JSON-LD Delivery for Aivis-OS publishes the structured data (JSON-LD) that Aivis-OS has prepared for
 your domain, each block on the page it was made for. The plugin does not create structured data
 itself.
 
@@ -34,7 +34,7 @@ for the plugin: [GitHub issues](https://github.com/epoint-digital/aivis-wordpres
 
 ## Status
 
-**Released.** 1.0.2 is the current version and runs on live sites. Packages are on
+**Released.** 1.1.0 is the current version and runs on live sites. Packages are on
 [GitHub Releases](https://github.com/epoint-digital/aivis-wordpress-connector/releases/latest), and
 installed sites update from there through the normal Plugins screen. Start with
 [docs/ONBOARDING.md](docs/ONBOARDING.md) to put it on a site. Work is tracked as GitHub issues; the

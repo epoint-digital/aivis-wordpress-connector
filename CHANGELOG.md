@@ -6,7 +6,7 @@ All notable changes to this project are recorded here. The format follows
 is the single source of truth for the version — CI fails a release if this
 file, `readme.txt` and the git tag do not agree with it.
 
-## [Unreleased]
+## [1.1.0] - 2026-11-21
 
 ### Added
 - **Pipeline choice** (specification §06a). Aivis-OS API contract 1.11.0 serves the
@@ -30,7 +30,9 @@ file, `readme.txt` and the git tag do not agree with it.
 ### Changed
 - `wp aivis status` no longer prints the address of the instance (`api_base` shows
   a custom host only).
-- The plugin is now called **Aivis-OS JSON-LD Delivery**, and the word mark is
+- The plugin is now called **JSON-LD Delivery for Aivis-OS** (the mark at the end,
+  as the wordpress.org directory asks of a plugin its trademark owner does not
+  submit), and the word mark is
   written "Aivis-OS" everywhere a person reads it: plugin header, menu, screens,
   notices, Site Health, WP-CLI output, readme and documentation. Technical names
   are unchanged (`aivis-os`, `aivis_os_*`, `wp aivis …`, `data-aivis`, `AIVIS_*`).

@@ -1,9 +1,9 @@
-# Aivis-OS JSON-LD Delivery for WordPress — Specification
+# JSON-LD Delivery for Aivis-OS (WordPress plugin) — Specification
 
 | Field | Value |
 |---|---|
 | Specification version | **1.2.0** (adds §06a, the pipeline choice; supersedes 1.1.0 of 09 Sep 2026, 1.0.0 of 05 Sep 2026 and adapted rev 1 of 08 Aug 2026) |
-| Target plugin version | 1.0.0 |
+| Target plugin version | 1.1.0 |
 | Date | 21 Nov 2026 |
 | Repository | `aivis-wordpress-connector` |
 | Plugin slug / text domain | `aivis-os` (bootstrap `aivis-os.php`) |

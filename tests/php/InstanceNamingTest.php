@@ -53,7 +53,7 @@ final class InstanceNamingTest extends TestCase {
 
 	public function test_the_plugin_carries_its_registered_name(): void {
 		$header = (string) file_get_contents( dirname( __DIR__, 2 ) . '/aivis-os.php', false, null, 0, 2000 );
-		self::assertStringContainsString( 'Plugin Name:       Aivis-OS JSON-LD Delivery', $header );
+		self::assertStringContainsString( 'Plugin Name:       JSON-LD Delivery for Aivis-OS', $header );
 		self::assertStringContainsString( 'Text Domain:       aivis-os', $header, 'technical names do not change' );
 	}
 }

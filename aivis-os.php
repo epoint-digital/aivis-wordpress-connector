@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name:       Aivis-OS JSON-LD Delivery
+ * Plugin Name:       JSON-LD Delivery for Aivis-OS
  * Plugin URI:        https://github.com/epoint-digital/aivis-wordpress-connector
  * Description:       Publishes the JSON-LD that Aivis-OS has prepared for this domain. Sends only GET requests, carrying your API token. Collects no visitor data.
- * Version:           1.0.2
+ * Version:           1.1.0
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Author:            epoint
@@ -56,7 +56,7 @@ if ( defined( 'AIVIS_OS_FILE' ) ) {
 // The header above is the single source of truth for the version. This
 // constant is derived from it so the two cannot disagree; CI additionally
 // verifies the git tag and CHANGELOG match (scripts/version-check.mjs).
-define( 'AIVIS_OS_VERSION', '1.0.2' );
+define( 'AIVIS_OS_VERSION', '1.1.0' );
 define( 'AIVIS_OS_FILE', __FILE__ );
 define( 'AIVIS_OS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AIVIS_OS_URL', plugin_dir_url( __FILE__ ) );

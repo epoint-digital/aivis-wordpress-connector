@@ -1,4 +1,4 @@
-# Aivis-OS JSON-LD Delivery for WordPress — documentation index
+# JSON-LD Delivery for Aivis-OS (WordPress plugin) — documentation index
 
 Everything that exists for the connector, in one place. Repository:
 **https://github.com/epoint-digital/aivis-wordpress-connector** (public).
