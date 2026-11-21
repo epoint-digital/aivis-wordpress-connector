@@ -34,7 +34,7 @@ Two gaps change what the connector can *promise* to a customer, and the rest are
 | **API-9** | Fetch the connector's publishing status (site-served, key-gated) | Medium — fetcher on the Aivis-OS side; the connector pushes nothing |
 | **API-10** | `languageCode` on the chain resource | Medium — makes chain → language assignment exact instead of sampled |
 | **API-11** | Versioning and compatibility policy | **High** — nothing else in this list can ship safely without it |
-| **API-12** | v2 state in the inventory and the change feed | Medium — recorded 2026-11-21, **not filed with the Aivis-OS team yet**. Without it a site that delivers v2 has to ask every page on every sync |
+| **API-12** | v2 state in the inventory and the change feed | Medium — filed 2026-11-21 as [aivis#394](https://github.com/epoint-digital/aivis/issues/394). Without it a site that delivers v2 has to ask every page on every sync |
 
 ### Outcome (2026-09-09)
 
@@ -448,8 +448,8 @@ surfaces them in Site Health is planned on the connector side and lands the day 
 
 ## API-12 — v2 state in the inventory and the change feed
 
-**Status:** recorded 2026-11-21 while building the pipeline choice (SPECIFICATION §06a). Not filed
-with the Aivis-OS team.
+**Status:** recorded 2026-11-21 while building the pipeline choice (SPECIFICATION §06a) and filed the
+same day as [epoint-digital/aivis#394](https://github.com/epoint-digital/aivis/issues/394). Open.
 
 ### Current behaviour
 
